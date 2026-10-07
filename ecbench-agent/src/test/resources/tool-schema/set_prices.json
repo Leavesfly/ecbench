@@ -1,0 +1,39 @@
+{
+  "type": "function",
+  "function": {
+    "name": "set_prices",
+    "description": "Update retail prices for products already on a store's shelf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "store_id": {
+          "type": "string",
+          "description": "Store ID."
+        },
+        "prices": {
+          "type": "array",
+          "description": "List of price updates: [{'product_id': '...', 'price': P}, ...]",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_id": {
+                "type": "string"
+              },
+              "price": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "product_id",
+              "price"
+            ]
+          }
+        }
+      },
+      "required": [
+        "store_id",
+        "prices"
+      ]
+    }
+  }
+}

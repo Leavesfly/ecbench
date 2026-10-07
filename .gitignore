@@ -1,0 +1,21 @@
+# ===== Maven / Java 构建产物 =====
+target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# ===== 运行期输出目录 =====
+# runner 默认把产物写到 <cwd>/log/。此处必须锚定为 "/log/"，
+# 切勿改成未锚定的 "log/"，否则会递归匹配并误忽略源码包
+# ecbench-app/src/main/java/io/github/ecommercebench/app/log/。
+/log/
+
+# ===== IDE / 操作系统 =====
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

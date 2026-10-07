@@ -1,0 +1,34 @@
+{
+  "type": "function",
+  "function": {
+    "name": "chatbox",
+    "description": "Send a message to a supplier via the chatbox. The supplier's reply is returned immediately in the response.\n\n## Negotiation Format\n\nInclude one or more ```negotiate JSON blocks in the content to make structured negotiation actions:\n\n```negotiate\n{\"action\": \"offer\", \"sku_id\": \"b4af883459aa\", \"price\": 1.20, \"quantity\": 50}\n```\n\nSupported actions:\n- offer: Make a price offer. Requires \"sku_id\" and \"price\". Optional: \"quantity\".\n- accept: Accept the supplier's last offer and place an order. Requires \"sku_id\" and \"price\" (must match the supplier's last offer). Optional: \"quantity\", \"shipping_address\".\n- reject: Walk away from negotiation. Requires \"sku_id\".\n\nText outside the ```negotiate blocks is sent as the conversational message body. You can include multiple blocks for multi-SKU negotiation.\n\nThe shipping address for orders must be exactly: \"888 Qiantang Road, Hangzhou, Zhejiang, China 310000\"\n\n## Broadcasting to multiple suppliers\n\nTo send the SAME message to several suppliers at once, pass their ids as a list in `uids` (e.g. for a parallel price inquiry). The time cost is the same as messaging one supplier. Each supplier replies and is negotiated/ordered with independently; the response contains a per-supplier `responses` list. Use a single `uid` for a normal one-to-one chat.\n\n## Conversation History\n\nSet history_count to retrieve the last N messages from your conversation with this supplier (included in the response).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The supplier's contact ID (the supplier_email shown in supplier search results). Use this for a one-to-one chat."
+        },
+        "uids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of supplier contact IDs to broadcast the SAME message to (e.g. [\"a@wholesale.com\", \"b@wholesale.com\"]). Provide either `uid` (single) or `uids` (broadcast). Duplicate ids are messaged only once. Time cost is identical to a single message."
+        },
+        "content": {
+          "type": "string",
+          "description": "Message body. May contain ```negotiate JSON blocks for structured negotiation actions."
+        },
+        "history_count": {
+          "type": "integer",
+          "description": "Number of recent conversation messages to include in the response (0 = none, default). Useful for reviewing past negotiations."
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  }
+}

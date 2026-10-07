@@ -1,0 +1,43 @@
+{
+  "type": "function",
+  "function": {
+    "name": "publish_to_store",
+    "description": "Publish (list) products on a store's online page with pricing. Products must be in the warehouse and their category must be allowed for the store type. Products remain physically in the warehouse (incurring storage fees) until they are sold and shipped.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "store_id": {
+          "type": "string",
+          "description": "Target store ID."
+        },
+        "plan": {
+          "type": "array",
+          "description": "List of items: [{'product_id': '...', 'quantity': N, 'retail_price': P}, ...]",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_id": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "integer"
+              },
+              "retail_price": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "product_id",
+              "quantity",
+              "retail_price"
+            ]
+          }
+        }
+      },
+      "required": [
+        "store_id",
+        "plan"
+      ]
+    }
+  }
+}

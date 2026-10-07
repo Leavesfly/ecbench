@@ -1,0 +1,34 @@
+{
+  "type": "function",
+  "function": {
+    "name": "operate_memory",
+    "description": "Manage your persistent memos. Memos survive context window clearing. Use this to save important information (supplier prices, negotiation results, product performance, scam alerts, etc.) that you want to remember long-term. Maximum 20 memos allowed.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "add",
+            "get",
+            "update",
+            "delete",
+            "list"
+          ],
+          "description": "add: create new memo (title must not exist); get: read back memo content (with 'title' returns that memo, without 'title' returns all memos); update: modify existing memo; delete: remove memo; list: show all memos with their content"
+        },
+        "title": {
+          "type": "string",
+          "description": "Memo title (key). Required for add/update/delete; optional for get (omit to retrieve all memos)."
+        },
+        "content": {
+          "type": "string",
+          "description": "Memo content (value). Required for add/update."
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  }
+}

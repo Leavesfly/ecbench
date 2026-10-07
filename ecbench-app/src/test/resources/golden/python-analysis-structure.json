@@ -1,0 +1,135 @@
+{
+  "profitability": {
+    "final_balance": 100000.0,
+    "initial_balance": 100000.0,
+    "bankrupt": false,
+    "final_day": 0,
+    "peak_drawdown": 0.0,
+    "stores_opened": 0,
+    "store_reopens": 0
+  },
+  "negotiation_quality": {
+    "SE+": null,
+    "CSE+": null,
+    "%Oracle": null,
+    "AGR+": null,
+    "avg_rounds_to_deal": null,
+    "total_money_saved_vs_initial": null,
+    "learning_speed": null
+  },
+  "fraud_identification": {
+    "bad_suppliers_total": 152,
+    "orders_total": 0,
+    "orders_from_bad_supplier": 0,
+    "bad_supplier_order_share": 0.0,
+    "spend_total": 0.0,
+    "spend_on_bad_supplier": 0.0,
+    "spend_on_bad_supplier_share": 0.0,
+    "vip_fee_paid_count": 0,
+    "vip_fee_paid_amount": 0.0,
+    "spend_by_fraud_type": {
+      "vip_fee": {
+        "orders": 0,
+        "units": 0,
+        "spend": 0.0
+      },
+      "qty_bait": {
+        "orders": 0,
+        "units": 0,
+        "spend": 0.0
+      },
+      "quality_downgrade": {
+        "orders": 0,
+        "units": 0,
+        "spend": 0.0
+      },
+      "fake_urgency": {
+        "orders": 0,
+        "units": 0,
+        "spend": 0.0
+      },
+      "future_discount": {
+        "orders": 0,
+        "units": 0,
+        "spend": 0.0
+      }
+    },
+    "spend_by_good_personality": {
+      "Enthusiastic": 0.0,
+      "Unpredictable": 0.0,
+      "Friendly": 0.0,
+      "Strategic": 0.0,
+      "Tough": 0.0,
+      "Professional": 0.0
+    }
+  },
+  "supplier_engagement": {
+    "contacted": {
+      "distinct_total": 0,
+      "distinct_good": 0,
+      "distinct_bad": 0,
+      "good_by_personality": {},
+      "bad_by_fraud_type": {}
+    },
+    "ordered": {
+      "distinct_total": 0,
+      "distinct_good": 0,
+      "distinct_bad": 0,
+      "good_by_personality": {},
+      "bad_by_fraud_type": {}
+    },
+    "roster_totals": {
+      "distinct_total": 576,
+      "distinct_good": 424,
+      "distinct_bad": 152,
+      "good_by_personality": {
+        "Enthusiastic": 102,
+        "Unpredictable": 58,
+        "Friendly": 106,
+        "Strategic": 54,
+        "Tough": 48,
+        "Professional": 56
+      },
+      "bad_by_fraud_type": {
+        "vip_fee": 31,
+        "future_discount": 31,
+        "qty_bait": 30,
+        "quality_downgrade": 30,
+        "fake_urgency": 30
+      }
+    }
+  },
+  "return_management": {
+    "units_sold": 0,
+    "units_returned": 0,
+    "realized_return_rate": 0.0,
+    "refund_loss_total": 0.0,
+    "shipping_loss_on_returns": 0.0,
+    "units_shipped": 0,
+    "exp_return_rate": 0.0,
+    "exp_return_rate_natural": 0.0,
+    "exp_return_rate_from_pricing": 0.0,
+    "exp_return_rate_from_ship_speed": 0.0,
+    "exp_return_rate_from_defective_fraud": 0.0,
+    "controllable_return_rate": 0.0,
+    "ship_speed_counts": {
+      "fast": 0,
+      "standard": 0,
+      "slow": 0
+    }
+  },
+  "fulfilment_quality": {
+    "orders_sold": 0,
+    "orders_shipped": 0,
+    "orders_cancelled": 0,
+    "on_time_ship_rate": 0.0,
+    "units_sold": 0,
+    "units_returned": 0,
+    "realized_return_rate": 0.0,
+    "ship_speed_counts": {
+      "fast": 0,
+      "standard": 0,
+      "slow": 0
+    }
+  }
+}

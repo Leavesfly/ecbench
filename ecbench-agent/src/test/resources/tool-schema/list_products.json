@@ -1,0 +1,21 @@
+{
+  "type": "function",
+  "function": {
+    "name": "list_products",
+    "description": "List available products that can be purchased and sold. Filter by store type or category.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "store_type": {
+          "type": "string",
+          "description": "Filter by store type (e.g. 'beauty')."
+        },
+        "category": {
+          "type": "string",
+          "description": "Filter by category (e.g. 'Skincare & Beauty')."
+        }
+      },
+      "required": []
+    }
+  }
+}

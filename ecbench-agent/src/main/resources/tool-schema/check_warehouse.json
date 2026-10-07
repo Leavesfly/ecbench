@@ -1,0 +1,12 @@
+{
+  "type": "function",
+  "function": {
+    "name": "check_warehouse",
+    "description": "Check current warehouse inventory. Shows all products in storage with quantities and purchase prices.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  }
+}

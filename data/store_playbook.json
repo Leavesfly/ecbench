@@ -1,0 +1,223 @@
+{
+  "profit_potential_by_tier": {
+    "1": "Very high",
+    "2": "Moderate — solid and balanced",
+    "3": "Modest — low ceiling"
+  },
+  "store_advantage_axis": {
+    "food_beverage": "PROFIT POTENTIAL: VERY HIGH (only for skilled operators) — thin margins, a high return rate and a high daily operating cost punish careless play, but disciplined pricing + fast shipping + cost control reach the very top.",
+    "home_living": "PROFIT POTENTIAL: VERY HIGH (only for skilled operators) — deep, steady demand and a big ceiling, but thin margins, high returns, bulkier goods and high operating cost make mistakes expensive.",
+    "daily_office": "PROFIT POTENTIAL: VERY HIGH (only for skilled operators) — broad dependable demand and a high ceiling, but thin margins + high returns + high operating cost mean only disciplined play profits.",
+    "auto_hardware": "PROFIT POTENTIAL: VERY HIGH (only for skilled operators) — the thinnest margins of all; relentless cost control compounds into top earnings, while any slack loses money.",
+    "appliance_digital": "PROFIT POTENTIAL: MODERATE — a solid, balanced earner; high-ticket goods tie up capital and returns are mixed, but steady, well-managed play turns a dependable profit.",
+    "fashion": "PROFIT POTENTIAL: MODERATE — decent margins offset by a high return rate; return management (accurate pricing + fast shipping) is the core skill.",
+    "shoes_bags": "PROFIT POTENTIAL: MODERATE — a mixed range; a diversified, balanced basket earns steadily.",
+    "mother_baby": "PROFIT POTENTIAL: MODERATE — workable margins and mostly manageable returns; a steady mid-tier store.",
+    "beauty": "PROFIT POTENTIAL: MODEST — a lower ceiling; fat margins, low returns and low operating cost.",
+    "sports_outdoor": "PROFIT POTENTIAL: MODEST — a low, capped ceiling; fat margins, low returns and low operating cost.",
+    "pet": "PROFIT POTENTIAL: MODEST — a low ceiling; fat margins and the lowest returns of any store type.",
+    "toys_entertainment": "PROFIT POTENTIAL: MODEST — a modest everyday ceiling, with a strong year-end seasonal bump."
+  },
+  "playbook": {
+    "food_beverage": {
+      "strengths": [
+        "High reward ceiling: this is a high-risk, high-reward line where skill is richly rewarded. Disciplined pricing and tight cost control can push your earnings to the very top of any store type.",
+        "Brisk, steady demand and a small ticket size mean little capital is locked up per unit, so cash turns over quickly and settled revenue can be recycled into restocks fast.",
+        "Fast turnover lets you read the market and adjust prices quickly, rewarding an operator who pays attention and iterates."
+      ],
+      "challenges": [
+        "Margins are thin, leaving almost no cushion. One careless price or a slow shipment can erase the entire profit on a sale.",
+        "Return rates run high here, and every return costs you a refund plus the shipping you already spent. On thin margins those losses compound fast and quietly.",
+        "A heavy fixed daily operating cost grinds against you every day no matter how you sell. Idle or slow days bleed money, so carelessness is punished hard."
+      ],
+      "tips": [
+        "Price accurately and ship fast. These are your two strongest levers against this line's high return rate and thin margins, keeping refunds and lost shipping from eating your profit.",
+        "Lean into lower-return, fatter-margin lines and price them with confidence, but don't over-price elastic goods or demand will collapse.",
+        "Keep inventory lean and let settled cash fund your next restock, and keep volume high enough to carry the fixed daily cost rather than letting slow days bleed you out."
+      ]
+    },
+    "daily_office": {
+      "strengths": [
+        "Demand is broad and dependable, with a large, steady stream of buyers — the earning ceiling here is genuinely high, and a tightly run operation can scale fast.",
+        "Demand stays fairly even across the calendar, so you face little seasonal whiplash and can plan stock and cash flow with confidence."
+      ],
+      "challenges": [
+        "Margins are thin: there's almost no cushion, so even small pricing mistakes wipe out profit even when sales look strong.",
+        "Returns run high, and each one refunds the sale and burns the shipping you already paid — raw volume will not save a sloppy operation.",
+        "A heavy daily operating cost bleeds whether or not you sell, so idle stock and slow days hurt badly; this is a high-reward floor only for the disciplined, and carelessness is punished hard."
+      ],
+      "tips": [
+        "Price with discipline and accuracy — these goods are margin-sensitive, so don't over-price demand-elastic lines or you'll kill the volume that pays the bills.",
+        "Treat returns as the main enemy: ship fast and price honestly so refunds and lost shipping don't swallow your margin, and lean toward lower-return, fatter-margin lines where you can.",
+        "Keep inventory lean and let settled cash fund your restocks so the high daily operating cost can't drain you, and spread your bets across lines rather than over-committing to one."
+      ]
+    },
+    "home_living": {
+      "strengths": [
+        "Big ceiling. Demand here runs deep and steady, so a careful operator who sources well and prices sharply can build real volume and serious profit.",
+        "Skill compounds. Tight pricing, lean stock, and disciplined sourcing pay off more here than in gentler markets - mastery is genuinely rewarded.",
+        "Hidden bright spots. Within the noise there are lower-return, fatter-margin lines; finding and leaning into them is where the outsized money is made."
+      ],
+      "challenges": [
+        "No cushion. Margins are thin, so a mispriced or slow-moving line gives back its profit fast - there's little room for error.",
+        "Returns bite hard. Return rates run high, and every return is a compound loss: the refund plus the shipping you already sank to send and receive the goods.",
+        "Heavy to carry. Bulkier goods tie up more cash and cost more to store and ship, while a high daily operating cost punishes you whenever volume runs thin."
+      ],
+      "tips": [
+        "Hunt for the low-return, fat-margin lines and price them up where demand holds firm; let those carry the store while you trim or drop the chronic refund magnets.",
+        "On anything with a high return rate, accurate pricing and faster shipping are your defense - they keep refunds and sunk shipping from quietly eating your margin.",
+        "Keep inventory lean and fund restocks from settled cash rather than parking capital in bulky slow movers; spread across several lines so one bad bet can't sink you."
+      ]
+    },
+    "auto_hardware": {
+      "strengths": [
+        "Top-tier profit ceiling for the disciplined: margins are the thinnest of all, so relentless cost control is the whole game — master it and the slim per-sale profit compounds into some of the highest earnings available; let it slip and you lose money.",
+        "The ceiling is high for the disciplined: with relentless cost control, even thin per-sale profit compounds into strong results."
+      ],
+      "challenges": [
+        "Margins are the thinnest on the board, leaving no cushion — overpaying a supplier, shipping too fast, or letting stock sit idle can flip a profitable line straight into a loss.",
+        "Bulkier, heavier goods can carry real storage and shipping weight that quietly eats your already-slim margin."
+      ],
+      "tips": [
+        "Negotiate procurement hard and trim every recurring cost — here, cost discipline is the entire game.",
+        "Keep inventory lean and let settled cash fund your next restock, so capital and storage never sit idle.",
+        "Price with discipline: there's no markup to give away, so don't undercut yourself or chase volume at a loss."
+      ]
+    },
+    "appliance_digital": {
+      "strengths": [
+        "A solid, balanced mid-tier earner: high-ticket goods bring real revenue per sale, so steady, well-managed play turns a dependable profit without chasing volume.",
+        "Healthy margins are on offer for the right lines, and a well-run catalogue is a dependable earner.",
+        "A balanced category overall: skill in pricing and cash handling is rewarded without punishing every mistake."
+      ],
+      "challenges": [
+        "Big-ticket goods tie up a lot of capital per unit, so a few unsold items can drain your cash fast.",
+        "Bulkier stock costs more to store and ship, and those costs stack up against your daily operating overhead.",
+        "Return rates are mixed and uneven across lines; each return refunds the sale and burns the shipping you already paid, erasing the profit."
+      ],
+      "tips": [
+        "Lean into low-return, fat-margin lines and price them up; treat high-return goods cautiously and price them with precision.",
+        "Ship fast and keep pricing accurate so refunds and lost shipping don't quietly eat your margin.",
+        "Keep inventory lean and let settled cash fund your restocks; don't sink all your capital into a single high-ticket bet — spread it and watch your balance."
+      ]
+    },
+    "fashion": {
+      "strengths": [
+        "Margins are decent — priced well, your good lines leave enough room to take the occasional refund on the chin and still come out ahead.",
+        "Demand is broad and responsive, so there's steady volume to work with when you stock and price sensibly.",
+        "Ticket sizes are moderate, so capital isn't locked up too heavily per order — you can keep stock turning."
+      ],
+      "challenges": [
+        "Returns run high here, and this is what makes or breaks you: every refund hands back the revenue and the shipping you already paid, so sloppy pricing quietly bleeds the margin dry.",
+        "Shipping on returned goods is a sunk loss you never get back — slow fulfilment and mispriced lines only widen that leak.",
+        "It's balanced, not forgiving: the margin is there, but careless return management will erase it just as fast as discipline earns it."
+      ],
+      "tips": [
+        "Treat return management as the core skill — price accurately and ship fast so fewer orders bounce back and refunds stop eating into your margin.",
+        "Lean into your lowest-return, fattest-margin lines and price them up; go lighter and more cautious on volatile, high-return stock, and don't over-price the elastic items.",
+        "Keep inventory lean and let settled cash fund your restocks, so a wave of refunds never catches you short on capital."
+      ]
+    },
+    "shoes_bags": {
+      "strengths": [
+        "The range is broad and mixed: some lines carry fat margins and low returns, others are thinner and more return-prone, so a diversified basket smooths the bumps and earns steadily.",
+        "Demand here is fairly dependable when you spread your bets, rewarding patient, balanced operating rather than one big swing.",
+        "The better lines tolerate being priced up, leaving room to lift margin where buyers aren't price-sensitive."
+      ],
+      "challenges": [
+        "A meaningful slice of the range returns at a high rate, and every return is a compound hit: you refund the sale and eat the shipping you already paid, so careless picks quietly bleed profit.",
+        "Some goods are bulkier, pushing up storage and shipping and tying up cash in stock that sits.",
+        "Elastic lines punish over-pricing, and seasonal swings can leave you over- or under-stocked if you don't read the calendar."
+      ],
+      "tips": [
+        "Lean into the low-return, fat-margin lines and price them up; let them carry the basket while the riskier lines stay a minority.",
+        "On goods with high return rates, ship fast and price accurately so refunds and lost shipping don't swallow the margin.",
+        "Keep inventory lean and let settled cash fund your restocks; diversify across lines instead of betting the warehouse on one."
+      ]
+    },
+    "mother_baby": {
+      "strengths": [
+        "Most lines carry healthy, workable margins, so disciplined pricing turns a steady profit without needing heroics.",
+        "Returns are mostly manageable across the mix, so refunds and lost shipping rarely blow a hole in your month.",
+        "This is a diversified store: spreading across many kinds of goods smooths demand and keeps any single weak line from sinking you."
+      ],
+      "challenges": [
+        "The return profile is mixed — some goods come back more often, and each return costs the refund plus the shipping you already sunk, quietly eroding margin if ignored.",
+        "Running a broad assortment ties up cash and shelf space at once; without inventory and cash discipline you can be profitable yet short on liquidity.",
+        "Demand shifts with the season and some goods are price-sensitive, so over-pricing elastic lines or mis-timing stock leaves you with slow inventory while the daily operating cost keeps ticking."
+      ],
+      "tips": [
+        "Lean into your low-return, fat-margin lines and price them up — that is where this store quietly makes its money.",
+        "On higher-return goods, ship fast and price accurately so refunds and return shipping don't eat your margin; don't over-price the elastic ones.",
+        "Keep inventory lean, let settled cash fund restocks, and rebalance the assortment toward whatever is selling clean and returning little."
+      ]
+    },
+    "beauty": {
+      "strengths": [
+        "Fat margins meet low return rates, so refunds claw back a smaller share of revenue than in most store types.",
+        "Light overhead and easy-to-store goods mean daily operating cost is low and little cash sits trapped in inventory.",
+        "Low returns and fat margins keep per-sale costs down relative to other store types."
+      ],
+      "challenges": [
+        "The ceiling is modest — expect steady gains, not outsized wins from any single line.",
+        "Low barriers invite crowding and demand per line is finite, so simply piling on stock won't make it all clear; some demand also swings with the calendar."
+      ],
+      "tips": [
+        "Lean into the low-return, fat-margin nature and price up with confidence — you have room to mark up without scaring buyers off.",
+        "Keep inventory lean and let settled cash fund your restocks; spread across several lines to push past the modest per-line ceiling.",
+        "Even with low returns, keep shipping reasonably quick and pricing accurate so the occasional refund never swallows a whole margin."
+      ]
+    },
+    "sports_outdoor": {
+      "strengths": [
+        "Margins are fat and returns are low, so the refunds-plus-lost-shipping drain that hits other store types takes a smaller share here.",
+        "Daily operating cost is light, so the break-even floor is low.",
+        "Demand is steady, so a single bad pricing or stocking call has a limited effect."
+      ],
+      "challenges": [
+        "The ceiling is modest, so even strong play won't compound into outsized returns — expect steady profit, not a runaway.",
+        "Some goods are bulkier, so storage and shipping costs scale with how much you hold and how fast you ship. Overstocking or always paying for the fastest shipping quietly trims an otherwise healthy edge.",
+        "Demand shifts with the seasons. Ignoring those swings leaves capital tied up in inventory through the slow stretches and risks stockouts in the busy ones."
+      ],
+      "tips": [
+        "Lean into the low-return, fat-margin lines and price them up. The low return rate lets you hold firmer prices without refunds clawing the gains back.",
+        "Keep inventory lean and let settled wallet cash fund your restocks. Don't tie up capital chasing volume the modest ceiling won't reward.",
+        "Mind seasonality and the bulkier items: time your stocking to demand and keep shipping speed sensible so storage and freight don't nibble away the margin."
+      ]
+    },
+    "pet": {
+      "strengths": [
+        "Fat margins paired with the lowest return rates of any store type, so refunds claw back a smaller share of revenue than elsewhere.",
+        "Low daily operating cost, fat margins, and low returns keep both fixed and variable costs modest.",
+        "Steady, predictable demand without violent swings: stock and cash are easy to plan around."
+      ],
+      "challenges": [
+        "Modest ceiling: limited headroom. You will not get rich quickly here, and upside flattens as the market saturates.",
+        "Low costs are not a free pass. Complacency still bleeds money through daily operating cost, sluggish shipping, and capital parked in slow-moving stock.",
+        "Underpricing quietly wastes the best feature you have. With margins this fat and returns this low, timid prices leave the easiest money on the table."
+      ],
+      "tips": [
+        "Lean into the low-return, fat-margin lines and price them up with confidence. The low return rate means firm pricing is less likely to trigger refunds, so capture the margin on offer.",
+        "Keep inventory lean and let settled cash fund your restocks, so capital is not tied up; ship promptly to keep your already-low returns from creeping up.",
+        "Treat this as a stable cash engine, not a moonshot. Once demand flattens, put surplus to work by diversifying into other store types rather than over-investing past the point of diminishing returns."
+      ]
+    },
+    "toys_entertainment": {
+      "strengths": [
+        "Fat margins leave some room on pricing and sourcing decisions.",
+        "Returns are low, so refunds and lost shipping take a smaller share of revenue.",
+        "Low daily operating cost and modest ticket size keep little capital tied up; cash stays available."
+      ],
+      "challenges": [
+        "The ceiling is modest — even played well, the upside is steady rather than spectacular.",
+        "Demand leans hard on a year-end seasonal peak while the rest of the calendar runs quieter, so timing stock to that swing is what separates a strong run from an average one.",
+        "Low-pressure conditions can breed carelessness — over-buying ahead of the peak can leave you sitting on inventory once demand fades."
+      ],
+      "tips": [
+        "Lean into the fat margins and price up, especially heading into the seasonal peak — these goods tolerate firm pricing.",
+        "Build inventory ahead of the year-end surge but keep it lean enough that leftovers don't pile up afterward; let settled cash fund your restocks.",
+        "Keep shipping reasonably quick and pricing accurate so the few returns you do see stay cheap and protect the margin."
+      ]
+    }
+  }
+}

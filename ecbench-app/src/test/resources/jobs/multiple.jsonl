@@ -1,0 +1,3 @@
+{"task":"agent_multiturn/long_horizon/ecommerce_bench","idx":0,"data_source":"ecommerce_bench","agent_info":{"max_turn":50},"messages":[{"role":"system","content":"SYS0"},{"role":"user","content":"go"}],"tool_schemas":[]}
+
+{"idx":1,"messages":[{"role":"user","content":"second job"}],"tool_schemas":[{"type":"function","function":{"name":"wait_for_next_day","description":"Advance","parameters":{"type":"object"}}}]}
