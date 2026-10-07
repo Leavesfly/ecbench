@@ -17,5 +17,6 @@ replay_pid*
 .idea/
 *.iml
 .vscode/
+.qoder/
 .DS_Store
 Thumbs.db
