@@ -27,19 +27,25 @@ public final class RunCoordinator {
     private final RunComponentFactory factory;
     private final IntFunction<ExecutorService> poolFactory;
 
+    /** 使用默认固定线程池工厂构造编排器。 */
     public RunCoordinator(RunComponentFactory factory) {
         this(factory, Executors::newFixedThreadPool);
     }
 
+    /** 包级构造：注入自定义线程池工厂，便于测试以受控线程数驱动。 */
     RunCoordinator(RunComponentFactory factory, IntFunction<ExecutorService> poolFactory) {
         this.factory = factory;
         this.poolFactory = poolFactory;
     }
 
+    /** 以真实执行器 {@link #executeOne} 并行跑完 options 指定的全部 run。 */
     public List<RunOutcome> run(BenchmarkOptions options) {
         return run(options, this::executeOne);
     }
 
+    /**
+     * 向线程池逐 index 提交任务并收集结果：每个任务吞掉自身 Throwable 转为 RunOutcome，故单 run 失败不影响其余； 全部完成后按 index 升序返回。
+     */
     List<RunOutcome> run(BenchmarkOptions options, RunExecutor executor) {
         int runs = options.runConfig().runs();
         ExecutorService pool = poolFactory.apply(poolSize(runs));
@@ -73,16 +79,19 @@ public final class RunCoordinator {
         }
     }
 
+    /** 为单个 run index 装配组件并执行一次 episode，组件随 try-with-resources 关闭。 */
     private RunOutcome executeOne(int index, BenchmarkOptions options) {
         try (RunComponents components = factory.create(index, options)) {
             return new RunOutcome(index, components.agent().run(components.job()), null);
         }
     }
 
+    /** 线程数取 min(runs, 可用核数) 且至少 1。 */
     static int poolSize(int runs) {
         return Math.max(1, Math.min(runs, Runtime.getRuntime().availableProcessors()));
     }
 
+    /** 等待线程池在 5 分钟内终止，超时或中断则强制关停并复位中断标志。 */
     private static void awaitTermination(ExecutorService pool) {
         try {
             if (!pool.awaitTermination(AWAIT_MINUTES, TimeUnit.MINUTES)) {

@@ -34,11 +34,13 @@ public final class JobFileLoader {
     private final ObjectMapper mapper;
     private final RunConfig fallback;
 
+    /** 注入 JSON mapper 与缺省回退用的 RunConfig（job 未提供上限时采用）。 */
     public JobFileLoader(ObjectMapper mapper, RunConfig fallback) {
         this.mapper = mapper;
         this.fallback = fallback;
     }
 
+    /** 逐行读取并解析 JSONL，跳过空行；任一行解析失败即抛出含 1 基行号的异常。 */
     public List<RunJob> load(Path file) {
         List<String> lines;
         try {
@@ -62,6 +64,7 @@ public final class JobFileLoader {
         return jobs;
     }
 
+    /** 将单行 JSON 转为 RunJob：运行上限取 agent_info 字段并回退到 RunConfig，缺失的 task/data_source 用内置默认。 */
     private RunJob parse(JsonNode root) {
         JsonNode agentInfo = root.path("agent_info");
         int maxTurns = agentInfo.path("max_turn").asInt(fallback.maxTurns());
@@ -81,6 +84,7 @@ public final class JobFileLoader {
                 maxToolResponseChars);
     }
 
+    /** 解析 messages 数组为 ChatMessage 列表（含 tool_calls/reasoning 等字段），非数组返回空。 */
     private List<ChatMessage> parseMessages(JsonNode node) {
         List<ChatMessage> messages = new ArrayList<>();
         if (!node.isArray()) {
@@ -103,6 +107,7 @@ public final class JobFileLoader {
         return messages;
     }
 
+    /** 解析 assistant 消息的 tool_calls 数组，逐个抽取 function 名与参数。 */
     private List<ToolCall> parseToolCalls(JsonNode node) {
         List<ToolCall> toolCalls = new ArrayList<>();
         if (!node.isArray()) {
@@ -120,6 +125,7 @@ public final class JobFileLoader {
         return toolCalls;
     }
 
+    /** 归一化工具参数：缺失/空返回空对象，字符串则尝试再解析为 JSON，否则原样返回。 */
     private JsonNode parseArguments(JsonNode node) {
         if (node == null || node.isMissingNode() || node.isNull()) {
             return mapper.createObjectNode();
@@ -134,6 +140,7 @@ public final class JobFileLoader {
         return node;
     }
 
+    /** 解析 tool_schemas，兼容 function 包裹与顶层两种写法，参数兼容 parameters/input_schema。 */
     private List<ToolDefinition> parseToolSchemas(JsonNode node) {
         List<ToolDefinition> schemas = new ArrayList<>();
         if (!node.isArray()) {
@@ -152,6 +159,7 @@ public final class JobFileLoader {
         return schemas;
     }
 
+    /** 将线格式角色名映射为 ChatRole，未知一律回退 user。 */
     private static ChatRole role(String wire) {
         return switch (wire) {
             case "system" -> ChatRole.SYSTEM;

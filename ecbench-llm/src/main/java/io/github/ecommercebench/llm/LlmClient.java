@@ -8,5 +8,6 @@ import io.github.ecommercebench.llm.model.LlmResponse;
  */
 @FunctionalInterface
 public interface LlmClient {
+    /** 同步发起一次对话补全；将工具定义与多轮消息交给具体 Provider，失败时抛出 ProviderException。 */
     LlmResponse generate(LlmRequest request);
 }

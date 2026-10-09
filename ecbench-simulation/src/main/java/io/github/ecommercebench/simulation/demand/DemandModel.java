@@ -7,10 +7,16 @@ import java.math.BigDecimal;
  */
 public final class DemandModel {
 
+    /** 定价→退货率乘子的分段线性拐点：每行为 [价格比, 退货乘子]，低于首个/高于末个取端点值。 */
     private static final double[][] RETURN_PRICE_KNEES = {
             {0.8, 0.85}, {1.0, 1.00}, {1.3, 1.50}, {1.8, 2.20}
     };
 
+    /**
+     * 根据弹性类型计算价格相对参考价对销量的缩放因子。
+     *
+     * <p>参考价或零售价非正时返回 0（不可销）；促销弹性加成会放大有效弹性参数，使高价对需求更敏感。
+     */
     public double priceFactor(
             String elasticityType,
             double retailPrice,
@@ -22,6 +28,7 @@ public final class DemandModel {
         }
         double ratio = retailPrice / referencePrice;
         double effectiveElasticity = elasticityParameter * promotionElasticityBoost;
+        // 四种常见弹性曲线，均保证 ratio=1 时因子为 1；linear/quadratic 限幅不为负。
         return switch (elasticityType) {
             case "linear" -> Math.max(0.0, 1.0 - effectiveElasticity * (ratio - 1.0));
             case "exponential" -> Math.exp(-effectiveElasticity * (ratio - 1.0));
@@ -41,10 +48,13 @@ public final class DemandModel {
         return new PromotionBoost(demandMultiplier, elasticityBoost.doubleValue());
     }
 
+    /**
+     * 市场饱和因子：用类似调和均值的容量模型把原始需求总量压缩到不超过市场容量。 */
     public double marketSaturationFactor(double capacity, double rawDemand) {
         if (capacity <= 0 || rawDemand <= 0) {
             return 1.0;
         }
+        // realised = capacity·rawDemand/(capacity+rawDemand)，恒小于二者较小值，避免需求无视容量无限增长。
         double realisedTotal = capacity * rawDemand / (capacity + rawDemand);
         return realisedTotal / rawDemand;
     }

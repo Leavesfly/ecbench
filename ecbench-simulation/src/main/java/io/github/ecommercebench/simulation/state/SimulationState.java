@@ -28,6 +28,7 @@ public final class SimulationState {
     private final List<PendingShipment> pendingShipments = new ArrayList<>();
     private final List<PendingDelivery> pendingDeliveries = new ArrayList<>();
     private final List<PendingReturn> pendingReturns = new ArrayList<>();
+    // 以下 SKU 维度的计数表支撑退货溯源与缺陷占比等跨周期统计，仅随到货/售出/退货事件单调累加。
     private final Map<String, Integer> skuTotalDelivered = new LinkedHashMap<>();
     private final Map<String, Integer> skuDefectiveDelivered = new LinkedHashMap<>();
     private final Map<String, Map<String, Integer>> skuSupplierDelivered = new LinkedHashMap<>();
@@ -53,10 +54,12 @@ public final class SimulationState {
         this.currentDate = Objects.requireNonNull(startDate);
     }
 
+    /** 工厂方法：以初始资金与起始日建立一份全新、独立于其他 run 的状态。 */
     public static SimulationState initial(Money initialBalance, LocalDate startDate) {
         return new SimulationState(initialBalance, startDate);
     }
 
+    /** 分配形如 store_001 的递增店铺号。 */
     public String nextStoreId() {
         return "store_%03d".formatted(nextStoreId++);
     }
@@ -77,6 +80,7 @@ public final class SimulationState {
         return nextDeliveryId++;
     }
 
+    /** 登记新店铺并按其类型累计开店次数（含重开），用于重复开店与 store_reopens 统计。 */
     public void addStore(StoreState store) {
         stores.put(store.storeId(), store);
         storeTypeOpenCount.merge(store.storeType(), 1, Integer::sum);
@@ -110,6 +114,7 @@ public final class SimulationState {
         dayCount++;
     }
 
+    /** 记录一笔到货：累加该 SKU 总量、按供应商溯源量，劣质批次另计入缺陷量。 */
     public void recordDelivery(String supplierId, String sku, int quantity, boolean defective) {
         skuTotalDelivered.merge(sku, quantity, Integer::sum);
         skuSupplierDelivered
@@ -120,6 +125,7 @@ public final class SimulationState {
         }
     }
 
+    /** 该 SKU 历史到货中的缺陷占比，用于把自然退货率修正为实际退货率；无到货记录时返回 0。 */
     public double defectiveFraction(String sku) {
         int total = skuTotalDelivered.getOrDefault(sku, 0);
         return total == 0 ? 0.0 : (double) skuDefectiveDelivered.getOrDefault(sku, 0) / total;
@@ -133,6 +139,7 @@ public final class SimulationState {
         skuUnitsReturned.merge(sku, quantity, Integer::sum);
     }
 
+    /** 标记 episode 终止并记录原因（bankrupt / max_days 等），终止后不再发货或日切。 */
     public void terminate(String reason) {
         terminated = true;
         terminationReason = reason;

@@ -39,6 +39,7 @@ public final class AnthropicClient extends AbstractJsonLlmClient {
         StringBuilder thinking = new StringBuilder();
         List<ToolCall> calls = new ArrayList<>();
         List<ReasoningItem> reasoning = new ArrayList<>();
+        // Anthropic 把响应拆成多种 content block：text 拼接正文、thinking 累加推理并留存块、tool_use 转为工具调用。
         for (JsonNode block : raw.path("content")) {
             switch (block.path("type").asText()) {
                 case "text" -> text.append(block.path("text").asText());
@@ -64,6 +65,9 @@ public final class AnthropicClient extends AbstractJsonLlmClient {
                 raw);
     }
 
+    /**
+     * 组装 Messages API 请求体：system 角抽取合并为顶层 system 字段，其余消息按 assistant/user 归类， TOOL 角转为 tool_result 块。
+     */
     private ObjectNode requestBody(LlmRequest request) {
         ObjectNode body = mapper.createObjectNode();
         body.put("model", request.model());

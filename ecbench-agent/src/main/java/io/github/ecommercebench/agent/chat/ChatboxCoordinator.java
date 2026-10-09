@@ -70,6 +70,7 @@ public final class ChatboxCoordinator {
     private final Map<String, Supplier> suppliersByEmail = new LinkedHashMap<>();
     private final Map<String, List<DealRecord>> dealMessages = new LinkedHashMap<>();
 
+    /** 装配 chatbox 编排所需目录、引擎、会话/谈判/订单/渲染/分类等协作方，并按邮箱预建供应商索引。 */
     public ChatboxCoordinator(
             CatalogData catalog,
             SimulationEngine engine,
@@ -123,6 +124,9 @@ public final class ChatboxCoordinator {
         return out;
     }
 
+    /**
+     * 单个供应商的完整回合：定位→破产检查→记录用户消息→解析 negotiate→内核决策→VIP 门控→渲染 NPC 回复→订单执行→回复落库→成交/破产计数→构造响应。
+     */
     private ObjectNode chatSingle(String uid, String content, int historyCount, String currentTime) {
         Supplier supplier = suppliersByEmail.get(uid);
         if (supplier == null) {
@@ -169,6 +173,7 @@ public final class ChatboxCoordinator {
         return buildResponse(supplier, name, negotiation, batch, finalReply, historyCount, currentTime);
     }
 
+    /** 破产供应商的固定回复：不再谈判或下单，仅写入停止经营通知并（按需）附带历史。 */
     private ObjectNode bankruptResponse(
             Supplier supplier, String content, int historyCount, String currentTime, Instant now) {
         String name = supplier.supplierName();
@@ -194,6 +199,7 @@ public final class ChatboxCoordinator {
         return out;
     }
 
+    /** 将解析出的谈判动作逐条交予内核，收集响应；对 ACCEPT 的动作派生待下单的 Accept（Offer 自动转为按协议价接受）。 */
     private Negotiation runNegotiation(String name, ParsedNegotiation parsed, int day) {
         List<NegotiationOutcome> responses = new ArrayList<>();
         List<OrderAction> orderActions = new ArrayList<>();
@@ -223,6 +229,7 @@ public final class ChatboxCoordinator {
         return new Negotiation(responses, orderActions);
     }
 
+    /** 执行本批订单：先处理 VIP 会员费扣缴，再逐条下单；成功则确认并计入成交行，失败则回滚并记入失败行，均同步追加到可见回复。 */
     private OrderBatch processOrders(
             Supplier supplier,
             String name,
@@ -272,6 +279,7 @@ public final class ChatboxCoordinator {
         return batch;
     }
 
+    /** 确认成交：提交内核协议、累计扣款、登记成交行，并在回复尾部追加下单确认串。 */
     private void confirmOrder(
             OrderBatch batch,
             String name,
@@ -304,6 +312,7 @@ public final class ChatboxCoordinator {
                 .append("/unit. Please wait for delivery.");
     }
 
+    /** 下单失败：回滚内核协议、登记失败行，并在回复尾部追加未能下单的说明。 */
     private void failOrder(
             OrderBatch batch,
             String name,
@@ -330,6 +339,7 @@ public final class ChatboxCoordinator {
                 .append(error);
     }
 
+    /** 记录一笔成交的双向邮件到 dealMessages，累加成交计数；达到供应商破产阈值时将其标记为破产。 */
     private void finalizeDeal(
             Supplier supplier, String name, String content, String reply, Instant now) {
         List<DealRecord> deals = dealMessages.computeIfAbsent(name, key -> new ArrayList<>());
@@ -342,6 +352,7 @@ public final class ChatboxCoordinator {
         }
     }
 
+    /** 组装 Agent 可见的响应 JSON：回复正文、谈判响应、下单成功/失败明细、可选历史与当前时间。 */
     private ObjectNode buildResponse(
             Supplier supplier,
             String name,
@@ -376,6 +387,7 @@ public final class ChatboxCoordinator {
         return out;
     }
 
+    /** 将每条内核响应序列化为 JSON 条目，并对 ACCEPT 的条目回填实际下单结果。 */
     private ArrayNode negotiationResponses(List<NegotiationOutcome> responses, OrderBatch batch) {
         ArrayNode array = mapper.createArrayNode();
         for (NegotiationOutcome response : responses) {
@@ -402,6 +414,7 @@ public final class ChatboxCoordinator {
         return array;
     }
 
+    /** 对已接受的谈判条目，按其 SKU 用成交批的实际扣款或失败原因回填 order_placed 等字段。 */
     private void reconcileOrder(ObjectNode entry, NegotiationOutcome response, OrderBatch batch) {
         if (response.decision() != NegotiationDecision.ACCEPT) {
             return;
@@ -423,6 +436,7 @@ public final class ChatboxCoordinator {
         }
     }
 
+    /** 取最近 count 条会话，渲染为带发件人、时间戳与正文的 JSON 数组。 */
     private ArrayNode formatHistory(String name, Supplier supplier, int count) {
         ArrayNode array = mapper.createArrayNode();
         for (SupplierConversation.Message message : conversations.history(name, count)) {
@@ -435,6 +449,7 @@ public final class ChatboxCoordinator {
         return array;
     }
 
+    /** 判断本次是否应收 VIP 会员费：仅当为 VIP_FEE 欺诈、尚未缴过、供应商已在对话中提及会员费且 Agent 明确同意时。 */
     private boolean shouldChargeVipFee(Supplier supplier, String name, String content) {
         if (!supplier.isFraudulent()
                 || FraudType.fromWireName(supplier.fraudType()) != FraudType.VIP_FEE
@@ -445,6 +460,7 @@ public final class ChatboxCoordinator {
         return vipClassifier.hasExplicitConsent(content);
     }
 
+    /** 扫描该供应商历史回复，判断是否已出现会员费相关关键词（VIP 门控的前置条件）。 */
     private boolean supplierMentionedVip(String name) {
         for (SupplierConversation.Message message : conversations.history(name, Integer.MAX_VALUE)) {
             if (!"assistant".equals(message.role()) || message.content() == null) {
@@ -460,6 +476,7 @@ public final class ChatboxCoordinator {
         return false;
     }
 
+    /** 若渲染文本含 Subject: 行，则取其后的正文；否则原样返回整段文本。 */
     private String extractBody(String text) {
         Matcher matcher = SUBJECT.matcher(text);
         if (matcher.find()) {
@@ -475,6 +492,7 @@ public final class ChatboxCoordinator {
         return array;
     }
 
+    /** 日级模型下当日固定为 08:00，与工具管理器保持线格式一致。 */
     private String currentTime() {
         return engine.currentDate() + " 08:00";
     }

@@ -36,6 +36,7 @@ public final class OrderProcessor {
         params.putAll(catalog.categoryParams());
     }
 
+    /** 支付一次性 VIP 会员费：余额不足即失败，否则扣款、计入欺诈/会员消费并标记该供应商已购 VIP。 */
     public PurchaseOrderOutcome payVipFee(Supplier supplier, OrderExecutionPort port) {
         if (port.bankBalance().compareTo(SupplierPolicy.VIP_FEE) < 0) {
             return PurchaseOrderOutcome.failure(
@@ -63,6 +64,11 @@ public final class OrderProcessor {
         return vipPaidSuppliers.contains(supplierName);
     }
 
+    /**
+     * 处理结构化下单：校验数量与成交价，对欺诈供应商二次兜底价格底线，扣款并按欺诈类型施加 实际交付效果后安排发货。
+     *
+     * <p>VIP 类型须先购会员费；延迟为 3 天再加 0–4 天随机；缺陷、减量等按欺诈类型标记，最终以实际交付量入账。
+     */
     public PurchaseOrderOutcome processStructuredOrder(
             Supplier supplier,
             NegotiationAction.Accept accept,
@@ -83,6 +89,7 @@ public final class OrderProcessor {
         }
         CategoryParams categoryParams = params.get(product.category());
         Money unitPrice = outcome.agreedPrice();
+        // 欺诈供应商：成交价不得越过抬升后的有效底线，防止 Agent 以超低价套货。
         if (supplier.isFraudulent()) {
             Money floor = policy.computeEffectiveFloor(product, supplier, categoryParams);
             if (unitPrice.compareTo(floor) < 0) {
@@ -95,6 +102,7 @@ public final class OrderProcessor {
         }
 
         int delivered = accept.quantity();
+        // 数量陷阱：按全量收费，实际只交付随机 60%–70%。
         if (fraudType == FraudType.QTY_BAIT) {
             double ratio =
                     0.6

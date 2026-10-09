@@ -36,6 +36,11 @@ public final class LlmClientFactory {
         this.retryPolicy = retryPolicy;
     }
 
+    /**
+     * 根据已解析的 apiStyle 与 provider 名选择具体协议客户端。
+     *
+     * <p>优先级：anthropic 协议 > openai responses 端点 > openai-compatible/google/openrouter 兼容端点， 其余回退到标准 OpenAI chat。每次克隆一个 RestClient.Builder 以隔离连接配置。
+     */
     public LlmClient create(ModelConfig config) {
         ResolvedProvider provider = resolver.resolve(config);
         if ("anthropic".equals(provider.apiStyle())) {

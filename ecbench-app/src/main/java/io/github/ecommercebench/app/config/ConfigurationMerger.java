@@ -26,14 +26,17 @@ public final class ConfigurationMerger {
 
     private final ModelRegistryLoader registryLoader;
 
+    /** 使用默认模型注册表加载器构造。 */
     public ConfigurationMerger() {
         this(new ModelRegistryLoader());
     }
 
+    /** 注入模型注册表加载器，用于从 models config 读取 effort 等模型级参数。 */
     public ConfigurationMerger(ModelRegistryLoader registryLoader) {
         this.registryLoader = registryLoader;
     }
 
+    /** 依优先级合成运行配置：CLI 提供主要字段，路径经 ResourcePaths 解析，上下文参数取 ECBENCH_CONTEXT_* 环境变量（缺省回退），effort 另行解析。 */
     public BenchmarkOptions merge(CliRunOptions cli, Map<String, String> env, Path workingDir) {
         ResourcePaths paths = ResourcePaths.of(workingDir);
         Path modelsConfigPath = paths.modelsConfig(env.get("ECBENCH_MODELS_CONFIG"));
@@ -76,6 +79,7 @@ public final class ConfigurationMerger {
         return registryLoader.load(modelsConfigPath).resolve(model).effort();
     }
 
+    /** 读取整型环境变量；缺失或空白时返回回退值。 */
     private static int intEnv(Map<String, String> env, String key, int fallback) {
         String value = env.get(key);
         if (value == null || value.isBlank()) {

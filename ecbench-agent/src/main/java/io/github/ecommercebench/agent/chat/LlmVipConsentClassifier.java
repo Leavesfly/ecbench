@@ -66,11 +66,13 @@ public final class LlmVipConsentClassifier implements VipConsentClassifier {
     private final LlmClient client;
     private final String model;
 
+    /** 注入用于意图判定的 NPC LLM 客户端与模型名。 */
     public LlmVipConsentClassifier(LlmClient client, String model) {
         this.client = client;
         this.model = model;
     }
 
+    /** 构造意图分类提示并调用 LLM，解析其 {"decision": "yes|no"}；无法解析或异常时按安全默认返回 false。 */
     @Override
     public boolean hasExplicitConsent(String customerMessage) {
         String prompt =

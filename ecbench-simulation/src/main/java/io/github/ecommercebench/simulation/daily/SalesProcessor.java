@@ -30,6 +30,7 @@ public final class SalesProcessor implements DailyProcessor {
 
     @Override
     public void process(SimulationState state, DailyContext context, DailyResult result) {
+        // 销量归属于“昨天”：日切时回顾上一自然日的需求，并为每笔成交创建待发货批次。
         LocalDate saleDate = context.day().minusDays(1);
         int totalSold = 0;
         for (StoreState store : state.stores().values()) {
@@ -77,6 +78,7 @@ public final class SalesProcessor implements DailyProcessor {
                             / 30.0
                             * EconomicRules.PER_STORE_SCALE.doubleValue()
                             * EconomicRules.demandScale(store.storeType());
+            // 日需求 = 基础日需求 × 价格因子 × 周末因子 × 促销倍率 × 季节性 × 事件因子 × 店铺声誉，负值归零。
             double demand =
                     Math.max(
                             0.0,
@@ -106,6 +108,7 @@ public final class SalesProcessor implements DailyProcessor {
             int floor = (int) demand;
             DeterministicRandom rng =
                     context.randomStreams().stream("demand:" + entry.getKey() + ":" + saleDate);
+            // 随机取整：小数部分作为概率决定是否 +1，从而在保持确定性的同时期望值等于连续需求。
             int rounded = floor + (rng.nextDouble() < demand - floor ? 1 : 0);
             int actual = Math.min(rounded, line.available());
             if (actual <= 0) {
@@ -129,6 +132,7 @@ public final class SalesProcessor implements DailyProcessor {
             state.recordSold(entry.getKey(), actual);
             state.fulfilmentStats().recordSold(actual);
 
+            // 自然退货率会因劣质批次(缺陷率抬高)与高价(定价抑制退货)两层修正，最终限幅 0.95。
             BigDecimal naturalRate = line.product().returnRate();
             double defectiveRate = Math.min(0.95, Math.max(0.40, naturalRate.doubleValue() * 2.0));
             double defectFraction = state.defectiveFraction(entry.getKey());
@@ -169,6 +173,7 @@ public final class SalesProcessor implements DailyProcessor {
         return sold;
     }
 
+    /** 类目软封顶：单类目需求超过市场容量份额时按 demand·cap/(cap+total) 衰减，抑制同类目过度放大。 */
     private void applyCategoryCap(Map<String, DemandLine> raw, StoreTypeConfig type) {
         double capacity = EconomicRules.marketCapacity(type.storeTypeId());
         double fraction =
@@ -196,6 +201,7 @@ public final class SalesProcessor implements DailyProcessor {
                 });
     }
 
+    /** 当前促销活跃时返回其需求倍率与弹性加成，否则返回中性 (1.0, 1.0)。 */
     private DemandModel.PromotionBoost promotionBoost(
             DailyContext context, StoreState store, LocalDate saleDate) {
         if (store.promotionActive() == null) {
@@ -241,6 +247,7 @@ public final class SalesProcessor implements DailyProcessor {
         return false;
     }
 
+    /** 多个事件日区间命中时连乘其对本店铺类型的需求因子；end 早于 start 视为跨年。 */
     private double eventDemandFactor(DailyContext context, String storeType, LocalDate date) {
         double factor = 1.0;
         for (MarketEvent event : context.catalog().events()) {

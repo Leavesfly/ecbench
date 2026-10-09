@@ -37,6 +37,7 @@ public final class OpenAiResponsesClient extends AbstractJsonLlmClient {
         StringBuilder content = new StringBuilder();
         List<ToolCall> calls = new ArrayList<>();
         List<ReasoningItem> reasoning = new ArrayList<>();
+        // Responses API 的 output 是混合 item 列表：reasoning 原样留存供下轮回放，message 取 output_text，function_call 转工具调用。
         for (JsonNode item : raw.path("output")) {
             switch (item.path("type").asText()) {
                 case "reasoning" -> reasoning.add(new ReasoningItem("reasoning", item.deepCopy()));
@@ -61,6 +62,7 @@ public final class OpenAiResponsesClient extends AbstractJsonLlmClient {
         return new LlmResponse(text, calls, null, reasoning, raw);
     }
 
+    /** 组装 Responses API 请求体：用 input 列表扁平化消息，reasoning.effort 控制推理档位，tools 以 function 型声明。 */
     private ObjectNode requestBody(LlmRequest request) {
         ObjectNode body = mapper.createObjectNode();
         body.put("model", request.model());

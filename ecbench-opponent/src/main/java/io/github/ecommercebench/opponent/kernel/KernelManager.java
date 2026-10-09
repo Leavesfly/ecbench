@@ -38,6 +38,7 @@ public final class KernelManager {
     private final Map<String, Supplier> suppliersByName = new LinkedHashMap<>();
     private final Map<String, Product> productsById = new LinkedHashMap<>();
 
+    /** 以商品目录、供应商策略、随机流与谈判追踪器建立管理器，并按名称/ID 预建供应商与商品索引。 */
     public KernelManager(
             CatalogData catalog,
             SupplierPolicy policy,
@@ -51,6 +52,9 @@ public final class KernelManager {
         catalog.products().forEach(product -> productsById.put(product.productId(), product));
     }
 
+    /**
+     * 处理 Agent 对某供应商发来的谈判动作：先校验供应商与 SKU 的供货关系，再按动作类型分派到 接受/拒绝/还价 三条路径。
+     */
     public NegotiationOutcome processAction(
             String supplierName, NegotiationAction action, int currentDay) {
         String key = key(supplierName, action.skuId());
@@ -76,6 +80,7 @@ public final class KernelManager {
         return offer(supplier, product, offer, currentDay);
     }
 
+    /** 还价路径：登记 Agent 报价、推进回合数并请求内核应答；接受则挂起待成交协议，拒绝则记录分歧，否则回记供应商还价。 */
     private NegotiationOutcome offer(
             Supplier supplier, Product product, NegotiationAction.Offer offer, int day) {
         String key = key(supplier.supplierName(), product.productId());
@@ -106,6 +111,9 @@ public final class KernelManager {
         return outcome(product, response, round, null, false);
     }
 
+    /**
+     * Agent 主动接受路径：需带明确价格、存在进行中的谈判、且接受价与供应商上次报价逐分吻合（容差 0.005）， 校验通过后挂起以供应商上次价成交的协议。
+     */
     private NegotiationOutcome accept(
             String supplierName, Product product, NegotiationAction.Accept accept, int day) {
         String key = key(supplierName, product.productId());
@@ -147,6 +155,7 @@ public final class KernelManager {
                 true);
     }
 
+    /** Agent 主动拒绝路径：仅在谈判进行中时生效，置为 REJECTED 并记录由 Agent 终止的分歧。 */
     private NegotiationOutcome reject(String supplierName, Product product, int day) {
         String key = key(supplierName, product.productId());
         if (states.get(key) != NegotiationState.ACTIVE) {
@@ -173,6 +182,11 @@ public final class KernelManager {
                 false);
     }
 
+    /**
+     * 取得或重建某 supplier/SKU 的谈判内核。
+     *
+     * <p>当尚无状态、或上一轮已成交/被拒时，视为开启新一轮采购周期（cycle +1，用于派生独立随机流）： 据品类参数计算有效底线与初始报价，按家族/欺诈类型取 (kappa, stance)， 反解出让开盘价贴近初始报价的 d0，再据此构建内核、置为 ACTIVE 并登记追踪记录与开盘报价。
+     */
     private CounterpartKernel getOrCreateKernel(Supplier supplier, Product product, int day) {
         String key = key(supplier.supplierName(), product.productId());
         NegotiationState state = states.get(key);
@@ -187,6 +201,7 @@ public final class KernelManager {
             Money initial = new Money(product.referencePrice().multiply(params.wholesaleRatio()));
             SupplierFamily family = SupplierFamily.fromPersonality(supplier.personality());
             ParamPair supplierParams = parameters(supplier, family);
+            // 报价上限设为初始批发价的 1.5 倍；再反解开盘系数 d0，使内核首轮报价尽量贴近初始批发价。
             Money maximum = initial.multiply(new BigDecimal("1.5"));
             double d0 =
                     calibrateOpening(
@@ -222,6 +237,7 @@ public final class KernelManager {
         return kernels.get(key);
     }
 
+    /** 确认挂起的协议：记录成交结果（价格与促成方）并将状态置为 COMPLETED；无挂起协议时不动作。 */
     public void commitAgreement(String supplierName, String skuId, int day) {
         String key = key(supplierName, skuId);
         PendingAgreement pending = pendingAgreements.remove(key);
@@ -232,16 +248,19 @@ public final class KernelManager {
         }
     }
 
+    /** 回滚挂起的协议（如下单失败）：清除待成交记录并把谈判恢复为 ACTIVE。 */
     public void rollbackAgreement(String supplierName, String skuId) {
         String key = key(supplierName, skuId);
         pendingAgreements.remove(key);
         states.put(key, NegotiationState.ACTIVE);
     }
 
+    /** 返回该 supplier/SKU 最近一次的供应商报价（无记录时为 null）。 */
     public Money lastOffer(String supplierName, String skuId) {
         return lastPrices.get(key(supplierName, skuId));
     }
 
+    /** 返回该 supplier/SKU 当前的谈判状态。 */
     public NegotiationState state(String supplierName, String skuId) {
         return states.get(key(supplierName, skuId));
     }
@@ -250,6 +269,7 @@ public final class KernelManager {
         return tracker;
     }
 
+    /** 将内核动作组装为对外的谈判结果；agreedPrice 非空且 pending 为真表示已报价待成交。 */
     private NegotiationOutcome outcome(
             Product product, CounterpartAction action, int round, Money agreedPrice, boolean pending) {
         return new NegotiationOutcome(
@@ -266,6 +286,7 @@ public final class KernelManager {
                 pending);
     }
 
+    /** 选取谈判参数 (kappa, stance)：欺诈供应商按欺诈类型定档，正常供应商按家族性格映射。 */
     private ParamPair parameters(Supplier supplier, SupplierFamily family) {
         if (supplier.isFraudulent()) {
             return switch (FraudType.fromWireName(supplier.fraudType())) {
@@ -285,6 +306,9 @@ public final class KernelManager {
         };
     }
 
+    /**
+     * 反解开盘系数 d0：给定底线/上限、让步意愿 kappa 与立场，求出让首轮报价尽量贴近目标价 target 的比例， 结果限幅在 [0, 0.99]（区间过窄时兜底 0.7）。
+     */
     private double calibrateOpening(
             Money reservation, Money maximum, double kappa, String stance, Money target) {
         double phi =
@@ -304,6 +328,7 @@ public final class KernelManager {
         return Math.max(0.0, Math.min(0.99, d0));
     }
 
+    /** 用 NUL 分隔拼接供应商名与 SKU 作为复合键，避免名称含分隔符时的歧义。 */
     private static String key(String supplierName, String skuId) {
         return supplierName + "\u0000" + skuId;
     }

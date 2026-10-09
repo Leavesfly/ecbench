@@ -40,6 +40,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
     // 逐工具调用计数：按线格式工具名累加，供运营效率面板（论文 §E.4）聚合为八类活动带
     private final Map<String, Integer> toolCallCounts = new LinkedHashMap<>();
 
+    /** 按 run 目录与索引装配四类写入器（消息/余额/指标/输出），并持有引擎与惰性谈判指标供应器。 */
     public CompositeRunObserver(
             RunDirectory directory,
             int runIndex,
@@ -54,6 +55,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         this.outputLog = new OutputLogWriter(directory.outputLog(runIndex));
     }
 
+    /** episode 起始：落盘 job 的初始消息并快照第 0 天余额。 */
     @Override
     public void onRunStart(RunJob job) {
         for (ChatMessage message : job.initialMessages()) {
@@ -67,6 +69,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         messages.writeMessage(message);
     }
 
+    /** 逐条写工具结果 JSONL 并按工具名累加调用计数，记录输出日志后快照当前余额。 */
     @Override
     public void onToolResults(List<ToolExecutionResult> results) {
         for (ToolExecutionResult result : results) {
@@ -82,6 +85,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         messages.writeContextTruncation(turn, tokensFreed);
     }
 
+    /** 收尾：快照余额，取谈判指标并写入，最后连同回撤与工具计数一并写出分析产物。 */
     @Override
     public void onRunComplete(RunResult result) {
         snapshotBalance();
@@ -90,6 +94,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         metrics.writeAnalysis(result, engine, negotiation, maxDrawdown, peakTotal, toolCallCounts);
     }
 
+    /** 失败路径：记一行 [FAILURE]，并尽力写出谈判指标（此处指标异常被吞掉，以免掩盖原始异常）。 */
     @Override
     public void onFailure(Throwable error) {
         outputLog.write("[FAILURE] " + error);
@@ -100,6 +105,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         }
     }
 
+    /** 按当前日期快照余额，更新峰值与最大回撤，并写出含门店数、库存件数、仓储费的余额行。 */
     private void snapshotBalance() {
         BalanceView view = engine.checkBalance();
         double total = view.total().amount().doubleValue();
@@ -120,6 +126,7 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
                         storage));
     }
 
+    /** 依次关闭消息/余额/指标/输出四类写入器（各写入器 close 幂等）。 */
     @Override
     public void close() {
         messages.close();

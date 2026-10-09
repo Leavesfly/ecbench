@@ -32,14 +32,17 @@ public final class BenchmarkCommand implements Callable<Integer> {
 
     private final RunComponentFactory factory;
 
+    /** 供 Picocli 反射实例化的无参构造；运行组件工厂稍后由装配层注入，在此之前为 null。 */
     public BenchmarkCommand() {
         this(null);
     }
 
+    /** 注入运行组件工厂，call 时交给 RunCoordinator 执行各 run。 */
     public BenchmarkCommand(RunComponentFactory factory) {
         this.factory = factory;
     }
 
+    /** 校验 --model、合并配置，再并行执行全部 run；按结果打印并返回退出码（0 全成功、1 有失败、2 配置/装配错误）。 */
     @Override
     public Integer call() {
         if (options.model() == null || options.model().isBlank()) {

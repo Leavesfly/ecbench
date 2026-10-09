@@ -38,6 +38,7 @@ public final class EscrowBatch {
         return storeId;
     }
 
+    /** 从本托管批次至多扣除 requested（退款冲抵），不足那么扣多少并返回实际扣除额；仅供 Accounts.refund 使用。 */
     Money deductUpTo(Money requested) {
         Money deduction = amount.compareTo(requested) <= 0 ? amount : requested;
         amount = amount.subtract(deduction);

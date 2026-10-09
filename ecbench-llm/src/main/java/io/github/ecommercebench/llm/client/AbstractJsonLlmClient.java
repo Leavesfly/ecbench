@@ -36,6 +36,11 @@ abstract class AbstractJsonLlmClient implements LlmClient {
         this.retryPolicy = retryPolicy;
     }
 
+    /**
+     * 向 Provider 发送一次带重试的 JSON POST，并按协议选择鉴权头。
+     *
+     * <p>anthropic 用 x-api-key + anthropic-version，其余用 Authorization: Bearer；HTTP 4xx（除 408/409/429）视为不可重试， 5xx 与网络异常标为可重试交由 RetryExecutor。
+     */
     protected JsonNode post(String path, ObjectNode body, boolean anthropic) {
         return retryExecutor.execute(
                 () -> {
@@ -58,6 +63,7 @@ abstract class AbstractJsonLlmClient implements LlmClient {
                         return response;
                     } catch (RestClientResponseException exception) {
                         int status = exception.getStatusCode().value();
+                        // 408 超时/409 冲突/429 限流/5xx 服务端错误可重试；其余 4xx 为请求本身非法，不重试。
                         boolean retryable = status == 408 || status == 409 || status == 429 || status >= 500;
                         throw new ProviderException(
                                 provider.name(), status, retryable, "Provider HTTP 错误: " + status);
@@ -68,6 +74,7 @@ abstract class AbstractJsonLlmClient implements LlmClient {
                 retryPolicy);
     }
 
+    /** 把工具调用参数归一为对象：已是对象直接返回；是字符串则尝试解析，解析失败则包装为 {_raw: 文本}。 */
     protected JsonNode parseArguments(JsonNode value) {
         if (value == null || value.isNull()) {
             return mapper.createObjectNode();
@@ -82,6 +89,7 @@ abstract class AbstractJsonLlmClient implements LlmClient {
         }
     }
 
+    /** 将模型配置中的 extraBody 透传参数合并进请求体（同名键会覆盖）。 */
     protected void mergeExtraBody(ObjectNode body) {
         provider.extraBody().forEach((key, value) -> body.set(key, mapper.valueToTree(value)));
     }

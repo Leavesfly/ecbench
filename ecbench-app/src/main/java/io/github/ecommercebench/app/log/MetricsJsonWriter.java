@@ -37,12 +37,14 @@ public final class MetricsJsonWriter implements AutoCloseable {
     private final int runIndex;
     private final ObjectMapper mapper;
 
+    /** 绑定 run 目录、run 索引与 JSON mapper，用于按索引命名写出指标文件。 */
     public MetricsJsonWriter(RunDirectory directory, int runIndex, ObjectMapper mapper) {
         this.directory = directory;
         this.runIndex = runIndex;
         this.mapper = mapper;
     }
 
+    /** 写出 TERMS 聚合指标 JSON；样本不足（值为 null）的指标以 JSON null 落盘。 */
     public void writeNegotiationMetrics(NegotiationMetrics metrics) {
         ObjectNode root = mapper.createObjectNode();
         root.put("total_negotiations", metrics.completedNegotiations());
@@ -59,6 +61,9 @@ public final class MetricsJsonWriter implements AutoCloseable {
         write(directory.negotiationMetricsJson(runIndex), root);
     }
 
+    /**
+     * 写出 run 分析面板 JSON：reward/profitability/negotiation_quality/fulfilment_quality/return_management 及欺诈识别/供应商触达/运营效率各段，未在仿真层跟踪的指标置 JSON null。
+     */
     public void writeAnalysis(
             RunResult result,
             SimulationEngine engine,
@@ -234,6 +239,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         return panel;
     }
 
+    /** 把一组供应商名按 good/bad 分桶计数，并进一步按人格/欺诈类型细分。 */
     private ObjectNode engagementBucket(Collection<String> names, Map<String, Supplier> byName) {
         int good = 0;
         int bad = 0;
@@ -315,6 +321,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         return panel;
     }
 
+    /** 写入浮点字段：值为 null 时写 JSON null（而非省略字段），保持结构稳定。 */
     private void putDouble(ObjectNode node, String field, Double value) {
         if (value == null) {
             node.putNull(field);
@@ -323,6 +330,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         }
     }
 
+    /** 输出发货速度计数，预置 fast/standard/slow 三键（缺省 0）再按实际覆盖。 */
     private ObjectNode shipSpeedCounts(FulfilmentStats fulfilment) {
         ObjectNode node = mapper.createObjectNode();
         node.put("fast", 0);
@@ -340,6 +348,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         return Math.round(value * 10000.0) / 10000.0;
     }
 
+    /** 复开店次数 = 各店型“开启次数−1”之和（首开不计，重复开同一店型计为重开）。 */
     private static int storeReopens(SimulationEngine engine) {
         int reopens = 0;
         for (int count : engine.state().storeTypeOpenCounts().values()) {
@@ -348,6 +357,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         return reopens;
     }
 
+    /** 以 indent=2 美化 JSON 写盘（非 ASCII 原样），失败包装为 UncheckedIOException。 */
     private void write(Path file, ObjectNode root) {
         try {
             Files.writeString(file, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root));
@@ -356,6 +366,7 @@ public final class MetricsJsonWriter implements AutoCloseable {
         }
     }
 
+    /** 无长持资源需释放（指标文件均为一次性写出），仅满足 AutoCloseable 契约。 */
     @Override
     public void close() {
         // 指标文件按需一次性写出，无长持流需关闭。

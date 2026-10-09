@@ -95,6 +95,7 @@ public final class SimulationEngine {
         this.state = SimulationState.initial(config.initialBalance(), START_DATE);
         this.productsById = new LinkedHashMap<>();
         catalog.products().forEach(product -> productsById.put(product.productId(), product));
+        // 日级流水线的固定执行顺序：先扣成本与仓储费，再算销售，随后处理逾期/退货/结算/到货/声誉，最后判破产。
         this.dailyProcessors =
                 List.of(
                         new OperationCostProcessor(),
@@ -108,6 +109,9 @@ public final class SimulationEngine {
                         new BankruptcyProcessor());
     }
 
+    /**
+     * 开设一间新店：校验未超店铺上限、类型合法、同类型未重复开店且银行余额足以支付开店费后， 扣除开店费并登记新店；任一条件不满足则返回带原因的失败结果且不扣款。
+     */
     public OpenStoreResult openStore(String storeType, String storeName) {
         if (state.openStoreCount() >= state.maxStores()) {
             return OpenStoreResult.failure(
@@ -155,6 +159,9 @@ public final class SimulationEngine {
                 null);
     }
 
+    /**
+     * 关闭指定店铺。liquidate 为真时按残值回收率变现剩余库存并贷记银行；为假时仅释放仓库占用。 店铺不存在或已关闭时返回失败结果。
+     */
     public CloseStoreResult closeStore(String storeId, boolean liquidate) {
         StoreState store = state.store(storeId);
         if (store == null || !store.isOpen()) {
@@ -197,6 +204,7 @@ public final class SimulationEngine {
                 null);
     }
 
+    /** 按店铺类型与类目（均可空）过滤商品目录，返回可供选品的只读视图。 */
     public List<ProductView> listProducts(String storeType, String category) {
         Predicate<Product> filter = product -> true;
         if (storeType != null && !storeType.isBlank()) {
@@ -221,6 +229,9 @@ public final class SimulationEngine {
                 .toList();
     }
 
+    /**
+     * 将仓库现货上架到店铺：逐项校验数量为正、零售价合法、类目被店铺允许且仓库现货充足， 通过则占用仓库并在店铺发布；每项独立返回成功或失败原因。
+     */
     public PublishResult publishToStore(String storeId, List<PublishItem> plan) {
         StoreState store = requireOpenStore(storeId);
         StoreTypeConfig type = catalog.storeTypes().get(store.storeType());
@@ -251,6 +262,7 @@ public final class SimulationEngine {
         return new PublishResult(storeId, results);
     }
 
+    /** 批量修改已上架商品的零售价；非正价格或未在店铺发布的商品逐项返回失败，成功项记录新旧价。 */
     public SetPricesResult setPrices(String storeId, List<PriceItem> prices) {
         StoreState store = requireOpenStore(storeId);
         List<ItemOperationResult> results = new ArrayList<>();
@@ -268,6 +280,7 @@ public final class SimulationEngine {
         return new SetPricesResult(storeId, results);
     }
 
+    /** 将店铺内滞销库存退回仓库：校验店铺现货充足后扣减店铺库存并释放对应的仓库占用。 */
     public ReturnResult returnToWarehouse(String storeId, List<QtyItem> items) {
         StoreState store = requireOpenStore(storeId);
         List<ItemOperationResult> results = new ArrayList<>();
@@ -286,11 +299,15 @@ public final class SimulationEngine {
         return new ReturnResult(storeId, results);
     }
 
+    /** 不区分供应商的采购到货入口， supplierId 退化为 "unknown"。 */
     public void receivePurchaseOrder(
             String productId, int quantity, Money unitPrice, boolean defective, int deliveryDelayDays) {
         receivePurchaseOrder("unknown", productId, quantity, unitPrice, defective, deliveryDelayDays);
     }
 
+    /**
+     * 录入一笔采购到货。deliveryDelayDays 为 0 时直接入仓并记录交付；大于 0 时挂为待到货批次， 由日级 DeliveryProcessor 在到达日入仓。defective 标记劣质批次（影响退货率）。
+     */
     public void receivePurchaseOrder(
             String supplierId,
             String productId,
@@ -324,6 +341,7 @@ public final class SimulationEngine {
                                 defective));
     }
 
+    /** 盘点仓库：按 SKU 汇总已分配量与物理现货量，并回填商品标题、类目、尺寸与最新单价。 */
     public List<WarehouseRow> checkWarehouse() {
         Map<String, WarehouseRow> rows = new LinkedHashMap<>();
         for (WarehouseLot lot : state.warehouse().allLots()) {
@@ -342,6 +360,8 @@ public final class SimulationEngine {
         return List.copyOf(rows.values());
     }
 
+    /**
+     * 查看账户全貌：银行/钱包/待结算余额、未发货预期收入、总资产，以及按结算日聚合的托管入账时间表。 */
     public BalanceView checkBalance() {
         Map<LocalDate, Money> upcoming = new LinkedHashMap<>();
         state.accounts().escrowBatches().stream()
@@ -364,6 +384,7 @@ public final class SimulationEngine {
                 state.currentDate());
     }
 
+    /** 从银行提现到钱包；余额不足等非法请求会被 accounts().withdraw 抛出的异常转为失败结果。 */
     public WithdrawResult withdraw(Money requested) {
         try {
             Money withdrawn = state.accounts().withdraw(requested);
@@ -375,6 +396,7 @@ public final class SimulationEngine {
         }
     }
 
+    /** 返回指定店铺的实时状态快照（商品、价格、累计营收/运费/退款）；店铺不存在或已关闭时抛业务异常。 */
     public StoreStatus storeStatus(String storeId) {
         StoreState store = requireOpenStore(storeId);
         return new StoreStatus(
@@ -386,6 +408,7 @@ public final class SimulationEngine {
                 store.totalRefunds());
     }
 
+    /** 列出当前所有店铺（含已关闭）的概要信息。 */
     public List<StoreSummary> listStores() {
         return state.stores().values().stream().map(this::summary).toList();
     }
@@ -409,6 +432,9 @@ public final class SimulationEngine {
         return store;
     }
 
+    /**
+     * 参与促销活动：折扣率需落在 [0.05, 0.50]，活动必须处于进行中或 30 天内即将开始； 通过后在店铺上激活折扣并返回该活动的最大需求乘子。
+     */
     public PromotionJoinResult joinPromotion(
             String storeId, String eventName, BigDecimal discountRate) {
         StoreState store;
@@ -440,6 +466,8 @@ public final class SimulationEngine {
                 true, storeId, eventName, discountRate, active, promotion.maxDemandMultiplier(), null);
     }
 
+    /**
+     * 检索供应商：按类目、店铺类型允许类目、商品名关键字（通配到其类目）三重过滤，命中集经确定性洗乱后返回。 */
     public List<SupplierView> supplierSearch(String productName, String category, String storeType) {
         Set<String> productCategories =
                 productName == null || productName.isBlank()
@@ -479,6 +507,7 @@ public final class SimulationEngine {
                         .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         var random =
                 randomStreams.stream("supplier-search:" + productName + ":" + category + ":" + storeType);
+        // 使用确定性随机流做 Fisher-Yates 洗乱，同一查询条件返回固定顺序但不同查询间充分打乱。
         for (int index = result.size() - 1; index > 0; index--) {
             int target = random.nextInt(index + 1);
             java.util.Collections.swap(result, index, target);
@@ -486,6 +515,9 @@ public final class SimulationEngine {
         return List.copyOf(result);
     }
 
+    /**
+     * 退货溯源：按 SKU 统计各供应商到货占比，并将实测退货率与自然基准对比， 明显偏高时给出提醒文案，用于定位问题供应商。productId 为空时遍历全部有采购历史的 SKU。
+     */
     public ReturnTrace traceReturnSources(String productId) {
         Set<String> productIds =
                 productId == null || productId.isBlank()
@@ -702,6 +734,9 @@ public final class SimulationEngine {
                 null);
     }
 
+    /**
+     * 推进到新的一天：先校验传入日期与当前状态一致且未终止，然后依次执行日级流水线各处理器， 追加市场事件通知，并在达到 maxDays 时终止整个 episode。
+     */
     public DailyResult advanceToNextDay(LocalDate currentDay) {
         if (!state.currentDate().equals(currentDay)) {
             throw new BusinessRuleException(

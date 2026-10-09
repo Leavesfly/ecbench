@@ -17,6 +17,7 @@ public final class StorageFeeProcessor implements DailyProcessor {
                         .warehouse()
                         .calculateStorageFee(
                                 context.day(),
+                                // 逐批次回调：单件日仓储费 = 尺寸基础费 × 库龄乘子（越久越贵）。
                                 (lot, ageDays) -> {
                                     Product product = context.products().get(lot.sku());
                                     String size = product == null ? "Small" : product.size();

@@ -14,6 +14,7 @@ import java.time.LocalDate;
  */
 public final class EventScheduler {
 
+    /** 追加以当日命中的市场事件新闻，以及处于活跃或 7 天内即将开始的促销公告。 */
     public void appendNotifications(CatalogData catalog, LocalDate day, DailyResult result) {
         for (MarketEvent event : catalog.events()) {
             LocalDate start = event.startDate().atYear(day.getYear());
@@ -36,6 +37,7 @@ public final class EventScheduler {
         }
     }
 
+    /** 判断促销是否正在进行或者开始日落在未来 7 天窗口内（end 早于 start 视为跨年）。 */
     private boolean isActiveOrUpcoming(PromotionConfig promotion, LocalDate day) {
         LocalDate horizon = day.plusDays(7);
         for (PromotionPeriod period : promotion.periods()) {

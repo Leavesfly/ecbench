@@ -10,6 +10,7 @@ import io.github.ecommercebench.domain.config.ContextConfig;
  */
 public final class Prompts {
 
+    /** 纯静态提示词模板持有者，禁止实例化。 */
     private Prompts() {
     }
 

@@ -23,6 +23,7 @@ public final class NegotiationTracker {
         this.randomStreams = randomStreams;
     }
 
+    /** 取回进行中的谈判记录，不存在则以给定基准价/底线/初始报价新建。 */
     public NegotiationRecord getOrCreate(
             String supplierName,
             String skuId,
@@ -46,6 +47,7 @@ public final class NegotiationTracker {
                                 dayStarted));
     }
 
+    /** 向进行中的谈判追加一条 Agent 报价（谈判不存在则忽略）。 */
     public void recordAgentOffer(String supplier, String sku, Money price) {
         NegotiationRecord record = active.get(key(supplier, sku));
         if (record != null) {
@@ -53,6 +55,7 @@ public final class NegotiationTracker {
         }
     }
 
+    /** 向进行中的谈判追加一条供应商报价（谈判不存在则忽略）。 */
     public void recordSupplierOffer(String supplier, String sku, Money price) {
         NegotiationRecord record = active.get(key(supplier, sku));
         if (record != null) {
@@ -60,6 +63,7 @@ public final class NegotiationTracker {
         }
     }
 
+    /** 结束一场谈判：从 active 移除、写入结局与终止方，并转入 completed 列表供聚合。 */
     public void recordOutcome(
             String supplier, String sku, String outcome, Money price, String terminatedBy, int day) {
         NegotiationRecord record = active.remove(key(supplier, sku));
@@ -73,6 +77,11 @@ public final class NegotiationTracker {
         return List.copyOf(completed);
     }
 
+    /**
+     * 汇总全部已完成谈判，产出 TERMS Bench 指标。
+     *
+     * <p>good/bad 按 supplierType 分组：agr/fagr 为各自成交率，se/cse 为全体与已成交好供应商的 平均剩余效率，violationRate 为含关键违规的谈判占比， 另给出平均回合数、总节省额及学习与锚定指标。
+     */
     public NegotiationMetrics aggregate() {
         List<NegotiationRecord> good =
                 completed.stream().filter(r -> "good".equals(r.supplierType())).toList();
@@ -113,6 +122,7 @@ public final class NegotiationTracker {
                 anchoringMetrics(good));
     }
 
+    /** 学习曲线：把有好供应商成交记录按时间对半切，比较后半与前半的平均剩余效率提升（样本<4 时为空）。 */
     private Map<String, Object> learningMetrics(List<NegotiationRecord> good) {
         List<NegotiationRecord> timed = good.stream().filter(r -> r.dayConcluded() != null).toList();
         if (timed.size() < 4) {
@@ -157,10 +167,12 @@ public final class NegotiationTracker {
                 : Map.of("anchor_regret", round4(average(regrets)), "events", regrets.size());
     }
 
+    /** 判定一场谈判是否为“达成一致的成交”（结局为 Agreement 且有成交价）。 */
     private boolean isAgreement(NegotiationRecord record) {
         return "Agreement".equals(record.outcome()) && record.finalPrice() != null;
     }
 
+    /** 剩余效率：以(参考价−成本底线)为跨度，成交价相对参考价省下的比例；未成交或跨度非正记 0。 */
     private double surplusEfficiency(NegotiationRecord record) {
         if (!isAgreement(record)) {
             return 0.0;
@@ -173,6 +185,7 @@ public final class NegotiationTracker {
                 / span;
     }
 
+    /** 归一化成交价：把最终价映射到 [成本底线, 参考价] 区间的相对位置（限幅 0~1）。 */
     private double normalizedPrice(NegotiationRecord record) {
         double floor = record.costFloor().amount().doubleValue();
         double span = record.referencePrice().amount().doubleValue() - floor;

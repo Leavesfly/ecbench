@@ -22,6 +22,7 @@ public final class OperationCostProcessor implements DailyProcessor {
             state.accounts().chargeBank(total);
         }
         result.setOpsCostCharged(total);
+        // 第 7 天后若一家店都没开，视为空占账户，每天额外罚 1000 并推送通知。
         if (state.openStoreCount() == 0 && state.dayCount() > 7) {
             state.accounts().chargeBank(EconomicRules.IDLE_DAILY_PENALTY);
             result.setIdlePenaltyCharged(EconomicRules.IDLE_DAILY_PENALTY);

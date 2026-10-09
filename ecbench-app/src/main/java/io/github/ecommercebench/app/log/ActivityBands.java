@@ -40,6 +40,7 @@ public final class ActivityBands {
                     Map.entry("check_warehouse", "state_polling"),
                     Map.entry("operate_memory", "memory"));
 
+    /** 纯静态工具→带映射类，禁止实例化。 */
     private ActivityBands() {
     }
 

@@ -34,6 +34,7 @@ public class OpenAiChatClient extends AbstractJsonLlmClient {
 
     @Override
     public LlmResponse generate(LlmRequest request) {
+        // 取 choices[0].message：正文 content + tool_calls，并顺带提取 reasoning_content 与思考签名。
         JsonNode raw = post("/chat/completions", requestBody(request), false);
         JsonNode message = raw.path("choices").path(0).path("message");
         List<ToolCall> toolCalls = new ArrayList<>();
@@ -54,6 +55,7 @@ public class OpenAiChatClient extends AbstractJsonLlmClient {
                 raw);
     }
 
+    /** 组装 Chat Completions 请求体：模型/上限/推理档位、扁化后的消息、工具定义及 extraBody。 */
     private ObjectNode requestBody(LlmRequest request) {
         ObjectNode body = mapper.createObjectNode();
         body.put("model", request.model());
@@ -72,6 +74,7 @@ public class OpenAiChatClient extends AbstractJsonLlmClient {
         return body;
     }
 
+    /** 将单条内部消息映射为 provider 的 message 对象（含 tool_calls 与 tool_call_id）。 */
     private ObjectNode messageNode(ChatMessage message) {
         ObjectNode node = mapper.createObjectNode();
         node.put("role", message.role().wireName());

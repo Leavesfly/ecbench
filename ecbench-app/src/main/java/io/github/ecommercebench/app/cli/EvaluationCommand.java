@@ -43,11 +43,13 @@ import picocli.CommandLine.Parameters;
         })
 public final class EvaluationCommand implements Runnable {
 
+    /** 未提供子命令时打印用法说明。 */
     @Override
     public void run() {
         new picocli.CommandLine(this).usage(System.out);
     }
 
+    /** 子命令：读取一个或多个余额 CSV，经 BalancePlotter 绘制 total_balance 曲线 PNG（可选叠加为一张图）。 */
     @Command(name = "plot", description = "绘制余额曲线 PNG（total_balance 权威列）")
     static final class Plot implements Callable<Integer> {
 
@@ -76,6 +78,7 @@ public final class EvaluationCommand implements Runnable {
         }
     }
 
+    /** 子命令：从 messages.jsonl 按供应商切分会话，逐个写入以供应商命名的 .jsonl 文件。 */
     @Command(name = "extract-chatbox", description = "按供应商提取 chatbox 会话")
     static final class ExtractChatbox implements Callable<Integer> {
 
@@ -104,6 +107,7 @@ public final class EvaluationCommand implements Runnable {
         }
     }
 
+    /** 子命令：跨多个会话目录比较 analysis 指标，渲染为按指标逐行、按会话逐列的对照表。 */
     @Command(name = "compare", description = "跨会话比较 analysis 指标")
     static final class Compare implements Callable<Integer> {
 
@@ -122,6 +126,7 @@ public final class EvaluationCommand implements Runnable {
             }
         }
 
+        /** 以“指标 × 会话”矩阵打印对照表，单元格为均值±标准差或缺省占位。 */
         private void render(ComparisonReport report) {
             List<SessionComparison> comparisons = report.sessions();
             if (comparisons.isEmpty()) {
@@ -146,6 +151,7 @@ public final class EvaluationCommand implements Runnable {
             return session.metrics().stream().map(MetricStat::label).toList();
         }
 
+        /** 格式化单个指标统计：有标准差则“均值 ± 标准差”，否则仅均值，缺失回退占位符。 */
         private static String format(MetricStat stat) {
             if (stat == null || stat.mean() == null) {
                 return stat == null ? "-" : stat.fallback();
@@ -156,6 +162,7 @@ public final class EvaluationCommand implements Runnable {
         }
     }
 
+    /** 子命令：把各模型会话归一化为七轴画像，输出雷达图 PNG、文本排名表，并可选导出排名 JSON/CSV。 */
     @Command(name = "profile", description = "跨模型七轴归一化雷达图 + 排名表")
     static final class Profile implements Callable<Integer> {
 
@@ -191,6 +198,7 @@ public final class EvaluationCommand implements Runnable {
             }
         }
 
+        /** 按目标扩展名选择 JSON 或 CSV 序列化排名表，写盘前确保父目录存在。 */
         private static void writeRanking(RankingTable table, NormalizedProfile profile, Path path)
                 throws IOException {
             Path parent = path.toAbsolutePath().getParent();

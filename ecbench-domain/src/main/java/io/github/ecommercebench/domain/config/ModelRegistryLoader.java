@@ -23,6 +23,11 @@ public final class ModelRegistryLoader {
     this.objectMapper = objectMapper;
   }
 
+  /**
+   * 从 models_config.json 构建 {@link ModelRegistry}。
+   *
+   * <p>先逐条解析 models 下各主模型，再单独解析 npc_tools；配置级的 {@code ConfigurationException} 直接透传， 其余 IO/解析异常统一包装为带文件名的配置错误。
+   */
   public ModelRegistry load(Path file) {
     if (!Files.isRegularFile(file)) {
       throw new ConfigurationException("模型配置文件不存在: " + file);
@@ -44,6 +49,7 @@ public final class ModelRegistryLoader {
     }
   }
 
+  /** 解析单个主模型条目（真实模型名取 model_name）。 */
   private ModelConfig parse(String key, JsonNode node) {
     String provider = requiredText(node, "provider", key);
     String modelName = requiredText(node, "model_name", key);
@@ -59,6 +65,7 @@ public final class ModelRegistryLoader {
         map(node.get("extra_body")));
   }
 
+  /** 解析 NPC 模型：与主模型不同，其真实模型名取自 model 而非 model_name，键固定为 npc_tools。 */
   private ModelConfig parseNpc(JsonNode node) {
     return new ModelConfig(
         "npc_tools",
@@ -80,6 +87,7 @@ public final class ModelRegistryLoader {
     return node;
   }
 
+  /** 读取必需的非空文本字段，缺失或空白即抛配置异常（owner 用于定位是哪个模型）。 */
   private String requiredText(JsonNode node, String field, String owner) {
     String value = text(node, field);
     if (value == null || value.isBlank()) {

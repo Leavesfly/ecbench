@@ -21,6 +21,7 @@ public final class WarehouseInventory {
     private final Map<String, Deque<WarehouseLot>> lotsBySku = new LinkedHashMap<>();
     private final Map<String, Integer> availableBySku = new LinkedHashMap<>();
 
+    /** 新增一个入库批次（追加到队尾保证 FIFO），同时按数量增加该 SKU 的可用库存。 */
     public void addLot(WarehouseLot lot) {
         Objects.requireNonNull(lot, "lot 不能为空");
         lotsBySku.computeIfAbsent(lot.sku(), ignored -> new ArrayDeque<>()).addLast(lot);
@@ -43,6 +44,7 @@ public final class WarehouseInventory {
                 .sum();
     }
 
+    /** 上架时占用：仅从可用库存中扣除，不动物理批次（因为商品仍在仓库，只是被店铺预占）。 */
     public void allocate(String sku, int quantity) {
         int available = quantityOf(sku);
         if (quantity <= 0 || quantity > available) {
@@ -51,6 +53,7 @@ public final class WarehouseInventory {
         availableBySku.put(sku, available - quantity);
     }
 
+    /** 释放占用（退回仓库或滞销下架）：把数量重新计入可用，但不得超过物理存量。 */
     public void releaseAllocation(String sku, int quantity) {
         if (quantity <= 0 || quantityOf(sku) + quantity > physicalQuantityOf(sku)) {
             throw new IllegalArgumentException("释放的分配库存无效: " + sku);
@@ -76,6 +79,11 @@ public final class WarehouseInventory {
         return consumePhysical(sku, requested, true);
     }
 
+    /**
+     * 从最早入库批次开始扣减物理库存；reduceAvailable 为真时同时扣可用量。
+     *
+     * <p>返回实际消耗件数、其中缺陷件数与按批次加权的采购成本，供下游记账与退货率修正使用。
+     */
     private WarehouseConsumption consumePhysical(String sku, int requested, boolean reduceAvailable) {
         if (requested <= 0) {
             throw new IllegalArgumentException("requested 必须为正数");
@@ -88,6 +96,7 @@ public final class WarehouseInventory {
         int consumed = 0;
         int defective = 0;
         Money cost = Money.ZERO;
+        // FIFO：从队首最早批次开始取，不足则跨批次连续扣，遇缺陷批次累加缺陷数。
         while (remaining > 0 && !lots.isEmpty()) {
             WarehouseLot lot = lots.peekFirst();
             int taken = lot.consume(remaining);
@@ -111,6 +120,7 @@ public final class WarehouseInventory {
         return new WarehouseConsumption(consumed, defective, cost);
     }
 
+    /** 逐批次按库龄（today - inboundDate）累加仓储费，不限制未分配/已分配。 */
     public Money calculateStorageFee(LocalDate today, StorageFeeRule rule) {
         Money total = Money.ZERO;
         for (Deque<WarehouseLot> lots : lotsBySku.values()) {

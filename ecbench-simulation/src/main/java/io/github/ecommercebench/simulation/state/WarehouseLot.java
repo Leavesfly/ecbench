@@ -48,6 +48,9 @@ public final class WarehouseLot {
         return defective;
     }
 
+    /**
+     * 从本批次消耗至多 requested 件（不超过剩余量），扣减 quantity 并返回实际取走数；取空的批次由外层 FIFO 循环移除。仅供仓内消费使用。
+     */
     int consume(int requested) {
         int taken = Math.min(requested, quantity);
         quantity -= taken;

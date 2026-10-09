@@ -16,6 +16,7 @@ public final class DeliveryProcessor implements DailyProcessor {
         Iterator<PendingDelivery> iterator = state.pendingDeliveries().iterator();
         while (iterator.hasNext()) {
             PendingDelivery delivery = iterator.next();
+            // 到达日不晚于今天则入仓（作为新 FIFO 批次并记录劣质标记），否则留在待到货队列。
             if (!delivery.arrivalDate().isAfter(context.day())) {
                 state
                         .warehouse()

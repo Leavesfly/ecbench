@@ -33,6 +33,11 @@ public final class ProviderResolver {
         this.environment = Map.copyOf(environment);
     }
 
+    /**
+     * 将用户模型的 ModelConfig 解析为可直接请求的 ResolvedProvider。
+     *
+     * <p>依次推断 provider、根据预设补全 baseUrl 与 apiStyle、解析 API Key（apiKeyExpression 为空时取预设环境变量，否则按 ${VAR} 展开）；缺失关键项时抛 ConfigurationException。
+     */
     public ResolvedProvider resolve(ModelConfig config) {
         String providerName = inferProvider(config);
         Preset preset = PRESETS.get(providerName);
@@ -57,6 +62,7 @@ public final class ProviderResolver {
         return new ResolvedProvider(providerName, apiStyle, baseUrl, apiKey, config.extraBody());
     }
 
+    /** 优先用显式 provider；否则从 baseUrl 域名推断，再不行根据模型名前缀兼容判断，最后回退 openai-compatible。 */
     private String inferProvider(ModelConfig config) {
         if (config.provider() != null && !config.provider().isBlank()) {
             return config.provider().trim().toLowerCase(java.util.Locale.ROOT);
@@ -75,6 +81,7 @@ public final class ProviderResolver {
         return "openai-compatible";
     }
 
+    /** 展开 ${ENV_VAR} 引用为环境中的真实值；非引用格式原样返回，变量缺失则报错。 */
     private String expand(String value) {
         if (value == null) {
             return null;

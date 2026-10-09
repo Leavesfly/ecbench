@@ -84,11 +84,15 @@ public final class RunComponentFactory {
     private RunDirectory runDirectory;
     private List<RunJob> fileJobs;
 
+    /** 注入共享 JSON mapper 与 LLM 客户端提供者；各只读单例在首次使用时惰性构建。 */
     public RunComponentFactory(ObjectMapper objectMapper, LlmClientProvider llmClientProvider) {
         this.objectMapper = objectMapper;
         this.llmClientProvider = llmClientProvider;
     }
 
+    /**
+     * 为给定 index 装配一套完全隔离的 run 组件：共享只读单例，按 seed+index 派生随机流并新建引擎/谈判/LLM/工具/观察者/Agent，返回可关闭的 {@link RunComponents}。
+     */
     public RunComponents create(int index, BenchmarkOptions options) {
         CatalogData catalog = sharedCatalog(options);
         MarketGuidance guidance = sharedGuidance(options);
@@ -151,6 +155,7 @@ public final class RunComponentFactory {
         return new RunComponents(engine, agent, observer, resolveJob(options));
     }
 
+    /** 构建暴露给模型的 18 个电商工具实例（其中 chatbox/memory/market_search 需注入协作方）。 */
     private List<EcommerceTool> buildTools(
             MarketGuidance guidance, MemoryStore memoryStore, ChatboxCoordinator coordinator) {
         return List.of(
@@ -174,6 +179,7 @@ public final class RunComponentFactory {
                 new WithdrawTool());
     }
 
+    /** 若配置了 job 文件则取其中的首个 RunJob（跨 run 复用同一份），否则返回 null 令 Agent 使用 defaultJob。 */
     private RunJob resolveJob(BenchmarkOptions options) {
         Path jobFile = options.runConfig().jobFile();
         if (jobFile == null) {
@@ -183,6 +189,7 @@ public final class RunComponentFactory {
         return jobs.isEmpty() ? null : jobs.get(0);
     }
 
+    /** 惰性加载并跨 run 共享商品目录（加锁保证只构建一次）。 */
     private synchronized CatalogData sharedCatalog(BenchmarkOptions options) {
         if (catalog == null) {
             catalog = new CsvCatalogLoader().load(options.runConfig().dataDir());
@@ -190,6 +197,7 @@ public final class RunComponentFactory {
         return catalog;
     }
 
+    /** 惰性加载并共享店铺玩法手册（store_playbook.json）。 */
     private synchronized MarketGuidance sharedGuidance(BenchmarkOptions options) {
         if (guidance == null) {
             guidance =
@@ -199,6 +207,7 @@ public final class RunComponentFactory {
         return guidance;
     }
 
+    /** 惰性加载并共享 models 配置注册表。 */
     private synchronized ModelRegistry sharedRegistry(BenchmarkOptions options) {
         if (modelRegistry == null) {
             modelRegistry = new ModelRegistryLoader(objectMapper).load(options.modelsConfigPath());
@@ -206,6 +215,7 @@ public final class RunComponentFactory {
         return modelRegistry;
     }
 
+    /** 惰性加载并共享 HuggingFace token 计数器。 */
     private synchronized TokenCounter sharedTokenCounter(BenchmarkOptions options) {
         if (tokenCounter == null) {
             tokenCounter = HuggingFaceTokenCounter.load(resolveTokenizerJson(options));
@@ -213,6 +223,7 @@ public final class RunComponentFactory {
         return tokenCounter;
     }
 
+    /** 惰性创建并共享本次运行的产物目录（缺省落在 ./log，含时间戳与模型名）。 */
     private synchronized RunDirectory sharedRunDirectory(BenchmarkOptions options) {
         if (runDirectory == null) {
             Path logDir =
@@ -226,6 +237,7 @@ public final class RunComponentFactory {
         return runDirectory;
     }
 
+    /** 惰性加载并共享 job 文件解析出的 RunJob 列表。 */
     private synchronized List<RunJob> sharedFileJobs(BenchmarkOptions options, Path jobFile) {
         if (fileJobs == null) {
             fileJobs = new JobFileLoader(objectMapper, options.runConfig()).load(jobFile);
@@ -233,6 +245,7 @@ public final class RunComponentFactory {
         return fileJobs;
     }
 
+    /** 解析 tokenizer 路径：指向 .json 直接用，否则视为目录并追加 tokenizer.json；未配置则报错。 */
     private static Path resolveTokenizerJson(BenchmarkOptions options) {
         Path tokenizerPath = options.runConfig().tokenizerPath();
         if (tokenizerPath == null) {
@@ -242,6 +255,7 @@ public final class RunComponentFactory {
         return fileName.endsWith(".json") ? tokenizerPath : tokenizerPath.resolve("tokenizer.json");
     }
 
+    /** 若 CLI 指定了非空且不同的 effort，则以拷贝方式覆盖模型配置的 effort 字段，否则原样返回。 */
     private static ModelConfig withEffort(ModelConfig config, String effort) {
         if (effort == null || effort.isBlank() || effort.equals(config.effort())) {
             return config;

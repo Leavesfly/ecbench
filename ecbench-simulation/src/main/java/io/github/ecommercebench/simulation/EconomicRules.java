@@ -9,16 +9,26 @@ import java.util.Map;
 
 /**
  * 从 store_type_config.py 迁移的仿真常量。
+ *
+ * <p>集中存放结算/发货/破产窗口、佣金、市场容量等标尺，并提供带默认值的查表方法， 保证同一组经济参数被各日级处理器一致引用。
  */
 public final class EconomicRules {
 
+    /** 销售完成后托管资金的结算窗口天数（发货后若干天才回扰银行）。 */
     public static final int SETTLEMENT_WINDOW_DAYS = 9;
+    /** 待发货订单的发货截止时间（超期未发会被逾期处理器取消）。 */
     public static final int SHIP_DEADLINE_DAYS = 2;
+    /** 银行余额连续为负达到该天数则判定破产。 */
     public static final int BANKRUPTCY_DAYS = 10;
+    /** 平台销售佣金率。 */
     public static final BigDecimal SALES_COMMISSION_RATE = new BigDecimal("0.02");
+    /** 单店相对全市场的需求缩放系数。 */
     public static final BigDecimal PER_STORE_SCALE = new BigDecimal("0.10");
+    /** 单一类目可占用的市场容量上限比例。 */
     public static final BigDecimal CATEGORY_CAP_FRACTION = new BigDecimal("0.35");
+    /** 闭店清算时按采购成本回收的残值率。 */
     public static final BigDecimal LIQUIDATION_SALVAGE_RATE = new BigDecimal("0.10");
+    /** 店铺未开业时的每日闲置惩罚。 */
     public static final Money IDLE_DAILY_PENALTY = Money.of("1000");
 
     private static final Map<Integer, Money> OPS_COST =
@@ -79,26 +89,32 @@ public final class EconomicRules {
     private EconomicRules() {
     }
 
+    /** 按店铺层级返回每日运营固定成本，未知层级回退为 80。 */
     public static Money operationsCost(int tier) {
         return OPS_COST.getOrDefault(tier, Money.of("80"));
     }
 
+    /** 按商品尺寸返回单件的运费与每日仓储费，未知尺寸回退为 Medium 基准。 */
     public static SizeCost sizeCost(String size) {
         return SIZE_COSTS.getOrDefault(size, new SizeCost(Money.of("1"), Money.of("0.10")));
     }
 
+    /** 按配送速度返回运费与退货率乘子（快运贵但退货少，慢运便宜但退货多）。 */
     public static ShippingRule shipping(ShipSpeed speed) {
         return SHIPPING.get(speed);
     }
 
+    /** 该店铺类型的市场容量（用于饱和与类目封顶），未知回退 50.0。 */
     public static double marketCapacity(String storeType) {
         return MARKET_CAPACITY.getOrDefault(storeType, 50.0);
     }
 
+    /** 该店铺类型的日需求倍率，未知回退 1.0。 */
     public static double demandScale(String storeType) {
         return DEMAND_SCALE.getOrDefault(storeType, 1.0);
     }
 
+    /** 根据库龄天数返回仓储费乘子（取阶梯中不超过当前库龄的最高一档，越久越贵）。 */
     public static BigDecimal storageAgeMultiplier(int ageDays) {
         BigDecimal result = BigDecimal.ONE;
         for (AgeMultiplier item : STORAGE_AGE_MULTIPLIERS) {
@@ -109,12 +125,15 @@ public final class EconomicRules {
         return result;
     }
 
+    /** 单件尺寸对应的运费与每日仓储费。 */
     public record SizeCost(Money shipping, Money storagePerDay) {
     }
 
+    /** 配送速度对运费和退货率的乘性影响。 */
     public record ShippingRule(BigDecimal costMultiplier, BigDecimal returnMultiplier) {
     }
 
+    /** 库龄阶梯：达到 minimumAgeDays 后适用 multiplier。 */
     private record AgeMultiplier(int minimumAgeDays, BigDecimal multiplier) {
     }
 }

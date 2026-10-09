@@ -13,6 +13,7 @@ public final class DailyResult {
 
     private final int day;
     private final LocalDate date;
+    // 以下字段由各日级处理器逐步累加/置位，构成当日发生事件的统一快照（供日志与指标导出）。
     private Money opsCostCharged = Money.ZERO;
     private Money idlePenaltyCharged = Money.ZERO;
     private Money storageCharged = Money.ZERO;

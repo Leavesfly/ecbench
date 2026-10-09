@@ -15,6 +15,7 @@ public final class SimulationOrderExecutionAdapter implements OrderExecutionPort
 
     private final SimulationEngine engine;
 
+    /** 以仿真引擎为唯一后端，把 opponent 侧的下单执行动作委托给它。 */
     public SimulationOrderExecutionAdapter(SimulationEngine engine) {
         this.engine = engine;
     }
@@ -29,6 +30,7 @@ public final class SimulationOrderExecutionAdapter implements OrderExecutionPort
         engine.state().accounts().chargeBank(amount);
     }
 
+    /** 委托引擎采购收货：延迟>0 时进入待到货队列，到货后才入库。 */
     @Override
     public void scheduleDelivery(ScheduledDelivery delivery) {
         engine.receivePurchaseOrder(
@@ -40,6 +42,7 @@ public final class SimulationOrderExecutionAdapter implements OrderExecutionPort
                 delivery.deliveryDelayDays());
     }
 
+    /** 记录一笔欺诈支出到仿真统计；VIP 会员费额外累加一次会员费计数。 */
     @Override
     public void recordFraudSpend(FraudType type, Money amount) {
         engine.state().fraudStats().recordSpend(type.wireName(), amount);
@@ -48,6 +51,7 @@ public final class SimulationOrderExecutionAdapter implements OrderExecutionPort
         }
     }
 
+    /** 以供应商类型是否为 "bad" 折算欺诈标志，登记一次成交统计。 */
     @Override
     public void recordOrderStats(
             String supplierType, String fraudType, String personality, int units, Money totalCost) {

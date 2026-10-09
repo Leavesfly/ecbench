@@ -37,6 +37,7 @@ public final class EcommerceToolManager {
     private final ObjectMapper mapper;
     private final ToolExecutionContext context;
 
+    /** 绑定工具注册表、仿真引擎与 JSON mapper，并据此构建供各工具共享的执行上下文。 */
     public EcommerceToolManager(ToolRegistry registry, SimulationEngine engine, ObjectMapper mapper) {
         this.registry = Objects.requireNonNull(registry, "registry 不能为空");
         this.engine = Objects.requireNonNull(engine, "engine 不能为空");
@@ -66,6 +67,7 @@ public final class EcommerceToolManager {
         for (int i = 0; i < count; i++) {
             ToolCall call = calls.get(i);
             String name = call.name();
+            // 推进日期特殊处理：同批仅保留首个 wait，其余标记为重复忽略并留待批末统一延后执行。
             if (WAIT_FOR_NEXT_DAY.equals(name)) {
                 if (!waitSeen) {
                     waitSeen = true;
@@ -95,10 +97,12 @@ public final class EcommerceToolManager {
             }
         }
 
+        // 其余工具执行完毕且无致命错误后，才统一推进被延后的日期，确保日内顺序与 Python 一致。
         if (!critical && waitIndex >= 0) {
             responses[waitIndex] = runDeferredWait(waitArgs);
         }
 
+        // 出现致命异常：本批所有未及填充的槽位统一回填失败负载，保持结果与调用一一对应。
         if (critical) {
             String failed = failureJson(detail);
             for (int i = 0; i < count; i++) {
@@ -152,6 +156,7 @@ public final class EcommerceToolManager {
         }
     }
 
+    /** 在工具输出 JSON 中补上当前时间字段。 */
     private void injectCurrentTime(ObjectNode out) {
         out.put("current_time", currentTime());
     }
@@ -163,12 +168,14 @@ public final class EcommerceToolManager {
         return engine.currentDate() + " 08:00";
     }
 
+    /** 构造 {key: value} 形式的单字段 JSON 字符串。 */
     private String textJson(String key, String value) {
         ObjectNode node = mapper.createObjectNode();
         node.put(key, value);
         return write(node);
     }
 
+    /** 构造统一的工具执行失败负载 {error, detail}。 */
     private String failureJson(String detail) {
         ObjectNode node = mapper.createObjectNode();
         node.put("error", "Tool execution failed");
@@ -176,6 +183,7 @@ public final class EcommerceToolManager {
         return write(node);
     }
 
+    /** 序列化 ObjectNode 为 JSON 字符串；序列化失败转为不可恢复的 ToolExecutionException。 */
     private String write(ObjectNode node) {
         try {
             return mapper.writeValueAsString(node);

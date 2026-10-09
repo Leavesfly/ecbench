@@ -30,6 +30,7 @@ public final class StoreState {
     private Money totalRevenue = Money.ZERO;
     private Money totalShippingCost = Money.ZERO;
     private Money totalRefunds = Money.ZERO;
+    // recent* 为指数衰减的近期服务量，只影响声誉而非历史总量。
     private double recentReturns;
     private double recentSold;
     private double recentCancellations;
@@ -44,6 +45,7 @@ public final class StoreState {
         this.dailyRent = Objects.requireNonNull(dailyRent, "dailyRent 不能为空");
     }
 
+    /** 上架新商品或追加数量并设价；非正数量或已关店均拒绝。 */
     public void publish(String sku, int quantity, Money price) {
         ensureOpen();
         if (quantity <= 0) {
@@ -53,6 +55,7 @@ public final class StoreState {
         prices.put(sku, Objects.requireNonNull(price, "price 不能为空"));
     }
 
+    /** 仅允许修改已上架商品的售价（必须先 publish）。 */
     public void setPrice(String sku, Money price) {
         ensureOpen();
         if (!inventory.containsKey(sku)) {
@@ -61,6 +64,7 @@ public final class StoreState {
         prices.put(sku, Objects.requireNonNull(price, "price 不能为空"));
     }
 
+    /** 扣减店铺库存，扣到 0 时同时移价；仅当已上架且数量足够才成功。 */
     public void removeInventory(String sku, int quantity) {
         ensureOpen();
         int available = inventory.getOrDefault(sku, 0);
@@ -76,6 +80,7 @@ public final class StoreState {
         }
     }
 
+    /** 一次性取走并清空全部库存与价格（闭店时使用），返回被排空的快照。 */
     public Map<String, Integer> drainInventory() {
         Map<String, Integer> drained = Map.copyOf(inventory);
         inventory.clear();
@@ -83,6 +88,7 @@ public final class StoreState {
         return drained;
     }
 
+    /** 闭店：置为非营业并清空当前促销，后续任何变更方法都会因 ensureOpen 拒绝。 */
     public void close() {
         open = false;
         promotionActive = null;
@@ -133,10 +139,12 @@ public final class StoreState {
         recentCancellations += quantity;
     }
 
+    /** 声誉限制在 [0.15, 1.0]，避免完全归零导致需求无限下降。 */
     public void updateReputation(double value) {
         reputation = Math.max(0.15, Math.min(1.0, value));
     }
 
+    /** 每日将近期退货/售出/取消量乘以 0.85 做指数衰减，使旧事件对声誉的影响逐日淡出。 */
     public void decayRecentServiceCounters() {
         recentReturns *= 0.85;
         recentSold *= 0.85;

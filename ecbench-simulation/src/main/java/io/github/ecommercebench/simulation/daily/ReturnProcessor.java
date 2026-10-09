@@ -20,10 +20,12 @@ public final class ReturnProcessor implements DailyProcessor {
         Iterator<PendingReturn> iterator = state.pendingReturns().iterator();
         while (iterator.hasNext()) {
             PendingReturn pending = iterator.next();
+            // 仅处理到达日不晚于今天的退货；未到期的留在队列等后续日切。
             if (!pending.arrivalDate().isAfter(context.day())) {
                 Money refund = pending.refundPerUnit().multiply(BigDecimal.valueOf(pending.quantity()));
                 Money shippingLoss =
                         pending.shippingCostPerUnit().multiply(BigDecimal.valueOf(pending.quantity()));
+                // 从对应托管批次全额退款（已付运费不返还），商品按原采购价重新入仓。
                 state.accounts().refund(pending.escrowBatchId(), refund);
                 state
                         .warehouse()
@@ -39,6 +41,7 @@ public final class ReturnProcessor implements DailyProcessor {
                 if (store != null) {
                     store.recordReturn(pending.productId(), pending.quantity(), refund);
                 }
+                // 按退货时携带的缺陷占比四舍五入拆出缺陷件数，用于后续退货归因统计。
                 int defective =
                         BigDecimal.valueOf(pending.quantity())
                                 .multiply(pending.defectiveFraction())

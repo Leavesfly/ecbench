@@ -21,6 +21,7 @@ public final class ReturnStats {
     private double expReturnsShipSpeed;
     private double expReturnsDefective;
 
+    /** 记录一笔实际到达的退货及其自然/定价/配送/缺陷原因件数与退款、运费损失（与下方 expected 期望值相对应）。 */
     public void recordActual(
             int units,
             int naturalUnits,

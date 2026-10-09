@@ -6,6 +6,12 @@ import java.util.Optional;
 
 /**
  * 兼容多个 Provider 的统一消息模型；cleared 消息仍保留在审计历史中。
+ *
+ * @param role 消息角色（system/user/assistant/tool）
+ * @param toolCalls 本消息（多为 assistant）发起的工具调用列表
+ * @param toolCallId 当 role=TOOL 时回填的对应工具调用 id
+ * @param reasoningItems Provider 返回的原始推理块（如 Anthropic thinking），供下一轮回放
+ * @param cleared 上下文清理后标记为已清空：保留在历史但不发送给 Provider
  */
 public record ChatMessage(
         ChatRole role,
@@ -56,11 +62,13 @@ public record ChatMessage(
         return new ChatMessage(role, content, List.of(), null, null, List.of(), false, Map.of());
     }
 
+    /** 返回一份标记为已清空的新消息：仍留在审计历史但不再参与 Provider 请求。 */
     public ChatMessage markCleared() {
         return new ChatMessage(
                 role, content, toolCalls, toolCallId, reasoningContent, reasoningItems, true, metadata);
     }
 
+    /** 生成发往 Provider 的视图：已清空消息返回 Optional.empty() 以从请求中过滤掉。 */
     public Optional<ChatMessage> forProvider() {
         return cleared ? Optional.empty() : Optional.of(this);
     }

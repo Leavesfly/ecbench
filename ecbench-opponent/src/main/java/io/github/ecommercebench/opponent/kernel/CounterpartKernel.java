@@ -21,12 +21,18 @@ public final class CounterpartKernel {
     private final List<Double> supplierHistory = new ArrayList<>();
     private Double lastSupplierPrice;
 
+    /** 以参数与随机流建立内核；Preset 由供应商家族(family)与立场(stance)共决。 */
     public CounterpartKernel(KernelParameters parameters, DeterministicRandom random) {
         this.parameters = parameters;
         this.random = random;
         this.preset = Preset.forFamily(parameters.family(), parameters.stance());
     }
 
+    /**
+     * 供应该对手本回合的动作：若 Agent 已报价则先判定接受/拒绝，否则（或继续谈判时）给出一个新的还价。
+     *
+     * <p>还价基于首轮开盘价或逐轮让步价，并保证不高于 Agent 报价（避免越还越高），最后限幅在保留价与上限之间。
+     */
     public CounterpartAction getAction(int round, Money agentPrice) {
         Double offered = agentPrice == null ? null : agentPrice.amount().doubleValue();
         if (offered != null) {
@@ -55,9 +61,15 @@ public final class CounterpartKernel {
                 NegotiationDecision.OFFER, Money.of(price), strategicCue, sentimentCue());
     }
 
+    /**
+     * 对 Agent 报价做接受/拒绝/继续的概率判定。
+     *
+     * <p>favourability 为正（优于保留价）时按“越有利、越接近截止、对方让步越快越僵硬”的组合打分，经 sigmoid 抽接受； 超过半数回合且 favourability 为负时，越不合越接近截止越可能直接拒绝。未中则继续还价。
+     */
     private NegotiationDecision decideResponse(int round, double price) {
         double favourability = (price - reservation()) / range();
         if (favourability >= 0) {
+            // deadline 随回合递增（越接近上限越急着成交），与历史 speed/rigidity 特征加权成接受得分。
             double deadline = 1.0 - Math.sqrt((double) round / parameters.maxRounds());
             double score =
                     6.0 * favourability
@@ -83,6 +95,7 @@ public final class CounterpartKernel {
         return NegotiationDecision.OFFER;
     }
 
+    /** 首次报价：开盘越 harsh、越 aggressive 越高，叠加微小噪声后限幅到 [保留价, 上限]。 */
     private double openingOffer() {
         double phi =
                 clamp(
@@ -99,6 +112,7 @@ public final class CounterpartKernel {
         return clamp(opening, reservation(), maximum());
     }
 
+    /** 逐轮让步：让步幅度受 willingness 与历史 magnitude 影响，按家族施加不同高斯噪声，且不低于保留价、不高于上一轮。 */
     private double concessionOffer(int round) {
         double concession =
                 0.12
@@ -120,6 +134,7 @@ public final class CounterpartKernel {
         return Math.min(lastSupplierPrice, Math.max(reservation(), candidate));
     }
 
+    /** 基于最近至多 3 个报价增量特征：magnitude=平均正向让步，speed=平均让步，rigidity=最后一次几乎未动。 */
     private double historyFeature(String feature) {
         if (agentHistory.size() < 2) {
             return 0.0;
@@ -143,6 +158,7 @@ public final class CounterpartKernel {
         return 0.0;
     }
 
+    /** 选择策略提示词（Concede/Hold/Pressure）：寡言/策略型固定 Hold，对抗型固定 Pressure，其余按幅度/截止/立场做 softmax 抽样。 */
     private String strategicCue(int round, double price) {
         if (parameters.family() == SupplierFamily.TACITURN
                 || parameters.family() == SupplierFamily.STRATEGIC) {
@@ -180,6 +196,7 @@ public final class CounterpartKernel {
         return draw < weights[0] ? "Concede" : draw < weights[0] + weights[1] ? "Hold" : "Pressure";
     }
 
+    /** 抽取情绪提示（positive/neutral/negative）：寡言/策略型中性，对抗型负面，其余按立场均值与家族方差抽正态后分档。 */
     private String sentimentCue() {
         if (parameters.family() == SupplierFamily.TACITURN
                 || parameters.family() == SupplierFamily.STRATEGIC) {
@@ -209,6 +226,7 @@ public final class CounterpartKernel {
         return Math.max(1.0, maximum() - parameters.minimumPrice().amount().doubleValue());
     }
 
+    /** 数值稳定的 sigmoid：正负分支分别计算，避免 exp 上溢。 */
     private static double sigmoid(double value) {
         return value >= 0 ? 1.0 / (1.0 + Math.exp(-value)) : Math.exp(value) / (1.0 + Math.exp(value));
     }
@@ -217,6 +235,7 @@ public final class CounterpartKernel {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
+    /** 家族×立场对应的行为系数：rho(历史让步影响接受)、xi(历史速度影响接受)、lambda2(历史幅度影响让步)，按 stance 取 conciliatory/中立/aggressive 三档。 */
     private record Preset(double rho, double xi, double lambda2) {
         static Preset forFamily(SupplierFamily family, String stance) {
             int index = "conciliatory".equals(stance) ? 0 : "aggressive".equals(stance) ? 2 : 1;

@@ -17,6 +17,11 @@ public final class StorePlaybookLoader {
 
   private final ObjectMapper mapper = new ObjectMapper();
 
+  /**
+   * 读取并解析市场指引 JSON，聚合为 {@link MarketGuidance}。
+   *
+   * <p>文件缺失或解析（含层级号转换）失败时统一抛 {@code DataValidationException}， 与 CSV 加载器的启动期校验行为保持一致。
+   */
   public MarketGuidance load(Path jsonPath) {
     if (!Files.exists(jsonPath)) {
       throw new DataValidationException("缺少市场指引文件: " + jsonPath);

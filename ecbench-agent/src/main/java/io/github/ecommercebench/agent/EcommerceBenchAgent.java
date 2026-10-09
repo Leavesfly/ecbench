@@ -41,6 +41,7 @@ public final class EcommerceBenchAgent {
     private final RunConfig runConfig;
     private final ContextConfig contextConfig;
 
+    /** 注入 LLM 客户端、模型名、工具/上下文/引擎/观察者及运行与上下文配置，组装一轮 episode 所需的全部协作方。 */
     public EcommerceBenchAgent(
             LlmClient llm,
             String model,
@@ -109,6 +110,7 @@ public final class EcommerceBenchAgent {
                 ContextEditResult edit =
                         contextEditor.edit(messages, contextConfig, effective.maxTokenCapacity());
                 messages = new ArrayList<>(edit.messages());
+                // 发生上下文裁剪：累计裁剪次数与释放 token，并通知观察者。
                 if (edit.tokensFreed() > 0) {
                     contextClearCount++;
                     contextTokensFreedTotal += edit.tokensFreed();
@@ -137,6 +139,7 @@ public final class EcommerceBenchAgent {
                 messages.add(assistant);
                 observer.onAssistantMessage(assistant);
 
+                // 本轮无工具调用：累计连续空转，达上限即判失败，否则追加 nudge 提醒后进入下一轮。
                 if (response.toolCalls().isEmpty()) {
                     consecutiveNoTool++;
                     if (consecutiveNoTool >= MAX_NO_TOOL_CALLS) {
@@ -195,6 +198,7 @@ public final class EcommerceBenchAgent {
         return result;
     }
 
+    /** 构建发给 Provider 的消息列表：过滤已清除消息，若本轮发生裁剪则把裁剪告警追加到最后一条消息尾部。 */
     private List<ChatMessage> providerMessages(List<ChatMessage> messages, ContextEditResult edit) {
         List<ChatMessage> provider = new ArrayList<>();
         for (ChatMessage message : messages) {
@@ -207,6 +211,7 @@ public final class EcommerceBenchAgent {
         return provider;
     }
 
+    /** 统计未清除消息的已用 token，拼成附在工具结果后的用量水位串。 */
     private String tokenGauge(List<ChatMessage> messages, int capacity) {
         int used = 0;
         for (ChatMessage message : messages) {
@@ -226,6 +231,7 @@ public final class EcommerceBenchAgent {
                 + " remaining</system_warning>";
     }
 
+    /** 以不可变方式返回一条在正文末尾拼接了后缀的新消息（空正文不额外插入分隔符）。 */
     private static ChatMessage appendContent(ChatMessage message, String suffix) {
         String content = message.content() == null ? "" : message.content();
         String separator = content.isEmpty() ? "" : "\n\n";
@@ -240,6 +246,7 @@ public final class EcommerceBenchAgent {
                 message.metadata());
     }
 
+    /** 将工具响应截断到 maxChars 字符，超出则追加截断标记；null 视为空串。 */
     private static String truncate(String content, int maxChars) {
         if (content == null) {
             return "";
@@ -249,6 +256,7 @@ public final class EcommerceBenchAgent {
                 : content;
     }
 
+    /** 生成“未调用任何工具”的提醒文案，并提示连续空转达到上限将判失败。 */
     private static String nudge(int consecutive) {
         return "You did not call any tool. You must call a tool to operate the business and advance "
                 + "time. Please call a tool now. (warning "

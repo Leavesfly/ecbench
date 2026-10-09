@@ -17,6 +17,7 @@ public final class OverdueCancelProcessor implements DailyProcessor {
         Iterator<PendingShipment> iterator = state.pendingShipments().iterator();
         while (iterator.hasNext()) {
             PendingShipment shipment = iterator.next();
+            // 截止日已早于今天：订单过期，按原采购价作为未发货(非劣质)批次退回仓库并计一次取消。
             if (shipment.deadline().isBefore(context.day())) {
                 state
                         .warehouse()

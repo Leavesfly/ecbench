@@ -7,5 +7,6 @@ import io.github.ecommercebench.llm.model.ChatMessage;
  */
 @FunctionalInterface
 public interface TokenCounter {
+    /** 返回该消息占用上下文的 token 数；已清除的消息计 0。 */
     int count(ChatMessage message);
 }
