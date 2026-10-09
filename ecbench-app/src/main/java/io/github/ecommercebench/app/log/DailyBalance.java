@@ -1,6 +1,7 @@
 package io.github.ecommercebench.app.log;
 
 import io.github.ecommercebench.domain.money.Money;
+
 import java.time.LocalDate;
 
 /**
@@ -10,10 +11,11 @@ import java.time.LocalDate;
  * warehouse_items、storage_charged。其中 {@code totalBalance} = 银行 + 钱包 + 待结算托管，是评估的权威列。
  */
 public record DailyBalance(
-    LocalDate date,
-    Money bankBalance,
-    Money platformWallet,
-    Money totalBalance,
-    int openStores,
-    int warehouseItems,
-    Money storageCharged) {}
+        LocalDate date,
+        Money bankBalance,
+        Money platformWallet,
+        Money totalBalance,
+        int openStores,
+        int warehouseItems,
+        Money storageCharged) {
+}

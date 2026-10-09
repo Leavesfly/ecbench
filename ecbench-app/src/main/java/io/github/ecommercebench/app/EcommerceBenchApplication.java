@@ -18,14 +18,14 @@ import picocli.CommandLine;
 @SpringBootApplication
 public class EcommerceBenchApplication {
 
-  public static void main(String[] args) {
-    ConfigurableApplicationContext context =
-        new SpringApplicationBuilder(EcommerceBenchApplication.class)
-            .web(WebApplicationType.NONE)
-            .run(args);
-    int exitCode =
-        new CommandLine(new BenchmarkCommand(context.getBean(RunComponentFactory.class)))
-            .execute(args);
-    System.exit(SpringApplication.exit(context, () -> exitCode));
-  }
+    public static void main(String[] args) {
+        ConfigurableApplicationContext context =
+                new SpringApplicationBuilder(EcommerceBenchApplication.class)
+                        .web(WebApplicationType.NONE)
+                        .run(args);
+        int exitCode =
+                new CommandLine(new BenchmarkCommand(context.getBean(RunComponentFactory.class)))
+                        .execute(args);
+        System.exit(SpringApplication.exit(context, () -> exitCode));
+    }
 }

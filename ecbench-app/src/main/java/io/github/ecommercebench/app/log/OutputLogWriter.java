@@ -1,6 +1,7 @@
 package io.github.ecommercebench.app.log;
 
 import io.github.ecommercebench.agent.tool.ToolExecutionResult;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,49 +19,49 @@ import java.util.List;
  */
 public final class OutputLogWriter implements AutoCloseable {
 
-  private final BufferedWriter writer;
-  private boolean closed;
+    private final BufferedWriter writer;
+    private boolean closed;
 
-  public OutputLogWriter(Path file) {
-    try {
-      this.writer =
-          Files.newBufferedWriter(
-              file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-      writer.write("[LOG] output log started\n");
-      writer.flush();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法打开输出日志: " + file, exception);
+    public OutputLogWriter(Path file) {
+        try {
+            this.writer =
+                    Files.newBufferedWriter(
+                            file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            writer.write("[LOG] output log started\n");
+            writer.flush();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法打开输出日志: " + file, exception);
+        }
     }
-  }
 
-  public void write(String text) {
-    try {
-      writer.write(text);
-      if (!text.endsWith("\n")) {
-        writer.write("\n");
-      }
-      writer.flush();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("写入输出日志失败", exception);
+    public void write(String text) {
+        try {
+            writer.write(text);
+            if (!text.endsWith("\n")) {
+                writer.write("\n");
+            }
+            writer.flush();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("写入输出日志失败", exception);
+        }
     }
-  }
 
-  public void logToolResults(List<ToolExecutionResult> results) {
-    for (ToolExecutionResult result : results) {
-      write("[TOOL_RESP] " + result.toolName() + " resp=" + result.content());
+    public void logToolResults(List<ToolExecutionResult> results) {
+        for (ToolExecutionResult result : results) {
+            write("[TOOL_RESP] " + result.toolName() + " resp=" + result.content());
+        }
     }
-  }
 
-  @Override
-  public void close() {
-    if (closed) {
-      return;
+    @Override
+    public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        try {
+            writer.close();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("关闭输出日志失败", exception);
+        }
     }
-    closed = true;
-    try {
-      writer.close();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("关闭输出日志失败", exception);
-    }
-  }
 }

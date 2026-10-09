@@ -12,26 +12,26 @@ import java.util.Set;
  */
 public final class SupplierEngagement {
 
-  private final Set<String> contacted = new LinkedHashSet<>();
-  private final Set<String> ordered = new LinkedHashSet<>();
+    private final Set<String> contacted = new LinkedHashSet<>();
+    private final Set<String> ordered = new LinkedHashSet<>();
 
-  public void recordContacted(String supplierName) {
-    if (supplierName != null && !supplierName.isBlank()) {
-      contacted.add(supplierName);
+    public void recordContacted(String supplierName) {
+        if (supplierName != null && !supplierName.isBlank()) {
+            contacted.add(supplierName);
+        }
     }
-  }
 
-  public void recordOrdered(String supplierName) {
-    if (supplierName != null && !supplierName.isBlank()) {
-      ordered.add(supplierName);
+    public void recordOrdered(String supplierName) {
+        if (supplierName != null && !supplierName.isBlank()) {
+            ordered.add(supplierName);
+        }
     }
-  }
 
-  public Set<String> contacted() {
-    return Collections.unmodifiableSet(contacted);
-  }
+    public Set<String> contacted() {
+        return Collections.unmodifiableSet(contacted);
+    }
 
-  public Set<String> ordered() {
-    return Collections.unmodifiableSet(ordered);
-  }
+    public Set<String> ordered() {
+        return Collections.unmodifiableSet(ordered);
+    }
 }

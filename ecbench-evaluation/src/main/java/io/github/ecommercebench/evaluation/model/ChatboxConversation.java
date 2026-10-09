@@ -10,11 +10,11 @@ import java.util.List;
  */
 public record ChatboxConversation(String supplier, List<String> rawLines) {
 
-  public ChatboxConversation {
-    rawLines = List.copyOf(rawLines);
-  }
+    public ChatboxConversation {
+        rawLines = List.copyOf(rawLines);
+    }
 
-  public int messageCount() {
-    return rawLines.size();
-  }
+    public int messageCount() {
+        return rawLines.size();
+    }
 }

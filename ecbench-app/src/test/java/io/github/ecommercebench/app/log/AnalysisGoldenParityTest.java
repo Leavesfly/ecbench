@@ -12,6 +12,7 @@ import io.github.ecommercebench.domain.config.RunConfig;
 import io.github.ecommercebench.domain.random.RandomStreams;
 import io.github.ecommercebench.opponent.metrics.NegotiationMetrics;
 import io.github.ecommercebench.simulation.SimulationEngine;
+
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,75 +35,77 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class AnalysisGoldenParityTest {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final Path DATA =
-      Path.of(System.getProperty("user.dir"), "..", "data").normalize();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Path DATA =
+            Path.of(System.getProperty("user.dir"), "..", "data").normalize();
 
-  private static void collectPaths(JsonNode node, String prefix, Set<String> out) {
-    node.fieldNames()
-        .forEachRemaining(
-            name -> {
-              String path = prefix.isEmpty() ? name : prefix + "/" + name;
-              out.add(path);
-              collectPaths(node.get(name), path, out);
-            });
-  }
-
-  private static Set<String> pathsOf(JsonNode node) {
-    Set<String> paths = new HashSet<>();
-    collectPaths(node, "", paths);
-    return paths;
-  }
-
-  @Test
-  void javaAnalysisCoversAllPythonGoldenKeyPaths(@TempDir Path tempDir) throws Exception {
-    JsonNode golden;
-    try (InputStream in =
-        getClass().getResourceAsStream("/golden/python-analysis-structure.json")) {
-      assertThat(in).isNotNull();
-      golden = MAPPER.readTree(in);
+    private static void collectPaths(JsonNode node, String prefix, Set<String> out) {
+        node.fieldNames()
+                .forEachRemaining(
+                        name -> {
+                            String path = prefix.isEmpty() ? name : prefix + "/" + name;
+                            out.add(path);
+                            collectPaths(node.get(name), path, out);
+                        });
     }
 
-    CatalogData catalog = new CsvCatalogLoader().load(DATA);
-    SimulationEngine engine =
-        new SimulationEngine(catalog, RunConfig.defaults(), new RandomStreams(42L));
-    RunDirectory directory = RunDirectory.create(tempDir, "20260101_080000", "fake");
-    NegotiationMetrics emptyNegotiation =
-        new NegotiationMetrics(0, null, null, null, null, null, null, 0.0, 0.0, Map.of(), Map.of());
-    try (MetricsJsonWriter writer = new MetricsJsonWriter(directory, 0, MAPPER)) {
-      writer.writeAnalysis(
-          new RunResult(
-              TerminationReason.ENV_COMPLETED,
-              "max_days",
-              1,
-              List.of(),
-              1,
-              "2026-01-02",
-              100000.0,
-              0,
-              0),
-          engine,
-          emptyNegotiation,
-          0.0);
+    private static Set<String> pathsOf(JsonNode node) {
+        Set<String> paths = new HashSet<>();
+        collectPaths(node, "", paths);
+        return paths;
     }
-    JsonNode java = MAPPER.readTree(Files.readString(directory.analysisJson(0)));
 
-    Set<String> goldenPaths = pathsOf(golden);
-    Set<String> javaPaths = pathsOf(java);
+    @Test
+    void javaAnalysisCoversAllPythonGoldenKeyPaths(@TempDir Path tempDir) throws Exception {
+        JsonNode golden;
+        try (InputStream in =
+                     getClass().getResourceAsStream("/golden/python-analysis-structure.json")) {
+            assertThat(in).isNotNull();
+            golden = MAPPER.readTree(in);
+        }
 
-    // Java 覆盖 Python get_analysis_report 的全部键路径
-    assertThat(javaPaths).containsAll(goldenPaths);
-    // Java 另有 reward 面板（对应 _save_analysis_report 的追加）
-    assertThat(javaPaths).contains("reward", "reward/final_score", "reward/termination_reason");
+        CatalogData catalog = new CsvCatalogLoader().load(DATA);
+        SimulationEngine engine =
+                new SimulationEngine(catalog, RunConfig.defaults(), new RandomStreams(42L));
+        RunDirectory directory = RunDirectory.create(tempDir, "20260101_080000", "fake");
+        NegotiationMetrics emptyNegotiation =
+                new NegotiationMetrics(0, null, null, null, null, null, null, 0.0, 0.0, Map.of(), Map.of());
+        try (MetricsJsonWriter writer = new MetricsJsonWriter(directory, 0, MAPPER)) {
+            writer.writeAnalysis(
+                    new RunResult(
+                            TerminationReason.ENV_COMPLETED,
+                            "max_days",
+                            1,
+                            List.of(),
+                            1,
+                            "2026-01-02",
+                            100000.0,
+                            0,
+                            0),
+                    engine,
+                    emptyNegotiation,
+                    0.0,
+                    100000.0,
+                    Map.of());
+        }
+        JsonNode java = MAPPER.readTree(Files.readString(directory.analysisJson(0)));
 
-    // catalog 派生的确定性字段应与 Python 数值一致
-    assertThat(java.get("fraud_identification").get("bad_suppliers_total").asInt())
-        .isEqualTo(golden.get("fraud_identification").get("bad_suppliers_total").asInt());
-    assertThat(java.get("supplier_engagement").get("roster_totals").get("distinct_bad").asInt())
-        .isEqualTo(
-            golden.get("supplier_engagement").get("roster_totals").get("distinct_bad").asInt());
-    assertThat(java.get("supplier_engagement").get("roster_totals").get("distinct_good").asInt())
-        .isEqualTo(
-            golden.get("supplier_engagement").get("roster_totals").get("distinct_good").asInt());
-  }
+        Set<String> goldenPaths = pathsOf(golden);
+        Set<String> javaPaths = pathsOf(java);
+
+        // Java 覆盖 Python get_analysis_report 的全部键路径
+        assertThat(javaPaths).containsAll(goldenPaths);
+        // Java 另有 reward 面板（对应 _save_analysis_report 的追加）
+        assertThat(javaPaths).contains("reward", "reward/final_score", "reward/termination_reason");
+
+        // catalog 派生的确定性字段应与 Python 数值一致
+        assertThat(java.get("fraud_identification").get("bad_suppliers_total").asInt())
+                .isEqualTo(golden.get("fraud_identification").get("bad_suppliers_total").asInt());
+        assertThat(java.get("supplier_engagement").get("roster_totals").get("distinct_bad").asInt())
+                .isEqualTo(
+                        golden.get("supplier_engagement").get("roster_totals").get("distinct_bad").asInt());
+        assertThat(java.get("supplier_engagement").get("roster_totals").get("distinct_good").asInt())
+                .isEqualTo(
+                        golden.get("supplier_engagement").get("roster_totals").get("distinct_good").asInt());
+    }
 }

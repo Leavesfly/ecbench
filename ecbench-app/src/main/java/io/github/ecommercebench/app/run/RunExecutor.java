@@ -11,5 +11,5 @@ import io.github.ecommercebench.app.config.BenchmarkOptions;
 @FunctionalInterface
 public interface RunExecutor {
 
-  RunOutcome execute(int index, BenchmarkOptions options) throws Exception;
+    RunOutcome execute(int index, BenchmarkOptions options) throws Exception;
 }

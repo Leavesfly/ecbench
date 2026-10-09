@@ -2,6 +2,7 @@ package io.github.ecommercebench.evaluation.io;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -14,21 +15,21 @@ import java.nio.file.Path;
  */
 public final class AnalysisJsonReader {
 
-  private final ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
-  public AnalysisJsonReader() {
-    this(new ObjectMapper());
-  }
-
-  public AnalysisJsonReader(ObjectMapper mapper) {
-    this.mapper = mapper;
-  }
-
-  public JsonNode read(Path json) {
-    try {
-      return mapper.readTree(json.toFile());
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法读取分析 JSON: " + json, exception);
+    public AnalysisJsonReader() {
+        this(new ObjectMapper());
     }
-  }
+
+    public AnalysisJsonReader(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    public JsonNode read(Path json) {
+        try {
+            return mapper.readTree(json.toFile());
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法读取分析 JSON: " + json, exception);
+        }
+    }
 }

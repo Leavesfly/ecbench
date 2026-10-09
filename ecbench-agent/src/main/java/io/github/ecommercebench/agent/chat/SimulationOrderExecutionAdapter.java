@@ -13,52 +13,52 @@ import io.github.ecommercebench.simulation.SimulationEngine;
  */
 public final class SimulationOrderExecutionAdapter implements OrderExecutionPort {
 
-  private final SimulationEngine engine;
+    private final SimulationEngine engine;
 
-  public SimulationOrderExecutionAdapter(SimulationEngine engine) {
-    this.engine = engine;
-  }
-
-  @Override
-  public Money bankBalance() {
-    return engine.state().accounts().bank();
-  }
-
-  @Override
-  public void debitBank(Money amount) {
-    engine.state().accounts().chargeBank(amount);
-  }
-
-  @Override
-  public void scheduleDelivery(ScheduledDelivery delivery) {
-    engine.receivePurchaseOrder(
-        delivery.supplierName(),
-        delivery.skuId(),
-        delivery.quantity(),
-        delivery.unitPrice(),
-        delivery.defective(),
-        delivery.deliveryDelayDays());
-  }
-
-  @Override
-  public void recordFraudSpend(FraudType type, Money amount) {
-    engine.state().fraudStats().recordSpend(type.wireName(), amount);
-    if (type == FraudType.VIP_FEE) {
-      engine.state().fraudStats().recordVipFee();
+    public SimulationOrderExecutionAdapter(SimulationEngine engine) {
+        this.engine = engine;
     }
-  }
 
-  @Override
-  public void recordOrderStats(
-      String supplierType, String fraudType, String personality, int units, Money totalCost) {
-    engine
-        .state()
-        .fraudStats()
-        .recordOrder("bad".equals(supplierType), fraudType, personality, units, totalCost);
-  }
+    @Override
+    public Money bankBalance() {
+        return engine.state().accounts().bank();
+    }
 
-  @Override
-  public void recordVipFeeSpend(Money amount) {
-    engine.state().fraudStats().recordVipSpend(amount);
-  }
+    @Override
+    public void debitBank(Money amount) {
+        engine.state().accounts().chargeBank(amount);
+    }
+
+    @Override
+    public void scheduleDelivery(ScheduledDelivery delivery) {
+        engine.receivePurchaseOrder(
+                delivery.supplierName(),
+                delivery.skuId(),
+                delivery.quantity(),
+                delivery.unitPrice(),
+                delivery.defective(),
+                delivery.deliveryDelayDays());
+    }
+
+    @Override
+    public void recordFraudSpend(FraudType type, Money amount) {
+        engine.state().fraudStats().recordSpend(type.wireName(), amount);
+        if (type == FraudType.VIP_FEE) {
+            engine.state().fraudStats().recordVipFee();
+        }
+    }
+
+    @Override
+    public void recordOrderStats(
+            String supplierType, String fraudType, String personality, int units, Money totalCost) {
+        engine
+                .state()
+                .fraudStats()
+                .recordOrder("bad".equals(supplierType), fraudType, personality, units, totalCost);
+    }
+
+    @Override
+    public void recordVipFeeSpend(Money amount) {
+        engine.state().fraudStats().recordVipSpend(amount);
+    }
 }

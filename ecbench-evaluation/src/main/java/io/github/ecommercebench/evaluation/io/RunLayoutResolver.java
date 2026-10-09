@@ -11,40 +11,42 @@ import java.nio.file.Path;
  */
 public final class RunLayoutResolver {
 
-  /** 一次会话目录的已解析布局；各产物路径按 run index 生成。 */
-  public record RunLayout(
-      Path sessionDir, Path balanceDir, Path trajectoriesDir, Path metricsDir, boolean organized) {
+    /**
+     * 一次会话目录的已解析布局；各产物路径按 run index 生成。
+     */
+    public record RunLayout(
+            Path sessionDir, Path balanceDir, Path trajectoriesDir, Path metricsDir, boolean organized) {
 
-    public Path balanceCsv(int runIndex) {
-      return balanceDir.resolve("run_" + runIndex + "_daily_balance.csv");
+        public Path balanceCsv(int runIndex) {
+            return balanceDir.resolve("run_" + runIndex + "_daily_balance.csv");
+        }
+
+        public Path messagesJsonl(int runIndex) {
+            return trajectoriesDir.resolve("run_" + runIndex + "_messages.jsonl");
+        }
+
+        public Path analysisJson(int runIndex) {
+            return metricsDir.resolve("run_" + runIndex + "_analysis.json");
+        }
+
+        public Path negotiationMetricsJson(int runIndex) {
+            return metricsDir.resolve("run_" + runIndex + "_negotiation_metrics.json");
+        }
     }
 
-    public Path messagesJsonl(int runIndex) {
-      return trajectoriesDir.resolve("run_" + runIndex + "_messages.jsonl");
+    public RunLayout resolve(Path sessionDir) {
+        Path balance = subdirOrRoot(sessionDir, "balance");
+        Path trajectories = subdirOrRoot(sessionDir, "trajectories");
+        Path metrics = subdirOrRoot(sessionDir, "metrics");
+        boolean organized =
+                !balance.equals(sessionDir)
+                        || !trajectories.equals(sessionDir)
+                        || !metrics.equals(sessionDir);
+        return new RunLayout(sessionDir, balance, trajectories, metrics, organized);
     }
 
-    public Path analysisJson(int runIndex) {
-      return metricsDir.resolve("run_" + runIndex + "_analysis.json");
+    private static Path subdirOrRoot(Path sessionDir, String name) {
+        Path subdir = sessionDir.resolve(name);
+        return Files.isDirectory(subdir) ? subdir : sessionDir;
     }
-
-    public Path negotiationMetricsJson(int runIndex) {
-      return metricsDir.resolve("run_" + runIndex + "_negotiation_metrics.json");
-    }
-  }
-
-  public RunLayout resolve(Path sessionDir) {
-    Path balance = subdirOrRoot(sessionDir, "balance");
-    Path trajectories = subdirOrRoot(sessionDir, "trajectories");
-    Path metrics = subdirOrRoot(sessionDir, "metrics");
-    boolean organized =
-        !balance.equals(sessionDir)
-            || !trajectories.equals(sessionDir)
-            || !metrics.equals(sessionDir);
-    return new RunLayout(sessionDir, balance, trajectories, metrics, organized);
-  }
-
-  private static Path subdirOrRoot(Path sessionDir, String name) {
-    Path subdir = sessionDir.resolve(name);
-    return Files.isDirectory(subdir) ? subdir : sessionDir;
-  }
 }

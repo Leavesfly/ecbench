@@ -12,5 +12,5 @@ import io.github.ecommercebench.llm.LlmClient;
 @FunctionalInterface
 public interface LlmClientProvider {
 
-  LlmClient create(ModelConfig config);
+    LlmClient create(ModelConfig config);
 }

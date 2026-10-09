@@ -12,7 +12,10 @@ import io.github.ecommercebench.simulation.SimulationEngine;
 import io.github.ecommercebench.simulation.daily.DailyResult;
 import io.github.ecommercebench.simulation.dto.BalanceView;
 import io.github.ecommercebench.simulation.state.WarehouseLot;
+
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -23,101 +26,105 @@ import java.util.function.Supplier;
  */
 public final class CompositeRunObserver implements RunObserver, AutoCloseable {
 
-  private final JsonlMessageWriter messages;
-  private final BalanceCsvWriter balance;
-  private final MetricsJsonWriter metrics;
-  private final OutputLogWriter outputLog;
-  private final SimulationEngine engine;
-  private final Supplier<NegotiationMetrics> negotiationSupplier;
+    private final JsonlMessageWriter messages;
+    private final BalanceCsvWriter balance;
+    private final MetricsJsonWriter metrics;
+    private final OutputLogWriter outputLog;
+    private final SimulationEngine engine;
+    private final Supplier<NegotiationMetrics> negotiationSupplier;
 
-  // 峰值回撤跟踪：端口 Python _peak_drawdown（逐日 total 净值的最大峰-谷跌幅）
-  private double peakTotal = Double.NEGATIVE_INFINITY;
-  private double maxDrawdown;
+    // 峰值回撤跟踪：端口 Python _peak_drawdown（逐日 total 净值的最大峰-谷跌幅）
+    private double peakTotal = Double.NEGATIVE_INFINITY;
+    private double maxDrawdown;
 
-  public CompositeRunObserver(
-      RunDirectory directory,
-      int runIndex,
-      SimulationEngine engine,
-      ObjectMapper mapper,
-      Supplier<NegotiationMetrics> negotiationSupplier) {
-    this.engine = engine;
-    this.negotiationSupplier = negotiationSupplier;
-    this.messages = new JsonlMessageWriter(directory.messagesJsonl(runIndex), mapper);
-    this.balance = new BalanceCsvWriter(directory.balanceCsv(runIndex));
-    this.metrics = new MetricsJsonWriter(directory, runIndex, mapper);
-    this.outputLog = new OutputLogWriter(directory.outputLog(runIndex));
-  }
+    // 逐工具调用计数：按线格式工具名累加，供运营效率面板（论文 §E.4）聚合为八类活动带
+    private final Map<String, Integer> toolCallCounts = new LinkedHashMap<>();
 
-  @Override
-  public void onRunStart(RunJob job) {
-    for (ChatMessage message : job.initialMessages()) {
-      messages.writeMessage(message);
+    public CompositeRunObserver(
+            RunDirectory directory,
+            int runIndex,
+            SimulationEngine engine,
+            ObjectMapper mapper,
+            Supplier<NegotiationMetrics> negotiationSupplier) {
+        this.engine = engine;
+        this.negotiationSupplier = negotiationSupplier;
+        this.messages = new JsonlMessageWriter(directory.messagesJsonl(runIndex), mapper);
+        this.balance = new BalanceCsvWriter(directory.balanceCsv(runIndex));
+        this.metrics = new MetricsJsonWriter(directory, runIndex, mapper);
+        this.outputLog = new OutputLogWriter(directory.outputLog(runIndex));
     }
-    snapshotBalance();
-  }
 
-  @Override
-  public void onAssistantMessage(ChatMessage message) {
-    messages.writeMessage(message);
-  }
-
-  @Override
-  public void onToolResults(List<ToolExecutionResult> results) {
-    for (ToolExecutionResult result : results) {
-      messages.writeToolResult(result);
+    @Override
+    public void onRunStart(RunJob job) {
+        for (ChatMessage message : job.initialMessages()) {
+            messages.writeMessage(message);
+        }
+        snapshotBalance();
     }
-    outputLog.logToolResults(results);
-    snapshotBalance();
-  }
 
-  @Override
-  public void onContextTruncation(int turn, int tokensFreed) {
-    messages.writeContextTruncation(turn, tokensFreed);
-  }
-
-  @Override
-  public void onRunComplete(RunResult result) {
-    snapshotBalance();
-    NegotiationMetrics negotiation = negotiationSupplier.get();
-    metrics.writeNegotiationMetrics(negotiation);
-    metrics.writeAnalysis(result, engine, negotiation, maxDrawdown);
-  }
-
-  @Override
-  public void onFailure(Throwable error) {
-    outputLog.write("[FAILURE] " + error);
-    try {
-      metrics.writeNegotiationMetrics(negotiationSupplier.get());
-    } catch (RuntimeException ignored) {
-      // 尽力而为：失败路径下指标缺失不得掩盖原始异常。
+    @Override
+    public void onAssistantMessage(ChatMessage message) {
+        messages.writeMessage(message);
     }
-  }
 
-  private void snapshotBalance() {
-    BalanceView view = engine.checkBalance();
-    double total = view.total().amount().doubleValue();
-    peakTotal = Math.max(peakTotal, total);
-    maxDrawdown = Math.max(maxDrawdown, peakTotal - total);
-    int warehouseItems =
-        engine.state().warehouse().allLots().stream().mapToInt(WarehouseLot::quantity).sum();
-    DailyResult last = engine.lastDailyResult();
-    Money storage = last != null ? last.storageCharged() : Money.ZERO;
-    balance.writeRow(
-        new DailyBalance(
-            view.date(),
-            view.bankBalance(),
-            view.platformWallet(),
-            view.total(),
-            engine.state().openStoreCount(),
-            warehouseItems,
-            storage));
-  }
+    @Override
+    public void onToolResults(List<ToolExecutionResult> results) {
+        for (ToolExecutionResult result : results) {
+            messages.writeToolResult(result);
+            toolCallCounts.merge(result.toolName(), 1, Integer::sum);
+        }
+        outputLog.logToolResults(results);
+        snapshotBalance();
+    }
 
-  @Override
-  public void close() {
-    messages.close();
-    balance.close();
-    metrics.close();
-    outputLog.close();
-  }
+    @Override
+    public void onContextTruncation(int turn, int tokensFreed) {
+        messages.writeContextTruncation(turn, tokensFreed);
+    }
+
+    @Override
+    public void onRunComplete(RunResult result) {
+        snapshotBalance();
+        NegotiationMetrics negotiation = negotiationSupplier.get();
+        metrics.writeNegotiationMetrics(negotiation);
+        metrics.writeAnalysis(result, engine, negotiation, maxDrawdown, peakTotal, toolCallCounts);
+    }
+
+    @Override
+    public void onFailure(Throwable error) {
+        outputLog.write("[FAILURE] " + error);
+        try {
+            metrics.writeNegotiationMetrics(negotiationSupplier.get());
+        } catch (RuntimeException ignored) {
+            // 尽力而为：失败路径下指标缺失不得掩盖原始异常。
+        }
+    }
+
+    private void snapshotBalance() {
+        BalanceView view = engine.checkBalance();
+        double total = view.total().amount().doubleValue();
+        peakTotal = Math.max(peakTotal, total);
+        maxDrawdown = Math.max(maxDrawdown, peakTotal - total);
+        int warehouseItems =
+                engine.state().warehouse().allLots().stream().mapToInt(WarehouseLot::quantity).sum();
+        DailyResult last = engine.lastDailyResult();
+        Money storage = last != null ? last.storageCharged() : Money.ZERO;
+        balance.writeRow(
+                new DailyBalance(
+                        view.date(),
+                        view.bankBalance(),
+                        view.platformWallet(),
+                        view.total(),
+                        engine.state().openStoreCount(),
+                        warehouseItems,
+                        storage));
+    }
+
+    @Override
+    public void close() {
+        messages.close();
+        balance.close();
+        metrics.close();
+        outputLog.close();
+    }
 }

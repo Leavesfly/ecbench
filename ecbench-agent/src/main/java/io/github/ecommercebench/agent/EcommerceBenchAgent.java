@@ -12,6 +12,7 @@ import io.github.ecommercebench.llm.model.ChatMessage;
 import io.github.ecommercebench.llm.model.LlmRequest;
 import io.github.ecommercebench.llm.model.LlmResponse;
 import io.github.ecommercebench.simulation.SimulationEngine;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,234 +25,238 @@ import java.util.List;
  */
 public final class EcommerceBenchAgent {
 
-  private static final int MAX_NO_TOOL_CALLS = 3;
-  private static final String SEED_USER_MESSAGE = "You are running an e-commerce business.";
-  private static final String TASK = "agent_multiturn/long_horizon/ecommerce_bench";
-  private static final String DATA_SOURCE = "ecommerce_bench";
-  private static final int MAX_TOOL_RESPONSE_CHARS = 64 * 1024;
+    private static final int MAX_NO_TOOL_CALLS = 3;
+    private static final String SEED_USER_MESSAGE = "You are running an e-commerce business.";
+    private static final String TASK = "agent_multiturn/long_horizon/ecommerce_bench";
+    private static final String DATA_SOURCE = "ecommerce_bench";
+    private static final int MAX_TOOL_RESPONSE_CHARS = 64 * 1024;
 
-  private final LlmClient llm;
-  private final String model;
-  private final EcommerceToolManager toolManager;
-  private final ContextEditor contextEditor;
-  private final TokenCounter tokenCounter;
-  private final SimulationEngine engine;
-  private final RunObserver observer;
-  private final RunConfig runConfig;
-  private final ContextConfig contextConfig;
+    private final LlmClient llm;
+    private final String model;
+    private final EcommerceToolManager toolManager;
+    private final ContextEditor contextEditor;
+    private final TokenCounter tokenCounter;
+    private final SimulationEngine engine;
+    private final RunObserver observer;
+    private final RunConfig runConfig;
+    private final ContextConfig contextConfig;
 
-  public EcommerceBenchAgent(
-      LlmClient llm,
-      String model,
-      EcommerceToolManager toolManager,
-      ContextEditor contextEditor,
-      TokenCounter tokenCounter,
-      SimulationEngine engine,
-      RunObserver observer,
-      RunConfig runConfig,
-      ContextConfig contextConfig) {
-    this.llm = llm;
-    this.model = model;
-    this.toolManager = toolManager;
-    this.contextEditor = contextEditor;
-    this.tokenCounter = tokenCounter;
-    this.engine = engine;
-    this.observer = observer;
-    this.runConfig = runConfig;
-    this.contextConfig = contextConfig;
-  }
+    public EcommerceBenchAgent(
+            LlmClient llm,
+            String model,
+            EcommerceToolManager toolManager,
+            ContextEditor contextEditor,
+            TokenCounter tokenCounter,
+            SimulationEngine engine,
+            RunObserver observer,
+            RunConfig runConfig,
+            ContextConfig contextConfig) {
+        this.llm = llm;
+        this.model = model;
+        this.toolManager = toolManager;
+        this.contextEditor = contextEditor;
+        this.tokenCounter = tokenCounter;
+        this.engine = engine;
+        this.observer = observer;
+        this.runConfig = runConfig;
+        this.contextConfig = contextConfig;
+    }
 
-  /** 复现 Python `_build_default_job`：渲染系统提示词 + 种子用户消息 + 工具 schema + 各类上限。 */
-  public RunJob defaultJob() {
-    String systemPrompt =
-        Prompts.renderSystemPrompt(
-            runConfig.maxTokenCapacity(),
-            contextConfig,
-            runConfig.maxDays(),
-            (int) runConfig.initialBalance().amount().doubleValue());
-    List<ChatMessage> initialMessages =
-        List.of(ChatMessage.system(systemPrompt), ChatMessage.user(SEED_USER_MESSAGE));
-    return new RunJob(
-        TASK,
-        0,
-        DATA_SOURCE,
-        initialMessages,
-        toolManager.definitions(),
-        runConfig.maxTurns(),
-        runConfig.maxDays(),
-        runConfig.maxTokenCapacity(),
-        MAX_TOOL_RESPONSE_CHARS);
-  }
+    /**
+     * 复现 Python `_build_default_job`：渲染系统提示词 + 种子用户消息 + 工具 schema + 各类上限。
+     */
+    public RunJob defaultJob() {
+        String systemPrompt =
+                Prompts.renderSystemPrompt(
+                        runConfig.maxTokenCapacity(),
+                        contextConfig,
+                        runConfig.maxDays(),
+                        (int) runConfig.initialBalance().amount().doubleValue());
+        List<ChatMessage> initialMessages =
+                List.of(ChatMessage.system(systemPrompt), ChatMessage.user(SEED_USER_MESSAGE));
+        return new RunJob(
+                TASK,
+                0,
+                DATA_SOURCE,
+                initialMessages,
+                toolManager.definitions(),
+                runConfig.maxTurns(),
+                runConfig.maxDays(),
+                runConfig.maxTokenCapacity(),
+                MAX_TOOL_RESPONSE_CHARS);
+    }
 
-  /** 运行一次完整 episode；job 为 null 时使用 {@link #defaultJob()}。 */
-  public RunResult run(RunJob job) {
-    RunJob effective = job != null ? job : defaultJob();
-    observer.onRunStart(effective);
-    List<ChatMessage> messages = new ArrayList<>(effective.initialMessages());
-    int maxTurns = effective.maxTurns();
-    int turn = 0;
-    int consecutiveNoTool = 0;
-    int contextClearCount = 0;
-    int contextTokensFreedTotal = 0;
-    TerminationReason reason = null;
-    String detail = null;
+    /**
+     * 运行一次完整 episode；job 为 null 时使用 {@link #defaultJob()}。
+     */
+    public RunResult run(RunJob job) {
+        RunJob effective = job != null ? job : defaultJob();
+        observer.onRunStart(effective);
+        List<ChatMessage> messages = new ArrayList<>(effective.initialMessages());
+        int maxTurns = effective.maxTurns();
+        int turn = 0;
+        int consecutiveNoTool = 0;
+        int contextClearCount = 0;
+        int contextTokensFreedTotal = 0;
+        TerminationReason reason = null;
+        String detail = null;
 
-    try {
-      while (turn < maxTurns) {
-        turn++;
-        observer.onTurnStart(turn);
-
-        ContextEditResult edit =
-            contextEditor.edit(messages, contextConfig, effective.maxTokenCapacity());
-        messages = new ArrayList<>(edit.messages());
-        if (edit.tokensFreed() > 0) {
-          contextClearCount++;
-          contextTokensFreedTotal += edit.tokensFreed();
-          observer.onContextTruncation(turn, edit.tokensFreed());
-        }
-
-        LlmResponse response;
         try {
-          response =
-              llm.generate(
-                  new LlmRequest(
-                      model,
-                      providerMessages(messages, edit),
-                      effective.toolSchemas(),
-                      runConfig.maxTokens(),
-                      null,
-                      null,
-                      null));
+            while (turn < maxTurns) {
+                turn++;
+                observer.onTurnStart(turn);
+
+                ContextEditResult edit =
+                        contextEditor.edit(messages, contextConfig, effective.maxTokenCapacity());
+                messages = new ArrayList<>(edit.messages());
+                if (edit.tokensFreed() > 0) {
+                    contextClearCount++;
+                    contextTokensFreedTotal += edit.tokensFreed();
+                    observer.onContextTruncation(turn, edit.tokensFreed());
+                }
+
+                LlmResponse response;
+                try {
+                    response =
+                            llm.generate(
+                                    new LlmRequest(
+                                            model,
+                                            providerMessages(messages, edit),
+                                            effective.toolSchemas(),
+                                            runConfig.maxTokens(),
+                                            null,
+                                            null,
+                                            null));
+                } catch (RuntimeException exception) {
+                    reason = TerminationReason.LLM_ERROR;
+                    detail = "llm_error: " + exception.getMessage();
+                    break;
+                }
+
+                ChatMessage assistant = response.toAssistantMessage();
+                messages.add(assistant);
+                observer.onAssistantMessage(assistant);
+
+                if (response.toolCalls().isEmpty()) {
+                    consecutiveNoTool++;
+                    if (consecutiveNoTool >= MAX_NO_TOOL_CALLS) {
+                        reason = TerminationReason.NO_TOOL_CALLS;
+                        detail = "agent_idle: no tool calls for " + consecutiveNoTool + " consecutive turns";
+                        break;
+                    }
+                    messages.add(ChatMessage.user(nudge(consecutiveNoTool)));
+                    continue;
+                }
+                consecutiveNoTool = 0;
+
+                List<ToolExecutionResult> results = toolManager.execute(response.toolCalls());
+                String gauge = tokenGauge(messages, effective.maxTokenCapacity());
+                for (ToolExecutionResult result : results) {
+                    messages.add(
+                            ChatMessage.tool(
+                                    result.toolCallId(),
+                                    truncate(result.content(), effective.maxToolResponseChars()) + gauge));
+                }
+                observer.onToolResults(results);
+
+                if (engine.state().terminated()) {
+                    String engineReason = engine.state().terminationReason();
+                    reason = TerminationReason.fromEngineReason(engineReason);
+                    detail = engineReason;
+                    break;
+                }
+                if (turn >= maxTurns) {
+                    reason = TerminationReason.MAX_TURNS_REACHED;
+                    detail = "max_turns_reached";
+                    break;
+                }
+            }
         } catch (RuntimeException exception) {
-          reason = TerminationReason.LLM_ERROR;
-          detail = "llm_error: " + exception.getMessage();
-          break;
+            observer.onFailure(exception);
+            throw exception;
         }
 
-        ChatMessage assistant = response.toAssistantMessage();
-        messages.add(assistant);
-        observer.onAssistantMessage(assistant);
-
-        if (response.toolCalls().isEmpty()) {
-          consecutiveNoTool++;
-          if (consecutiveNoTool >= MAX_NO_TOOL_CALLS) {
-            reason = TerminationReason.NO_TOOL_CALLS;
-            detail = "agent_idle: no tool calls for " + consecutiveNoTool + " consecutive turns";
-            break;
-          }
-          messages.add(ChatMessage.user(nudge(consecutiveNoTool)));
-          continue;
+        if (reason == null) {
+            reason = TerminationReason.MAX_TURNS_REACHED;
+            detail = "max_turns_reached";
         }
-        consecutiveNoTool = 0;
+        RunResult result =
+                new RunResult(
+                        reason,
+                        detail,
+                        turn,
+                        messages,
+                        engine.state().dayCount(),
+                        engine.currentDate().toString(),
+                        engine.state().totalAssets().amount().doubleValue(),
+                        contextClearCount,
+                        contextTokensFreedTotal);
+        observer.onRunComplete(result);
+        return result;
+    }
 
-        List<ToolExecutionResult> results = toolManager.execute(response.toolCalls());
-        String gauge = tokenGauge(messages, effective.maxTokenCapacity());
-        for (ToolExecutionResult result : results) {
-          messages.add(
-              ChatMessage.tool(
-                  result.toolCallId(),
-                  truncate(result.content(), effective.maxToolResponseChars()) + gauge));
+    private List<ChatMessage> providerMessages(List<ChatMessage> messages, ContextEditResult edit) {
+        List<ChatMessage> provider = new ArrayList<>();
+        for (ChatMessage message : messages) {
+            message.forProvider().ifPresent(provider::add);
         }
-        observer.onToolResults(results);
-
-        if (engine.state().terminated()) {
-          String engineReason = engine.state().terminationReason();
-          reason = TerminationReason.fromEngineReason(engineReason);
-          detail = engineReason;
-          break;
+        if (edit.tokensFreed() > 0 && !provider.isEmpty()) {
+            int last = provider.size() - 1;
+            provider.set(last, appendContent(provider.get(last), edit.warning()));
         }
-        if (turn >= maxTurns) {
-          reason = TerminationReason.MAX_TURNS_REACHED;
-          detail = "max_turns_reached";
-          break;
+        return provider;
+    }
+
+    private String tokenGauge(List<ChatMessage> messages, int capacity) {
+        int used = 0;
+        for (ChatMessage message : messages) {
+            if (!message.cleared()) {
+                used += tokenCounter.count(message);
+            }
         }
-      }
-    } catch (RuntimeException exception) {
-      observer.onFailure(exception);
-      throw exception;
+        int percent = capacity > 0 ? used * 100 / capacity : 0;
+        return "\n<system_warning>Token usage: "
+                + used
+                + "/"
+                + capacity
+                + " tokens ("
+                + percent
+                + "%); "
+                + (capacity - used)
+                + " remaining</system_warning>";
     }
 
-    if (reason == null) {
-      reason = TerminationReason.MAX_TURNS_REACHED;
-      detail = "max_turns_reached";
+    private static ChatMessage appendContent(ChatMessage message, String suffix) {
+        String content = message.content() == null ? "" : message.content();
+        String separator = content.isEmpty() ? "" : "\n\n";
+        return new ChatMessage(
+                message.role(),
+                content + separator + suffix,
+                message.toolCalls(),
+                message.toolCallId(),
+                message.reasoningContent(),
+                message.reasoningItems(),
+                message.cleared(),
+                message.metadata());
     }
-    RunResult result =
-        new RunResult(
-            reason,
-            detail,
-            turn,
-            messages,
-            engine.state().dayCount(),
-            engine.currentDate().toString(),
-            engine.state().totalAssets().amount().doubleValue(),
-            contextClearCount,
-            contextTokensFreedTotal);
-    observer.onRunComplete(result);
-    return result;
-  }
 
-  private List<ChatMessage> providerMessages(List<ChatMessage> messages, ContextEditResult edit) {
-    List<ChatMessage> provider = new ArrayList<>();
-    for (ChatMessage message : messages) {
-      message.forProvider().ifPresent(provider::add);
+    private static String truncate(String content, int maxChars) {
+        if (content == null) {
+            return "";
+        }
+        return content.length() > maxChars
+                ? content.substring(0, maxChars) + "\n... [truncated]"
+                : content;
     }
-    if (edit.tokensFreed() > 0 && !provider.isEmpty()) {
-      int last = provider.size() - 1;
-      provider.set(last, appendContent(provider.get(last), edit.warning()));
+
+    private static String nudge(int consecutive) {
+        return "You did not call any tool. You must call a tool to operate the business and advance "
+                + "time. Please call a tool now. (warning "
+                + consecutive
+                + "/"
+                + MAX_NO_TOOL_CALLS
+                + ": after "
+                + MAX_NO_TOOL_CALLS
+                + " consecutive turns without a tool call the episode will be terminated as a failure.)";
     }
-    return provider;
-  }
-
-  private String tokenGauge(List<ChatMessage> messages, int capacity) {
-    int used = 0;
-    for (ChatMessage message : messages) {
-      if (!message.cleared()) {
-        used += tokenCounter.count(message);
-      }
-    }
-    int percent = capacity > 0 ? used * 100 / capacity : 0;
-    return "\n<system_warning>Token usage: "
-        + used
-        + "/"
-        + capacity
-        + " tokens ("
-        + percent
-        + "%); "
-        + (capacity - used)
-        + " remaining</system_warning>";
-  }
-
-  private static ChatMessage appendContent(ChatMessage message, String suffix) {
-    String content = message.content() == null ? "" : message.content();
-    String separator = content.isEmpty() ? "" : "\n\n";
-    return new ChatMessage(
-        message.role(),
-        content + separator + suffix,
-        message.toolCalls(),
-        message.toolCallId(),
-        message.reasoningContent(),
-        message.reasoningItems(),
-        message.cleared(),
-        message.metadata());
-  }
-
-  private static String truncate(String content, int maxChars) {
-    if (content == null) {
-      return "";
-    }
-    return content.length() > maxChars
-        ? content.substring(0, maxChars) + "\n... [truncated]"
-        : content;
-  }
-
-  private static String nudge(int consecutive) {
-    return "You did not call any tool. You must call a tool to operate the business and advance "
-        + "time. Please call a tool now. (warning "
-        + consecutive
-        + "/"
-        + MAX_NO_TOOL_CALLS
-        + ": after "
-        + MAX_NO_TOOL_CALLS
-        + " consecutive turns without a tool call the episode will be terminated as a failure.)";
-  }
 }

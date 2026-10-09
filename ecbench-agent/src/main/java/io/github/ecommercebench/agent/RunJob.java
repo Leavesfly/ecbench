@@ -2,6 +2,7 @@ package io.github.ecommercebench.agent;
 
 import io.github.ecommercebench.llm.model.ChatMessage;
 import io.github.ecommercebench.llm.model.ToolDefinition;
+
 import java.util.List;
 
 /**
@@ -11,18 +12,18 @@ import java.util.List;
  * 其余上限字段驱动主循环与上下文裁剪。
  */
 public record RunJob(
-    String task,
-    int idx,
-    String dataSource,
-    List<ChatMessage> initialMessages,
-    List<ToolDefinition> toolSchemas,
-    int maxTurns,
-    int maxDays,
-    int maxTokenCapacity,
-    int maxToolResponseChars) {
+        String task,
+        int idx,
+        String dataSource,
+        List<ChatMessage> initialMessages,
+        List<ToolDefinition> toolSchemas,
+        int maxTurns,
+        int maxDays,
+        int maxTokenCapacity,
+        int maxToolResponseChars) {
 
-  public RunJob {
-    initialMessages = List.copyOf(initialMessages);
-    toolSchemas = List.copyOf(toolSchemas);
-  }
+    public RunJob {
+        initialMessages = List.copyOf(initialMessages);
+        toolSchemas = List.copyOf(toolSchemas);
+    }
 }

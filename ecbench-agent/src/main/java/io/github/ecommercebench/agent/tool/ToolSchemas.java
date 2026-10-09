@@ -3,6 +3,7 @@ package io.github.ecommercebench.agent.tool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.ecommercebench.llm.model.ToolDefinition;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -14,23 +15,24 @@ import java.io.InputStream;
  */
 public final class ToolSchemas {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private ToolSchemas() {}
-
-  public static ToolDefinition load(String name) {
-    String resource = "/tool-schema/" + name + ".json";
-    try (InputStream in = ToolSchemas.class.getResourceAsStream(resource)) {
-      if (in == null) {
-        throw new IllegalStateException("缺少工具 schema 资源: " + resource);
-      }
-      JsonNode function = MAPPER.readTree(in).path("function");
-      return new ToolDefinition(
-          function.path("name").asText(),
-          function.path("description").asText(),
-          function.path("parameters"));
-    } catch (IOException e) {
-      throw new IllegalStateException("工具 schema 解析失败: " + resource, e);
+    private ToolSchemas() {
     }
-  }
+
+    public static ToolDefinition load(String name) {
+        String resource = "/tool-schema/" + name + ".json";
+        try (InputStream in = ToolSchemas.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IllegalStateException("缺少工具 schema 资源: " + resource);
+            }
+            JsonNode function = MAPPER.readTree(in).path("function");
+            return new ToolDefinition(
+                    function.path("name").asText(),
+                    function.path("description").asText(),
+                    function.path("parameters"));
+        } catch (IOException e) {
+            throw new IllegalStateException("工具 schema 解析失败: " + resource, e);
+        }
+    }
 }

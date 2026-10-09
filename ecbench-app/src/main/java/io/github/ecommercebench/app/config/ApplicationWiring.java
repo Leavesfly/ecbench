@@ -20,24 +20,24 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class ApplicationWiring {
 
-  @Bean
-  public ObjectMapper objectMapper() {
-    return new ObjectMapper();
-  }
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
 
-  @Bean
-  public LlmClientProvider llmClientProvider(ObjectMapper objectMapper) {
-    ProviderResolver resolver = new ProviderResolver(System.getenv());
-    RetryExecutor retryExecutor = new RetryExecutor(duration -> Thread.sleep(duration.toMillis()));
-    LlmClientFactory factory =
-        new LlmClientFactory(
-            resolver, objectMapper, RestClient.builder(), retryExecutor, RetryPolicy.defaults());
-    return factory::create;
-  }
+    @Bean
+    public LlmClientProvider llmClientProvider(ObjectMapper objectMapper) {
+        ProviderResolver resolver = new ProviderResolver(System.getenv());
+        RetryExecutor retryExecutor = new RetryExecutor(duration -> Thread.sleep(duration.toMillis()));
+        LlmClientFactory factory =
+                new LlmClientFactory(
+                        resolver, objectMapper, RestClient.builder(), retryExecutor, RetryPolicy.defaults());
+        return factory::create;
+    }
 
-  @Bean
-  public RunComponentFactory runComponentFactory(
-      ObjectMapper objectMapper, LlmClientProvider llmClientProvider) {
-    return new RunComponentFactory(objectMapper, llmClientProvider);
-  }
+    @Bean
+    public RunComponentFactory runComponentFactory(
+            ObjectMapper objectMapper, LlmClientProvider llmClientProvider) {
+        return new RunComponentFactory(objectMapper, llmClientProvider);
+    }
 }

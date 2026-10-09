@@ -14,61 +14,61 @@ import java.nio.file.Path;
  */
 public final class RunDirectory {
 
-  private final Path sessionDir;
+    private final Path sessionDir;
 
-  private RunDirectory(Path sessionDir) {
-    this.sessionDir = sessionDir;
-  }
-
-  public static RunDirectory create(Path logDir, String timestamp, String model) {
-    Path session = logDir.resolve(timestamp + "_" + sanitize(model));
-    try {
-      Files.createDirectories(session.resolve("trajectories"));
-      Files.createDirectories(session.resolve("metrics"));
-      Files.createDirectories(session.resolve("balance"));
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法创建运行目录: " + session, exception);
+    private RunDirectory(Path sessionDir) {
+        this.sessionDir = sessionDir;
     }
-    return new RunDirectory(session);
-  }
 
-  public Path sessionDir() {
-    return sessionDir;
-  }
+    public static RunDirectory create(Path logDir, String timestamp, String model) {
+        Path session = logDir.resolve(timestamp + "_" + sanitize(model));
+        try {
+            Files.createDirectories(session.resolve("trajectories"));
+            Files.createDirectories(session.resolve("metrics"));
+            Files.createDirectories(session.resolve("balance"));
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法创建运行目录: " + session, exception);
+        }
+        return new RunDirectory(session);
+    }
 
-  public Path trajectoriesDir() {
-    return sessionDir.resolve("trajectories");
-  }
+    public Path sessionDir() {
+        return sessionDir;
+    }
 
-  public Path metricsDir() {
-    return sessionDir.resolve("metrics");
-  }
+    public Path trajectoriesDir() {
+        return sessionDir.resolve("trajectories");
+    }
 
-  public Path balanceDir() {
-    return sessionDir.resolve("balance");
-  }
+    public Path metricsDir() {
+        return sessionDir.resolve("metrics");
+    }
 
-  public Path messagesJsonl(int runIndex) {
-    return trajectoriesDir().resolve("run_" + runIndex + "_messages.jsonl");
-  }
+    public Path balanceDir() {
+        return sessionDir.resolve("balance");
+    }
 
-  public Path outputLog(int runIndex) {
-    return trajectoriesDir().resolve("run_" + runIndex + "_output.log");
-  }
+    public Path messagesJsonl(int runIndex) {
+        return trajectoriesDir().resolve("run_" + runIndex + "_messages.jsonl");
+    }
 
-  public Path balanceCsv(int runIndex) {
-    return balanceDir().resolve("run_" + runIndex + "_daily_balance.csv");
-  }
+    public Path outputLog(int runIndex) {
+        return trajectoriesDir().resolve("run_" + runIndex + "_output.log");
+    }
 
-  public Path negotiationMetricsJson(int runIndex) {
-    return metricsDir().resolve("run_" + runIndex + "_negotiation_metrics.json");
-  }
+    public Path balanceCsv(int runIndex) {
+        return balanceDir().resolve("run_" + runIndex + "_daily_balance.csv");
+    }
 
-  public Path analysisJson(int runIndex) {
-    return metricsDir().resolve("run_" + runIndex + "_analysis.json");
-  }
+    public Path negotiationMetricsJson(int runIndex) {
+        return metricsDir().resolve("run_" + runIndex + "_negotiation_metrics.json");
+    }
 
-  private static String sanitize(String model) {
-    return model == null ? "unknown" : model.replaceAll("[^a-zA-Z0-9._-]", "_");
-  }
+    public Path analysisJson(int runIndex) {
+        return metricsDir().resolve("run_" + runIndex + "_analysis.json");
+    }
+
+    private static String sanitize(String model) {
+        return model == null ? "unknown" : model.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
 }

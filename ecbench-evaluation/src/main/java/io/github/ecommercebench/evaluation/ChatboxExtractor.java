@@ -3,6 +3,7 @@ package io.github.ecommercebench.evaluation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.ecommercebench.evaluation.model.ChatboxConversation;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -24,121 +25,121 @@ import java.util.regex.Pattern;
  */
 public final class ChatboxExtractor {
 
-  private static final Pattern SYSTEM_WARNING =
-      Pattern.compile("<system_warning>.*?</system_warning>", Pattern.DOTALL);
+    private static final Pattern SYSTEM_WARNING =
+            Pattern.compile("<system_warning>.*?</system_warning>", Pattern.DOTALL);
 
-  private final ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
-  public ChatboxExtractor() {
-    this(new ObjectMapper());
-  }
-
-  public ChatboxExtractor(ObjectMapper mapper) {
-    this.mapper = mapper;
-  }
-
-  public Map<String, ChatboxConversation> extract(Path messagesJsonl) {
-    List<String> lines;
-    try {
-      lines = Files.readAllLines(messagesJsonl, StandardCharsets.UTF_8);
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法读取消息 JSONL: " + messagesJsonl, exception);
-    }
-    Map<String, String> tcidToSupplier = new LinkedHashMap<>();
-    Map<String, List<String>> supplierLines = new LinkedHashMap<>();
-
-    for (String line : lines) {
-      String raw = line.trim();
-      if (raw.isEmpty()) {
-        continue;
-      }
-      JsonNode msg;
-      try {
-        msg = mapper.readTree(raw);
-      } catch (IOException exception) {
-        continue; // 截断/半写入行：跳过，与 Python 一致
-      }
-      String role = msg.path("role").asText("");
-      if ("assistant".equals(role) && msg.path("tool_calls").isArray()) {
-        collectCalls(msg, raw, tcidToSupplier, supplierLines);
-      } else if ("tool".equals(role)) {
-        collectResult(msg, raw, tcidToSupplier, supplierLines);
-      }
+    public ChatboxExtractor() {
+        this(new ObjectMapper());
     }
 
-    Map<String, ChatboxConversation> result = new LinkedHashMap<>();
-    List<String> suppliers = new ArrayList<>(supplierLines.keySet());
-    suppliers.sort(String::compareTo);
-    for (String supplier : suppliers) {
-      result.put(supplier, new ChatboxConversation(supplier, supplierLines.get(supplier)));
+    public ChatboxExtractor(ObjectMapper mapper) {
+        this.mapper = mapper;
     }
-    return result;
-  }
 
-  private void collectCalls(
-      JsonNode msg,
-      String raw,
-      Map<String, String> tcidToSupplier,
-      Map<String, List<String>> supplierLines) {
-    for (JsonNode tc : msg.path("tool_calls")) {
-      JsonNode function = tc.path("function");
-      if (!"chatbox".equals(function.path("name").asText(""))) {
-        continue;
-      }
-      JsonNode args = parseArguments(function.path("arguments"));
-      String supplier =
-          firstNonBlank(args.path("uid").asText(""), args.path("to_email").asText(""));
-      if (supplier.isEmpty()) {
-        continue;
-      }
-      String tcId = tc.path("id").asText("");
-      if (!tcId.isEmpty()) {
-        tcidToSupplier.put(tcId, supplier);
-      }
-      supplierLines.computeIfAbsent(supplier, ignored -> new ArrayList<>()).add(raw);
-    }
-  }
+    public Map<String, ChatboxConversation> extract(Path messagesJsonl) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(messagesJsonl, StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法读取消息 JSONL: " + messagesJsonl, exception);
+        }
+        Map<String, String> tcidToSupplier = new LinkedHashMap<>();
+        Map<String, List<String>> supplierLines = new LinkedHashMap<>();
 
-  private void collectResult(
-      JsonNode msg,
-      String raw,
-      Map<String, String> tcidToSupplier,
-      Map<String, List<String>> supplierLines) {
-    String content = msg.path("content").isTextual() ? msg.path("content").asText() : "";
-    JsonNode data = parseJson(SYSTEM_WARNING.matcher(content).replaceAll("").trim());
-    if (data == null || !data.isObject()) {
-      return;
-    }
-    String message = data.path("message").asText("");
-    if (!"message_sent".equals(message) && !"supplier_bankrupt".equals(message)) {
-      return;
-    }
-    String supplier = tcidToSupplier.get(msg.path("tool_call_id").asText(""));
-    if (supplier != null) {
-      supplierLines.computeIfAbsent(supplier, ignored -> new ArrayList<>()).add(raw);
-    }
-  }
+        for (String line : lines) {
+            String raw = line.trim();
+            if (raw.isEmpty()) {
+                continue;
+            }
+            JsonNode msg;
+            try {
+                msg = mapper.readTree(raw);
+            } catch (IOException exception) {
+                continue; // 截断/半写入行：跳过，与 Python 一致
+            }
+            String role = msg.path("role").asText("");
+            if ("assistant".equals(role) && msg.path("tool_calls").isArray()) {
+                collectCalls(msg, raw, tcidToSupplier, supplierLines);
+            } else if ("tool".equals(role)) {
+                collectResult(msg, raw, tcidToSupplier, supplierLines);
+            }
+        }
 
-  private JsonNode parseArguments(JsonNode node) {
-    if (node.isTextual()) {
-      JsonNode parsed = parseJson(node.asText());
-      return parsed == null ? mapper.createObjectNode() : parsed;
+        Map<String, ChatboxConversation> result = new LinkedHashMap<>();
+        List<String> suppliers = new ArrayList<>(supplierLines.keySet());
+        suppliers.sort(String::compareTo);
+        for (String supplier : suppliers) {
+            result.put(supplier, new ChatboxConversation(supplier, supplierLines.get(supplier)));
+        }
+        return result;
     }
-    return node.isObject() ? node : mapper.createObjectNode();
-  }
 
-  private JsonNode parseJson(String text) {
-    if (text == null || text.isBlank()) {
-      return null;
+    private void collectCalls(
+            JsonNode msg,
+            String raw,
+            Map<String, String> tcidToSupplier,
+            Map<String, List<String>> supplierLines) {
+        for (JsonNode tc : msg.path("tool_calls")) {
+            JsonNode function = tc.path("function");
+            if (!"chatbox".equals(function.path("name").asText(""))) {
+                continue;
+            }
+            JsonNode args = parseArguments(function.path("arguments"));
+            String supplier =
+                    firstNonBlank(args.path("uid").asText(""), args.path("to_email").asText(""));
+            if (supplier.isEmpty()) {
+                continue;
+            }
+            String tcId = tc.path("id").asText("");
+            if (!tcId.isEmpty()) {
+                tcidToSupplier.put(tcId, supplier);
+            }
+            supplierLines.computeIfAbsent(supplier, ignored -> new ArrayList<>()).add(raw);
+        }
     }
-    try {
-      return mapper.readTree(text);
-    } catch (IOException exception) {
-      return null;
-    }
-  }
 
-  private static String firstNonBlank(String first, String second) {
-    return first != null && !first.isBlank() ? first : (second == null ? "" : second);
-  }
+    private void collectResult(
+            JsonNode msg,
+            String raw,
+            Map<String, String> tcidToSupplier,
+            Map<String, List<String>> supplierLines) {
+        String content = msg.path("content").isTextual() ? msg.path("content").asText() : "";
+        JsonNode data = parseJson(SYSTEM_WARNING.matcher(content).replaceAll("").trim());
+        if (data == null || !data.isObject()) {
+            return;
+        }
+        String message = data.path("message").asText("");
+        if (!"message_sent".equals(message) && !"supplier_bankrupt".equals(message)) {
+            return;
+        }
+        String supplier = tcidToSupplier.get(msg.path("tool_call_id").asText(""));
+        if (supplier != null) {
+            supplierLines.computeIfAbsent(supplier, ignored -> new ArrayList<>()).add(raw);
+        }
+    }
+
+    private JsonNode parseArguments(JsonNode node) {
+        if (node.isTextual()) {
+            JsonNode parsed = parseJson(node.asText());
+            return parsed == null ? mapper.createObjectNode() : parsed;
+        }
+        return node.isObject() ? node : mapper.createObjectNode();
+    }
+
+    private JsonNode parseJson(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return mapper.readTree(text);
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : (second == null ? "" : second);
+    }
 }

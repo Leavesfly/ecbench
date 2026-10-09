@@ -20,59 +20,59 @@ import java.util.Set;
  */
 public final class BalanceCsvWriter implements AutoCloseable {
 
-  private static final String HEADER =
-      "date,bank_balance,platform_wallet,total_balance,open_stores,warehouse_items,storage_charged";
+    private static final String HEADER =
+            "date,bank_balance,platform_wallet,total_balance,open_stores,warehouse_items,storage_charged";
 
-  private final BufferedWriter writer;
-  private final Set<LocalDate> seenDates = new HashSet<>();
-  private boolean closed;
+    private final BufferedWriter writer;
+    private final Set<LocalDate> seenDates = new HashSet<>();
+    private boolean closed;
 
-  public BalanceCsvWriter(Path file) {
-    try {
-      this.writer =
-          Files.newBufferedWriter(
-              file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-      writer.write(HEADER);
-      writer.write("\n");
-      writer.flush();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法打开余额日志: " + file, exception);
+    public BalanceCsvWriter(Path file) {
+        try {
+            this.writer =
+                    Files.newBufferedWriter(
+                            file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            writer.write(HEADER);
+            writer.write("\n");
+            writer.flush();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法打开余额日志: " + file, exception);
+        }
     }
-  }
 
-  public void writeRow(DailyBalance balance) {
-    if (balance.date() == null || !seenDates.add(balance.date())) {
-      return;
+    public void writeRow(DailyBalance balance) {
+        if (balance.date() == null || !seenDates.add(balance.date())) {
+            return;
+        }
+        String line =
+                String.join(
+                        ",",
+                        balance.date().toString(),
+                        balance.bankBalance().amount().toPlainString(),
+                        balance.platformWallet().amount().toPlainString(),
+                        balance.totalBalance().amount().toPlainString(),
+                        Integer.toString(balance.openStores()),
+                        Integer.toString(balance.warehouseItems()),
+                        balance.storageCharged().amount().toPlainString());
+        try {
+            writer.write(line);
+            writer.write("\n");
+            writer.flush();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("写入余额行失败", exception);
+        }
     }
-    String line =
-        String.join(
-            ",",
-            balance.date().toString(),
-            balance.bankBalance().amount().toPlainString(),
-            balance.platformWallet().amount().toPlainString(),
-            balance.totalBalance().amount().toPlainString(),
-            Integer.toString(balance.openStores()),
-            Integer.toString(balance.warehouseItems()),
-            balance.storageCharged().amount().toPlainString());
-    try {
-      writer.write(line);
-      writer.write("\n");
-      writer.flush();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("写入余额行失败", exception);
-    }
-  }
 
-  @Override
-  public void close() {
-    if (closed) {
-      return;
+    @Override
+    public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        try {
+            writer.close();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("关闭余额日志失败", exception);
+        }
     }
-    closed = true;
-    try {
-      writer.close();
-    } catch (IOException exception) {
-      throw new UncheckedIOException("关闭余额日志失败", exception);
-    }
-  }
 }

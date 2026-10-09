@@ -12,11 +12,11 @@ import io.github.ecommercebench.simulation.SimulationEngine;
  * {@code observer}， 以及可选的预构建 {@code job}（为 null 时 agent 使用其 defaultJob）。close 关闭观察者持有的全部文件写入器。
  */
 public record RunComponents(
-    SimulationEngine engine, EcommerceBenchAgent agent, CompositeRunObserver observer, RunJob job)
-    implements AutoCloseable {
+        SimulationEngine engine, EcommerceBenchAgent agent, CompositeRunObserver observer, RunJob job)
+        implements AutoCloseable {
 
-  @Override
-  public void close() {
-    observer.close();
-  }
+    @Override
+    public void close() {
+        observer.close();
+    }
 }

@@ -10,22 +10,27 @@ import java.util.List;
  */
 public record ComparisonReport(List<SessionComparison> sessions) {
 
-  public ComparisonReport {
-    sessions = List.copyOf(sessions);
-  }
-
-  /** 单个会话的聚合：名称、run 数与各指标统计。 */
-  public record SessionComparison(String name, int runCount, List<MetricStat> metrics) {
-
-    public SessionComparison {
-      metrics = List.copyOf(metrics);
+    public ComparisonReport {
+        sessions = List.copyOf(sessions);
     }
 
-    public MetricStat metric(String label) {
-      return metrics.stream().filter(m -> m.label().equals(label)).findFirst().orElse(null);
-    }
-  }
+    /**
+     * 单个会话的聚合：名称、run 数与各指标统计。
+     */
+    public record SessionComparison(String name, int runCount, List<MetricStat> metrics) {
 
-  /** 单个指标的均值/标准差/样本数；非数值时 mean/std 为 null 且 fallback 承载文本值。 */
-  public record MetricStat(String label, Double mean, Double std, int n, String fallback) {}
+        public SessionComparison {
+            metrics = List.copyOf(metrics);
+        }
+
+        public MetricStat metric(String label) {
+            return metrics.stream().filter(m -> m.label().equals(label)).findFirst().orElse(null);
+        }
+    }
+
+    /**
+     * 单个指标的均值/标准差/样本数；非数值时 mean/std 为 null 且 fallback 承载文本值。
+     */
+    public record MetricStat(String label, Double mean, Double std, int n, String fallback) {
+    }
 }

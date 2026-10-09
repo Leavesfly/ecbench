@@ -10,7 +10,7 @@ import io.github.ecommercebench.agent.RunResult;
  */
 public record RunOutcome(int index, RunResult result, Throwable failure) {
 
-  public boolean succeeded() {
-    return failure == null;
-  }
+    public boolean succeeded() {
+        return failure == null;
+    }
 }

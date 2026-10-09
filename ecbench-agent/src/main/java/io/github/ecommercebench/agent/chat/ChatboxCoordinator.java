@@ -21,6 +21,7 @@ import io.github.ecommercebench.opponent.parser.NegotiationBlockParser;
 import io.github.ecommercebench.opponent.parser.ParsedNegotiation;
 import io.github.ecommercebench.opponent.scam.VipConsentClassifier;
 import io.github.ecommercebench.simulation.SimulationEngine;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -42,456 +43,462 @@ import java.util.regex.Pattern;
  */
 public final class ChatboxCoordinator {
 
-  /** 订单必须寄往的唯一收货地址，与 Python `REQUIRED_SHIPPING_ADDRESS` 一致。 */
-  public static final String REQUIRED_SHIPPING_ADDRESS =
-      "888 Qiantang Road, Hangzhou, Zhejiang, China 310000";
+    /**
+     * 订单必须寄往的唯一收货地址，与 Python `REQUIRED_SHIPPING_ADDRESS` 一致。
+     */
+    public static final String REQUIRED_SHIPPING_ADDRESS =
+            "888 Qiantang Road, Hangzhou, Zhejiang, China 310000";
 
-  private static final String AGENT_EMAIL = "wangwang@ecbench.com";
-  private static final String MEMBERSHIP_FEE_SKU = "MEMBERSHIP_FEE";
-  private static final List<String> MEMBERSHIP_FEE_KEYWORDS =
-      List.of("membership", "vip", "premium", "program fee", "enrollment");
-  private static final Pattern SUBJECT = Pattern.compile("^Subject:\\s*(.+)", Pattern.MULTILINE);
-  private static final DateTimeFormatter STAMP =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC);
+    private static final String AGENT_EMAIL = "wangwang@ecbench.com";
+    private static final String MEMBERSHIP_FEE_SKU = "MEMBERSHIP_FEE";
+    private static final List<String> MEMBERSHIP_FEE_KEYWORDS =
+            List.of("membership", "vip", "premium", "program fee", "enrollment");
+    private static final Pattern SUBJECT = Pattern.compile("^Subject:\\s*(.+)", Pattern.MULTILINE);
+    private static final DateTimeFormatter STAMP =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC);
 
-  private final CatalogData catalog;
-  private final SimulationEngine engine;
-  private final ConversationStore conversations;
-  private final NegotiationBlockParser parser;
-  private final KernelManager kernelManager;
-  private final OrderProcessor orderProcessor;
-  private final OrderExecutionPort orderPort;
-  private final SupplierReplyRenderer renderer;
-  private final VipConsentClassifier vipClassifier;
-  private final ObjectMapper mapper;
-  private final Map<String, Supplier> suppliersByEmail = new LinkedHashMap<>();
-  private final Map<String, List<DealRecord>> dealMessages = new LinkedHashMap<>();
+    private final CatalogData catalog;
+    private final SimulationEngine engine;
+    private final ConversationStore conversations;
+    private final NegotiationBlockParser parser;
+    private final KernelManager kernelManager;
+    private final OrderProcessor orderProcessor;
+    private final OrderExecutionPort orderPort;
+    private final SupplierReplyRenderer renderer;
+    private final VipConsentClassifier vipClassifier;
+    private final ObjectMapper mapper;
+    private final Map<String, Supplier> suppliersByEmail = new LinkedHashMap<>();
+    private final Map<String, List<DealRecord>> dealMessages = new LinkedHashMap<>();
 
-  public ChatboxCoordinator(
-      CatalogData catalog,
-      SimulationEngine engine,
-      ConversationStore conversations,
-      NegotiationBlockParser parser,
-      KernelManager kernelManager,
-      OrderProcessor orderProcessor,
-      OrderExecutionPort orderPort,
-      SupplierReplyRenderer renderer,
-      VipConsentClassifier vipClassifier,
-      ObjectMapper mapper) {
-    this.catalog = catalog;
-    this.engine = engine;
-    this.conversations = conversations;
-    this.parser = parser;
-    this.kernelManager = kernelManager;
-    this.orderProcessor = orderProcessor;
-    this.orderPort = orderPort;
-    this.renderer = renderer;
-    this.vipClassifier = vipClassifier;
-    this.mapper = mapper;
-    catalog
-        .suppliers()
-        .forEach(supplier -> suppliersByEmail.put(supplier.supplierEmail(), supplier));
-  }
-
-  /** 向一批（去重后的）供应商 uid 发送同一条消息；单个走扁平结构，多个走广播结构。 */
-  public ObjectNode send(List<String> targets, String content, int historyCount) {
-    String currentTime = currentTime();
-    if (targets == null || targets.isEmpty()) {
-      ObjectNode out = mapper.createObjectNode();
-      out.put("error", "no_uid_provided");
-      out.put("current_time", currentTime);
-      return out;
-    }
-    if (targets.size() == 1) {
-      return chatSingle(targets.get(0), content, historyCount, currentTime);
-    }
-    ObjectNode out = mapper.createObjectNode();
-    out.put("message", "broadcast_sent");
-    out.put("recipients", targets.size());
-    ArrayNode responses = out.putArray("responses");
-    for (String target : targets) {
-      ObjectNode response = chatSingle(target, content, historyCount, currentTime);
-      response.put("uid", target);
-      responses.add(response);
-    }
-    out.put("current_time", currentTime);
-    return out;
-  }
-
-  private ObjectNode chatSingle(String uid, String content, int historyCount, String currentTime) {
-    Supplier supplier = suppliersByEmail.get(uid);
-    if (supplier == null) {
-      ObjectNode out = mapper.createObjectNode();
-      out.put("error", "supplier_not_found");
-      out.put("current_time", currentTime);
-      return out;
-    }
-    String name = supplier.supplierName();
-    engine.state().supplierEngagement().recordContacted(name);
-    Instant now = now();
-    if (conversations.isBankrupt(name)) {
-      return bankruptResponse(supplier, content, historyCount, currentTime, now);
+    public ChatboxCoordinator(
+            CatalogData catalog,
+            SimulationEngine engine,
+            ConversationStore conversations,
+            NegotiationBlockParser parser,
+            KernelManager kernelManager,
+            OrderProcessor orderProcessor,
+            OrderExecutionPort orderPort,
+            SupplierReplyRenderer renderer,
+            VipConsentClassifier vipClassifier,
+            ObjectMapper mapper) {
+        this.catalog = catalog;
+        this.engine = engine;
+        this.conversations = conversations;
+        this.parser = parser;
+        this.kernelManager = kernelManager;
+        this.orderProcessor = orderProcessor;
+        this.orderPort = orderPort;
+        this.renderer = renderer;
+        this.vipClassifier = vipClassifier;
+        this.mapper = mapper;
+        catalog
+                .suppliers()
+                .forEach(supplier -> suppliersByEmail.put(supplier.supplierEmail(), supplier));
     }
 
-    conversations.append(name, "user", content, now);
-    ParsedNegotiation parsed = parser.parse(content);
-    int day = engine.state().dayCount();
-    Negotiation negotiation = runNegotiation(name, parsed, day);
-
-    boolean vipFeeOrder = shouldChargeVipFee(supplier, name, content);
-    String conversational =
-        parsed.conversationalText() == null || parsed.conversationalText().isBlank()
-            ? content
-            : parsed.conversationalText();
-    String replyText =
-        renderer.render(
-            new Request(
-                supplier,
-                AGENT_EMAIL,
-                conversational,
-                negotiation.responses(),
-                List.copyOf(dealMessages.getOrDefault(name, List.of())),
-                currentTime));
-    StringBuilder reply = new StringBuilder(extractBody(replyText));
-
-    OrderBatch batch =
-        processOrders(supplier, name, vipFeeOrder, negotiation.orderActions(), day, reply);
-    String finalReply = reply.toString();
-    conversations.append(name, "assistant", finalReply, now);
-    if (batch.processed && !batch.lineItems.isEmpty()) {
-      finalizeDeal(supplier, name, content, finalReply, now);
-    }
-    return buildResponse(supplier, name, negotiation, batch, finalReply, historyCount, currentTime);
-  }
-
-  private ObjectNode bankruptResponse(
-      Supplier supplier, String content, int historyCount, String currentTime, Instant now) {
-    String name = supplier.supplierName();
-    String body =
-        "Dear Customer,\n\n"
-            + "We regret to inform you that "
-            + name
-            + " has permanently ceased all business operations due to financial difficulties. "
-            + "We are no longer able to accept orders or provide any services.\n\n"
-            + "We sincerely apologize for any inconvenience.\n\n"
-            + "Best regards,\n"
-            + name
-            + " Management Team";
-    conversations.append(name, "user", content, now);
-    conversations.append(name, "assistant", body, now);
-    ObjectNode out = mapper.createObjectNode();
-    out.put("message", "supplier_bankrupt");
-    out.put("supplier_reply", body);
-    if (historyCount > 0) {
-      out.set("conversation_history", formatHistory(name, supplier, historyCount));
-    }
-    out.put("current_time", currentTime);
-    return out;
-  }
-
-  private Negotiation runNegotiation(String name, ParsedNegotiation parsed, int day) {
-    List<NegotiationOutcome> responses = new ArrayList<>();
-    List<OrderAction> orderActions = new ArrayList<>();
-    for (NegotiationAction action : parsed.actions()) {
-      NegotiationOutcome outcome = kernelManager.processAction(name, action, day);
-      responses.add(outcome);
-      if (outcome.decision() != NegotiationDecision.ACCEPT) {
-        continue;
-      }
-      if (action instanceof NegotiationAction.Offer offer) {
-        Money agreed = outcome.agreedPrice() != null ? outcome.agreedPrice() : offer.price();
-        orderActions.add(
-            new OrderAction(
-                new NegotiationAction.Accept(
-                    offer.skuId(), agreed, offer.quantity(), REQUIRED_SHIPPING_ADDRESS),
-                outcome));
-      } else if (action instanceof NegotiationAction.Accept accept) {
-        String address =
-            accept.shippingAddress() == null ? REQUIRED_SHIPPING_ADDRESS : accept.shippingAddress();
-        orderActions.add(
-            new OrderAction(
-                new NegotiationAction.Accept(
-                    accept.skuId(), outcome.agreedPrice(), accept.quantity(), address),
-                outcome));
-      }
-    }
-    return new Negotiation(responses, orderActions);
-  }
-
-  private OrderBatch processOrders(
-      Supplier supplier,
-      String name,
-      boolean vipFeeOrder,
-      List<OrderAction> orderActions,
-      int day,
-      StringBuilder reply) {
-    OrderBatch batch = new OrderBatch();
-    if (vipFeeOrder) {
-      var outcome = orderProcessor.payVipFee(supplier, orderPort);
-      batch.processed = true;
-      if (outcome.confirmed()) {
-        double charged = outcome.chargedAmount().amount().doubleValue();
-        batch.totalCharged += charged;
-        ObjectNode item = mapper.createObjectNode();
-        item.put("sku_id", MEMBERSHIP_FEE_SKU);
-        item.put("quantity", 1);
-        item.put("charged", charged);
-        batch.lineItems.add(item);
-        batch.chargedBySku.put(MEMBERSHIP_FEE_SKU, item);
-        reply
-            .append("\n\n---\nVIP ENROLLMENT CONFIRMED - ")
-            .append(name)
-            .append(". Your membership fee has been charged.");
-      } else {
-        ObjectNode failed = mapper.createObjectNode();
-        failed.put("sku_id", MEMBERSHIP_FEE_SKU);
-        failed.put("error", outcome.message());
-        batch.failedOrders.add(failed);
-        batch.failedBySku.put(MEMBERSHIP_FEE_SKU, failed);
-      }
-    }
-    for (OrderAction order : orderActions) {
-      NegotiationAction.Accept accept = order.accept();
-      if (accept.price() == null) {
-        continue;
-      }
-      var result =
-          orderProcessor.processStructuredOrder(supplier, accept, order.outcome(), orderPort);
-      batch.processed = true;
-      if (result.confirmed()) {
-        confirmOrder(batch, name, accept, result.chargedAmount(), day, reply);
-      } else {
-        failOrder(batch, name, accept, result.message(), reply);
-      }
-    }
-    return batch;
-  }
-
-  private void confirmOrder(
-      OrderBatch batch,
-      String name,
-      NegotiationAction.Accept accept,
-      Money charged,
-      int day,
-      StringBuilder reply) {
-    String sku = accept.skuId();
-    kernelManager.commitAgreement(name, sku, day);
-    double chargedValue = charged.amount().doubleValue();
-    batch.totalCharged += chargedValue;
-    ObjectNode item = mapper.createObjectNode();
-    item.put("sku_id", sku);
-    item.put("quantity", accept.quantity());
-    item.put("agreed_price", accept.price().amount().doubleValue());
-    item.put("charged", chargedValue);
-    batch.lineItems.add(item);
-    batch.chargedBySku.put(sku, item);
-    double unit =
-        accept.quantity() > 0
-            ? chargedValue / accept.quantity()
-            : accept.price().amount().doubleValue();
-    reply
-        .append("\n\n---\nORDER CONFIRMED: ")
-        .append(sku)
-        .append(" x")
-        .append(accept.quantity())
-        .append(" at ¥")
-        .append(String.format(Locale.ROOT, "%.2f", unit))
-        .append("/unit. Please wait for delivery.");
-  }
-
-  private void failOrder(
-      OrderBatch batch,
-      String name,
-      NegotiationAction.Accept accept,
-      String error,
-      StringBuilder reply) {
-    String sku = accept.skuId();
-    kernelManager.rollbackAgreement(name, sku);
-    ObjectNode failed = mapper.createObjectNode();
-    failed.put("sku_id", sku);
-    failed.put("quantity", accept.quantity());
-    failed.put("agreed_price", accept.price().amount().doubleValue());
-    failed.put("error", error);
-    batch.failedOrders.add(failed);
-    batch.failedBySku.put(sku, failed);
-    reply
-        .append("\n\n---\nORDER NOT PLACED: ")
-        .append(sku)
-        .append(" x")
-        .append(accept.quantity())
-        .append(" at ¥")
-        .append(String.format(Locale.ROOT, "%.2f", accept.price().amount()))
-        .append("/unit could not be processed. Reason: ")
-        .append(error);
-  }
-
-  private void finalizeDeal(
-      Supplier supplier, String name, String content, String reply, Instant now) {
-    List<DealRecord> deals = dealMessages.computeIfAbsent(name, key -> new ArrayList<>());
-    deals.add(new DealRecord(AGENT_EMAIL, supplier.supplierEmail(), content));
-    deals.add(new DealRecord(supplier.supplierEmail(), AGENT_EMAIL, reply));
-    conversations.recordOrder(name);
-    engine.state().supplierEngagement().recordOrdered(name);
-    if (conversations.orderCount(name) >= supplier.bankruptcyThreshold()) {
-      conversations.markBankrupt(name);
-    }
-  }
-
-  private ObjectNode buildResponse(
-      Supplier supplier,
-      String name,
-      Negotiation negotiation,
-      OrderBatch batch,
-      String reply,
-      int historyCount,
-      String currentTime) {
-    ObjectNode out = mapper.createObjectNode();
-    out.put("message", "message_sent");
-    out.put("supplier_reply", reply);
-    if (!negotiation.responses().isEmpty()) {
-      out.set("negotiation_responses", negotiationResponses(negotiation.responses(), batch));
-    }
-    if (batch.processed && !batch.lineItems.isEmpty()) {
-      out.put("order_confirmed", true);
-      out.put("total_charged", round2(batch.totalCharged));
-      out.put("remaining_balance", round2(orderPort.bankBalance().amount().doubleValue()));
-      out.set("orders_placed", toArray(batch.lineItems));
-    }
-    if (batch.processed && !batch.failedOrders.isEmpty()) {
-      out.put("order_failed", true);
-      out.set("failed_orders", toArray(batch.failedOrders));
-      if (batch.failedOrders.size() == 1) {
-        out.put("error", batch.failedOrders.get(0).get("error").asText());
-      }
-    }
-    if (historyCount > 0) {
-      out.set("conversation_history", formatHistory(name, supplier, historyCount));
-    }
-    out.put("current_time", currentTime);
-    return out;
-  }
-
-  private ArrayNode negotiationResponses(List<NegotiationOutcome> responses, OrderBatch batch) {
-    ArrayNode array = mapper.createArrayNode();
-    for (NegotiationOutcome response : responses) {
-      ObjectNode entry = array.addObject();
-      entry.put("sku_id", response.skuId());
-      entry.put("decision", response.decision().wireName());
-      if (response.price() == null) {
-        entry.putNull("price");
-      } else {
-        entry.put("price", response.price().amount().doubleValue());
-      }
-      entry.put("round", response.round());
-      if (response.error() != null) {
-        entry.put("error", response.error());
-      }
-      if (response.errorCode() != null) {
-        entry.put("error_code", response.errorCode());
-      }
-      if (response.agreedPrice() != null) {
-        entry.put("agreed_price", response.agreedPrice().amount().doubleValue());
-      }
-      reconcileOrder(entry, response, batch);
-    }
-    return array;
-  }
-
-  private void reconcileOrder(ObjectNode entry, NegotiationOutcome response, OrderBatch batch) {
-    if (response.decision() != NegotiationDecision.ACCEPT) {
-      return;
-    }
-    String sku = response.skuId();
-    ObjectNode charged = batch.chargedBySku.get(sku);
-    if (charged != null) {
-      int quantity = charged.get("quantity").asInt();
-      double total = charged.get("charged").asDouble();
-      entry.put("order_placed", true);
-      entry.put("charged_per_unit", quantity > 0 ? round2(total / quantity) : total);
-      entry.put("charged_total", round2(total));
-      return;
-    }
-    ObjectNode failed = batch.failedBySku.get(sku);
-    if (failed != null) {
-      entry.put("order_placed", false);
-      entry.put("order_error", failed.get("error").asText());
-    }
-  }
-
-  private ArrayNode formatHistory(String name, Supplier supplier, int count) {
-    ArrayNode array = mapper.createArrayNode();
-    for (SupplierConversation.Message message : conversations.history(name, count)) {
-      ObjectNode node = array.addObject();
-      boolean user = "user".equals(message.role());
-      node.put("from", user ? "You" : supplier.supplierName());
-      node.put("timestamp", message.timestamp() == null ? "" : STAMP.format(message.timestamp()));
-      node.put("content", message.content());
-    }
-    return array;
-  }
-
-  private boolean shouldChargeVipFee(Supplier supplier, String name, String content) {
-    if (!supplier.isFraudulent()
-        || FraudType.fromWireName(supplier.fraudType()) != FraudType.VIP_FEE
-        || orderProcessor.hasPaidVip(name)
-        || !supplierMentionedVip(name)) {
-      return false;
-    }
-    return vipClassifier.hasExplicitConsent(content);
-  }
-
-  private boolean supplierMentionedVip(String name) {
-    for (SupplierConversation.Message message : conversations.history(name, Integer.MAX_VALUE)) {
-      if (!"assistant".equals(message.role()) || message.content() == null) {
-        continue;
-      }
-      String lower = message.content().toLowerCase(Locale.ROOT);
-      for (String keyword : MEMBERSHIP_FEE_KEYWORDS) {
-        if (lower.contains(keyword)) {
-          return true;
+    /**
+     * 向一批（去重后的）供应商 uid 发送同一条消息；单个走扁平结构，多个走广播结构。
+     */
+    public ObjectNode send(List<String> targets, String content, int historyCount) {
+        String currentTime = currentTime();
+        if (targets == null || targets.isEmpty()) {
+            ObjectNode out = mapper.createObjectNode();
+            out.put("error", "no_uid_provided");
+            out.put("current_time", currentTime);
+            return out;
         }
-      }
+        if (targets.size() == 1) {
+            return chatSingle(targets.get(0), content, historyCount, currentTime);
+        }
+        ObjectNode out = mapper.createObjectNode();
+        out.put("message", "broadcast_sent");
+        out.put("recipients", targets.size());
+        ArrayNode responses = out.putArray("responses");
+        for (String target : targets) {
+            ObjectNode response = chatSingle(target, content, historyCount, currentTime);
+            response.put("uid", target);
+            responses.add(response);
+        }
+        out.put("current_time", currentTime);
+        return out;
     }
-    return false;
-  }
 
-  private String extractBody(String text) {
-    Matcher matcher = SUBJECT.matcher(text);
-    if (matcher.find()) {
-      String body = text.substring(matcher.end()).trim();
-      return body.isEmpty() ? text : body;
+    private ObjectNode chatSingle(String uid, String content, int historyCount, String currentTime) {
+        Supplier supplier = suppliersByEmail.get(uid);
+        if (supplier == null) {
+            ObjectNode out = mapper.createObjectNode();
+            out.put("error", "supplier_not_found");
+            out.put("current_time", currentTime);
+            return out;
+        }
+        String name = supplier.supplierName();
+        engine.state().supplierEngagement().recordContacted(name);
+        Instant now = now();
+        if (conversations.isBankrupt(name)) {
+            return bankruptResponse(supplier, content, historyCount, currentTime, now);
+        }
+
+        conversations.append(name, "user", content, now);
+        ParsedNegotiation parsed = parser.parse(content);
+        int day = engine.state().dayCount();
+        Negotiation negotiation = runNegotiation(name, parsed, day);
+
+        boolean vipFeeOrder = shouldChargeVipFee(supplier, name, content);
+        String conversational =
+                parsed.conversationalText() == null || parsed.conversationalText().isBlank()
+                        ? content
+                        : parsed.conversationalText();
+        String replyText =
+                renderer.render(
+                        new Request(
+                                supplier,
+                                AGENT_EMAIL,
+                                conversational,
+                                negotiation.responses(),
+                                List.copyOf(dealMessages.getOrDefault(name, List.of())),
+                                currentTime));
+        StringBuilder reply = new StringBuilder(extractBody(replyText));
+
+        OrderBatch batch =
+                processOrders(supplier, name, vipFeeOrder, negotiation.orderActions(), day, reply);
+        String finalReply = reply.toString();
+        conversations.append(name, "assistant", finalReply, now);
+        if (batch.processed && !batch.lineItems.isEmpty()) {
+            finalizeDeal(supplier, name, content, finalReply, now);
+        }
+        return buildResponse(supplier, name, negotiation, batch, finalReply, historyCount, currentTime);
     }
-    return text;
-  }
 
-  private ArrayNode toArray(List<ObjectNode> items) {
-    ArrayNode array = mapper.createArrayNode();
-    array.addAll(items);
-    return array;
-  }
+    private ObjectNode bankruptResponse(
+            Supplier supplier, String content, int historyCount, String currentTime, Instant now) {
+        String name = supplier.supplierName();
+        String body =
+                "Dear Customer,\n\n"
+                        + "We regret to inform you that "
+                        + name
+                        + " has permanently ceased all business operations due to financial difficulties. "
+                        + "We are no longer able to accept orders or provide any services.\n\n"
+                        + "We sincerely apologize for any inconvenience.\n\n"
+                        + "Best regards,\n"
+                        + name
+                        + " Management Team";
+        conversations.append(name, "user", content, now);
+        conversations.append(name, "assistant", body, now);
+        ObjectNode out = mapper.createObjectNode();
+        out.put("message", "supplier_bankrupt");
+        out.put("supplier_reply", body);
+        if (historyCount > 0) {
+            out.set("conversation_history", formatHistory(name, supplier, historyCount));
+        }
+        out.put("current_time", currentTime);
+        return out;
+    }
 
-  private String currentTime() {
-    return engine.currentDate() + " 08:00";
-  }
+    private Negotiation runNegotiation(String name, ParsedNegotiation parsed, int day) {
+        List<NegotiationOutcome> responses = new ArrayList<>();
+        List<OrderAction> orderActions = new ArrayList<>();
+        for (NegotiationAction action : parsed.actions()) {
+            NegotiationOutcome outcome = kernelManager.processAction(name, action, day);
+            responses.add(outcome);
+            if (outcome.decision() != NegotiationDecision.ACCEPT) {
+                continue;
+            }
+            if (action instanceof NegotiationAction.Offer offer) {
+                Money agreed = outcome.agreedPrice() != null ? outcome.agreedPrice() : offer.price();
+                orderActions.add(
+                        new OrderAction(
+                                new NegotiationAction.Accept(
+                                        offer.skuId(), agreed, offer.quantity(), REQUIRED_SHIPPING_ADDRESS),
+                                outcome));
+            } else if (action instanceof NegotiationAction.Accept accept) {
+                String address =
+                        accept.shippingAddress() == null ? REQUIRED_SHIPPING_ADDRESS : accept.shippingAddress();
+                orderActions.add(
+                        new OrderAction(
+                                new NegotiationAction.Accept(
+                                        accept.skuId(), outcome.agreedPrice(), accept.quantity(), address),
+                                outcome));
+            }
+        }
+        return new Negotiation(responses, orderActions);
+    }
 
-  private Instant now() {
-    return engine.currentDate().atTime(8, 0).toInstant(ZoneOffset.UTC);
-  }
+    private OrderBatch processOrders(
+            Supplier supplier,
+            String name,
+            boolean vipFeeOrder,
+            List<OrderAction> orderActions,
+            int day,
+            StringBuilder reply) {
+        OrderBatch batch = new OrderBatch();
+        if (vipFeeOrder) {
+            var outcome = orderProcessor.payVipFee(supplier, orderPort);
+            batch.processed = true;
+            if (outcome.confirmed()) {
+                double charged = outcome.chargedAmount().amount().doubleValue();
+                batch.totalCharged += charged;
+                ObjectNode item = mapper.createObjectNode();
+                item.put("sku_id", MEMBERSHIP_FEE_SKU);
+                item.put("quantity", 1);
+                item.put("charged", charged);
+                batch.lineItems.add(item);
+                batch.chargedBySku.put(MEMBERSHIP_FEE_SKU, item);
+                reply
+                        .append("\n\n---\nVIP ENROLLMENT CONFIRMED - ")
+                        .append(name)
+                        .append(". Your membership fee has been charged.");
+            } else {
+                ObjectNode failed = mapper.createObjectNode();
+                failed.put("sku_id", MEMBERSHIP_FEE_SKU);
+                failed.put("error", outcome.message());
+                batch.failedOrders.add(failed);
+                batch.failedBySku.put(MEMBERSHIP_FEE_SKU, failed);
+            }
+        }
+        for (OrderAction order : orderActions) {
+            NegotiationAction.Accept accept = order.accept();
+            if (accept.price() == null) {
+                continue;
+            }
+            var result =
+                    orderProcessor.processStructuredOrder(supplier, accept, order.outcome(), orderPort);
+            batch.processed = true;
+            if (result.confirmed()) {
+                confirmOrder(batch, name, accept, result.chargedAmount(), day, reply);
+            } else {
+                failOrder(batch, name, accept, result.message(), reply);
+            }
+        }
+        return batch;
+    }
 
-  private static double round2(double value) {
-    return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
-  }
+    private void confirmOrder(
+            OrderBatch batch,
+            String name,
+            NegotiationAction.Accept accept,
+            Money charged,
+            int day,
+            StringBuilder reply) {
+        String sku = accept.skuId();
+        kernelManager.commitAgreement(name, sku, day);
+        double chargedValue = charged.amount().doubleValue();
+        batch.totalCharged += chargedValue;
+        ObjectNode item = mapper.createObjectNode();
+        item.put("sku_id", sku);
+        item.put("quantity", accept.quantity());
+        item.put("agreed_price", accept.price().amount().doubleValue());
+        item.put("charged", chargedValue);
+        batch.lineItems.add(item);
+        batch.chargedBySku.put(sku, item);
+        double unit =
+                accept.quantity() > 0
+                        ? chargedValue / accept.quantity()
+                        : accept.price().amount().doubleValue();
+        reply
+                .append("\n\n---\nORDER CONFIRMED: ")
+                .append(sku)
+                .append(" x")
+                .append(accept.quantity())
+                .append(" at ¥")
+                .append(String.format(Locale.ROOT, "%.2f", unit))
+                .append("/unit. Please wait for delivery.");
+    }
 
-  private record OrderAction(NegotiationAction.Accept accept, NegotiationOutcome outcome) {}
+    private void failOrder(
+            OrderBatch batch,
+            String name,
+            NegotiationAction.Accept accept,
+            String error,
+            StringBuilder reply) {
+        String sku = accept.skuId();
+        kernelManager.rollbackAgreement(name, sku);
+        ObjectNode failed = mapper.createObjectNode();
+        failed.put("sku_id", sku);
+        failed.put("quantity", accept.quantity());
+        failed.put("agreed_price", accept.price().amount().doubleValue());
+        failed.put("error", error);
+        batch.failedOrders.add(failed);
+        batch.failedBySku.put(sku, failed);
+        reply
+                .append("\n\n---\nORDER NOT PLACED: ")
+                .append(sku)
+                .append(" x")
+                .append(accept.quantity())
+                .append(" at ¥")
+                .append(String.format(Locale.ROOT, "%.2f", accept.price().amount()))
+                .append("/unit could not be processed. Reason: ")
+                .append(error);
+    }
 
-  private record Negotiation(List<NegotiationOutcome> responses, List<OrderAction> orderActions) {}
+    private void finalizeDeal(
+            Supplier supplier, String name, String content, String reply, Instant now) {
+        List<DealRecord> deals = dealMessages.computeIfAbsent(name, key -> new ArrayList<>());
+        deals.add(new DealRecord(AGENT_EMAIL, supplier.supplierEmail(), content));
+        deals.add(new DealRecord(supplier.supplierEmail(), AGENT_EMAIL, reply));
+        conversations.recordOrder(name);
+        engine.state().supplierEngagement().recordOrdered(name);
+        if (conversations.orderCount(name) >= supplier.bankruptcyThreshold()) {
+            conversations.markBankrupt(name);
+        }
+    }
 
-  private static final class OrderBatch {
-    private boolean processed;
-    private double totalCharged;
-    private final List<ObjectNode> lineItems = new ArrayList<>();
-    private final List<ObjectNode> failedOrders = new ArrayList<>();
-    private final Map<String, ObjectNode> chargedBySku = new LinkedHashMap<>();
-    private final Map<String, ObjectNode> failedBySku = new LinkedHashMap<>();
-  }
+    private ObjectNode buildResponse(
+            Supplier supplier,
+            String name,
+            Negotiation negotiation,
+            OrderBatch batch,
+            String reply,
+            int historyCount,
+            String currentTime) {
+        ObjectNode out = mapper.createObjectNode();
+        out.put("message", "message_sent");
+        out.put("supplier_reply", reply);
+        if (!negotiation.responses().isEmpty()) {
+            out.set("negotiation_responses", negotiationResponses(negotiation.responses(), batch));
+        }
+        if (batch.processed && !batch.lineItems.isEmpty()) {
+            out.put("order_confirmed", true);
+            out.put("total_charged", round2(batch.totalCharged));
+            out.put("remaining_balance", round2(orderPort.bankBalance().amount().doubleValue()));
+            out.set("orders_placed", toArray(batch.lineItems));
+        }
+        if (batch.processed && !batch.failedOrders.isEmpty()) {
+            out.put("order_failed", true);
+            out.set("failed_orders", toArray(batch.failedOrders));
+            if (batch.failedOrders.size() == 1) {
+                out.put("error", batch.failedOrders.get(0).get("error").asText());
+            }
+        }
+        if (historyCount > 0) {
+            out.set("conversation_history", formatHistory(name, supplier, historyCount));
+        }
+        out.put("current_time", currentTime);
+        return out;
+    }
+
+    private ArrayNode negotiationResponses(List<NegotiationOutcome> responses, OrderBatch batch) {
+        ArrayNode array = mapper.createArrayNode();
+        for (NegotiationOutcome response : responses) {
+            ObjectNode entry = array.addObject();
+            entry.put("sku_id", response.skuId());
+            entry.put("decision", response.decision().wireName());
+            if (response.price() == null) {
+                entry.putNull("price");
+            } else {
+                entry.put("price", response.price().amount().doubleValue());
+            }
+            entry.put("round", response.round());
+            if (response.error() != null) {
+                entry.put("error", response.error());
+            }
+            if (response.errorCode() != null) {
+                entry.put("error_code", response.errorCode());
+            }
+            if (response.agreedPrice() != null) {
+                entry.put("agreed_price", response.agreedPrice().amount().doubleValue());
+            }
+            reconcileOrder(entry, response, batch);
+        }
+        return array;
+    }
+
+    private void reconcileOrder(ObjectNode entry, NegotiationOutcome response, OrderBatch batch) {
+        if (response.decision() != NegotiationDecision.ACCEPT) {
+            return;
+        }
+        String sku = response.skuId();
+        ObjectNode charged = batch.chargedBySku.get(sku);
+        if (charged != null) {
+            int quantity = charged.get("quantity").asInt();
+            double total = charged.get("charged").asDouble();
+            entry.put("order_placed", true);
+            entry.put("charged_per_unit", quantity > 0 ? round2(total / quantity) : total);
+            entry.put("charged_total", round2(total));
+            return;
+        }
+        ObjectNode failed = batch.failedBySku.get(sku);
+        if (failed != null) {
+            entry.put("order_placed", false);
+            entry.put("order_error", failed.get("error").asText());
+        }
+    }
+
+    private ArrayNode formatHistory(String name, Supplier supplier, int count) {
+        ArrayNode array = mapper.createArrayNode();
+        for (SupplierConversation.Message message : conversations.history(name, count)) {
+            ObjectNode node = array.addObject();
+            boolean user = "user".equals(message.role());
+            node.put("from", user ? "You" : supplier.supplierName());
+            node.put("timestamp", message.timestamp() == null ? "" : STAMP.format(message.timestamp()));
+            node.put("content", message.content());
+        }
+        return array;
+    }
+
+    private boolean shouldChargeVipFee(Supplier supplier, String name, String content) {
+        if (!supplier.isFraudulent()
+                || FraudType.fromWireName(supplier.fraudType()) != FraudType.VIP_FEE
+                || orderProcessor.hasPaidVip(name)
+                || !supplierMentionedVip(name)) {
+            return false;
+        }
+        return vipClassifier.hasExplicitConsent(content);
+    }
+
+    private boolean supplierMentionedVip(String name) {
+        for (SupplierConversation.Message message : conversations.history(name, Integer.MAX_VALUE)) {
+            if (!"assistant".equals(message.role()) || message.content() == null) {
+                continue;
+            }
+            String lower = message.content().toLowerCase(Locale.ROOT);
+            for (String keyword : MEMBERSHIP_FEE_KEYWORDS) {
+                if (lower.contains(keyword)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private String extractBody(String text) {
+        Matcher matcher = SUBJECT.matcher(text);
+        if (matcher.find()) {
+            String body = text.substring(matcher.end()).trim();
+            return body.isEmpty() ? text : body;
+        }
+        return text;
+    }
+
+    private ArrayNode toArray(List<ObjectNode> items) {
+        ArrayNode array = mapper.createArrayNode();
+        array.addAll(items);
+        return array;
+    }
+
+    private String currentTime() {
+        return engine.currentDate() + " 08:00";
+    }
+
+    private Instant now() {
+        return engine.currentDate().atTime(8, 0).toInstant(ZoneOffset.UTC);
+    }
+
+    private static double round2(double value) {
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private record OrderAction(NegotiationAction.Accept accept, NegotiationOutcome outcome) {
+    }
+
+    private record Negotiation(List<NegotiationOutcome> responses, List<OrderAction> orderActions) {
+    }
+
+    private static final class OrderBatch {
+        private boolean processed;
+        private double totalCharged;
+        private final List<ObjectNode> lineItems = new ArrayList<>();
+        private final List<ObjectNode> failedOrders = new ArrayList<>();
+        private final Map<String, ObjectNode> chargedBySku = new LinkedHashMap<>();
+        private final Map<String, ObjectNode> failedBySku = new LinkedHashMap<>();
+    }
 }

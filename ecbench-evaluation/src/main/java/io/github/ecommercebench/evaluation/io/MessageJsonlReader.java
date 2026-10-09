@@ -2,6 +2,7 @@ package io.github.ecommercebench.evaluation.io;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -19,61 +20,64 @@ import java.util.List;
  */
 public final class MessageJsonlReader {
 
-  private final ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
-  public MessageJsonlReader() {
-    this(new ObjectMapper());
-  }
-
-  public MessageJsonlReader(ObjectMapper mapper) {
-    this.mapper = mapper;
-  }
-
-  /** 解析结果：全部消息节点与三项计数。 */
-  public record Result(
-      List<JsonNode> messages, int assistantTurns, int toolCalls, int contextTruncations) {}
-
-  public Result read(Path jsonl) {
-    List<String> lines;
-    try {
-      lines = Files.readAllLines(jsonl, StandardCharsets.UTF_8);
-    } catch (IOException exception) {
-      throw new UncheckedIOException("无法读取消息 JSONL: " + jsonl, exception);
+    public MessageJsonlReader() {
+        this(new ObjectMapper());
     }
-    List<JsonNode> messages = new ArrayList<>();
-    int assistantTurns = 0;
-    int toolCalls = 0;
-    int truncations = 0;
-    for (int i = 0; i < lines.size(); i++) {
-      String raw = lines.get(i).trim();
-      if (raw.isEmpty()) {
-        continue;
-      }
-      JsonNode node;
-      try {
-        node = mapper.readTree(raw);
-      } catch (IOException exception) {
-        throw new IllegalArgumentException(
-            "消息 JSONL 解析失败: "
-                + jsonl.getFileName()
-                + " 第 "
-                + (i + 1)
-                + " 行: "
-                + exception.getMessage(),
-            exception);
-      }
-      messages.add(node);
-      if ("context_truncation".equals(node.path("_event").asText(""))) {
-        truncations++;
-      }
-      if ("assistant".equals(node.path("role").asText(""))) {
-        assistantTurns++;
-        JsonNode calls = node.path("tool_calls");
-        if (calls.isArray()) {
-          toolCalls += calls.size();
+
+    public MessageJsonlReader(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    /**
+     * 解析结果：全部消息节点与三项计数。
+     */
+    public record Result(
+            List<JsonNode> messages, int assistantTurns, int toolCalls, int contextTruncations) {
+    }
+
+    public Result read(Path jsonl) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(jsonl, StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法读取消息 JSONL: " + jsonl, exception);
         }
-      }
+        List<JsonNode> messages = new ArrayList<>();
+        int assistantTurns = 0;
+        int toolCalls = 0;
+        int truncations = 0;
+        for (int i = 0; i < lines.size(); i++) {
+            String raw = lines.get(i).trim();
+            if (raw.isEmpty()) {
+                continue;
+            }
+            JsonNode node;
+            try {
+                node = mapper.readTree(raw);
+            } catch (IOException exception) {
+                throw new IllegalArgumentException(
+                        "消息 JSONL 解析失败: "
+                                + jsonl.getFileName()
+                                + " 第 "
+                                + (i + 1)
+                                + " 行: "
+                                + exception.getMessage(),
+                        exception);
+            }
+            messages.add(node);
+            if ("context_truncation".equals(node.path("_event").asText(""))) {
+                truncations++;
+            }
+            if ("assistant".equals(node.path("role").asText(""))) {
+                assistantTurns++;
+                JsonNode calls = node.path("tool_calls");
+                if (calls.isArray()) {
+                    toolCalls += calls.size();
+                }
+            }
+        }
+        return new Result(messages, assistantTurns, toolCalls, truncations);
     }
-    return new Result(messages, assistantTurns, toolCalls, truncations);
-  }
 }

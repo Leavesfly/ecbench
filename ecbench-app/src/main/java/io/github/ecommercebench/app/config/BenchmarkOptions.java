@@ -2,6 +2,7 @@ package io.github.ecommercebench.app.config;
 
 import io.github.ecommercebench.domain.config.ContextConfig;
 import io.github.ecommercebench.domain.config.RunConfig;
+
 import java.nio.file.Path;
 
 /**
@@ -12,4 +13,5 @@ import java.nio.file.Path;
  * modelsConfigPath} 指向实际使用的模型注册表文件。
  */
 public record BenchmarkOptions(
-    RunConfig runConfig, ContextConfig contextConfig, Path modelsConfigPath, String effort) {}
+        RunConfig runConfig, ContextConfig contextConfig, Path modelsConfigPath, String effort) {
+}
