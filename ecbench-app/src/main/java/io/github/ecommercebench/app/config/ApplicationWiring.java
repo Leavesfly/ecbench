@@ -20,11 +20,17 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class ApplicationWiring {
 
+    /**
+     * 全局共享且线程安全的 Jackson ObjectMapper，供所有 run 复用。
+     */
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
     }
 
+    /**
+     * 默认 LLM 客户端提供者：以环境变量构造 {@link ProviderResolver}，叠加指数退避重试执行器，并将工厂的 {@code create} 方法引用适配为提供者。
+     */
     @Bean
     public LlmClientProvider llmClientProvider(ObjectMapper objectMapper) {
         ProviderResolver resolver = new ProviderResolver(System.getenv());
@@ -35,6 +41,9 @@ public class ApplicationWiring {
         return factory::create;
     }
 
+    /**
+     * 装配跨 run 共享的运行组件工厂：注入只读的 {@link ObjectMapper} 与 {@link LlmClientProvider}。
+     */
     @Bean
     public RunComponentFactory runComponentFactory(
             ObjectMapper objectMapper, LlmClientProvider llmClientProvider) {

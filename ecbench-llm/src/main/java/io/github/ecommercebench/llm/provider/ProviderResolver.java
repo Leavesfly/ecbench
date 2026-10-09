@@ -36,7 +36,9 @@ public final class ProviderResolver {
     /**
      * 将用户模型的 ModelConfig 解析为可直接请求的 ResolvedProvider。
      *
-     * <p>依次推断 provider、根据预设补全 baseUrl 与 apiStyle、解析 API Key（apiKeyExpression 为空时取预设环境变量，否则按 ${VAR} 展开）；缺失关键项时抛 ConfigurationException。
+     * <p>依次推断 provider、根据预设补全 baseUrl 与 apiStyle、解析 API Key
+     * （apiKeyExpression 为空时取预设环境变量，否则按 ${VAR} 展开）；
+     * 缺失关键项时抛 ConfigurationException。
      */
     public ResolvedProvider resolve(ModelConfig config) {
         String providerName = inferProvider(config);

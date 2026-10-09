@@ -64,7 +64,8 @@ public final class CounterpartKernel {
     /**
      * 对 Agent 报价做接受/拒绝/继续的概率判定。
      *
-     * <p>favourability 为正（优于保留价）时按“越有利、越接近截止、对方让步越快越僵硬”的组合打分，经 sigmoid 抽接受； 超过半数回合且 favourability 为负时，越不合越接近截止越可能直接拒绝。未中则继续还价。
+     * <p>favourability 为正（优于保留价）时按“越有利、越接近截止、对方让步越快越僵硬”的组合打分，经 sigmoid 抽接受；
+     * 超过半数回合且 favourability 为负时，越不合越接近截止越可能直接拒绝。未中则继续还价。
      */
     private NegotiationDecision decideResponse(int round, double price) {
         double favourability = (price - reservation()) / range();

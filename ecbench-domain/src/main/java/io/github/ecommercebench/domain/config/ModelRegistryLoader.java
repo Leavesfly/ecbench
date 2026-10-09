@@ -26,7 +26,8 @@ public final class ModelRegistryLoader {
   /**
    * 从 models_config.json 构建 {@link ModelRegistry}。
    *
-   * <p>先逐条解析 models 下各主模型，再单独解析 npc_tools；配置级的 {@code ConfigurationException} 直接透传， 其余 IO/解析异常统一包装为带文件名的配置错误。
+   * <p>先逐条解析 models 下各主模型，再单独解析 npc_tools；配置级的 {@code ConfigurationException} 直接透传， 其余
+   * IO/解析异常统一包装为带文件名的配置错误。
    */
   public ModelRegistry load(Path file) {
     if (!Files.isRegularFile(file)) {

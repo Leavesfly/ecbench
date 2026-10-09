@@ -62,7 +62,8 @@ public final class MetricsJsonWriter implements AutoCloseable {
     }
 
     /**
-     * 写出 run 分析面板 JSON：reward/profitability/negotiation_quality/fulfilment_quality/return_management 及欺诈识别/供应商触达/运营效率各段，未在仿真层跟踪的指标置 JSON null。
+     * 写出 run 分析面板 JSON：reward/profitability/negotiation_quality/fulfilment_quality/return_management
+     * 及欺诈识别/供应商触达/运营效率各段，未在仿真层跟踪的指标置 JSON null。
      */
     public void writeAnalysis(
             RunResult result,

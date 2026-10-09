@@ -80,7 +80,8 @@ public final class NegotiationTracker {
     /**
      * 汇总全部已完成谈判，产出 TERMS Bench 指标。
      *
-     * <p>good/bad 按 supplierType 分组：agr/fagr 为各自成交率，se/cse 为全体与已成交好供应商的 平均剩余效率，violationRate 为含关键违规的谈判占比， 另给出平均回合数、总节省额及学习与锚定指标。
+     * <p>good/bad 按 supplierType 分组：agr/fagr 为各自成交率，se/cse 为全体与已成交好供应商的
+     * 平均剩余效率，violationRate 为含关键违规的谈判占比， 另给出平均回合数、总节省额及学习与锚定指标。
      */
     public NegotiationMetrics aggregate() {
         List<NegotiationRecord> good =

@@ -20,7 +20,8 @@ public final class SupplierPolicy {
     /**
      * 计算某 SKU 对某供应商的有效价格底线。
      *
-     * <p>正常供应商取 参考价×成本底线比例；欺诈供应商先按类型抬高倍数（会员费/未来折扣/虚假紧迫 为 1.5 倍，其余 1 倍），再夹在[成本底线, min(抬升价, 骗局上限, 批发初始价)]之间， 保证底线不高于初始报价也不低于诚实底线。
+     * <p>正常供应商取 参考价×成本底线比例；欺诈供应商先按类型抬高倍数（会员费/未来折扣/虚假紧迫 为 1.5 倍，其余 1 倍），
+     * 再夹在[成本底线, min(抬升价, 骗局上限, 批发初始价)]之间， 保证底线不高于初始报价也不低于诚实底线。
      */
     public Money computeEffectiveFloor(Product product, Supplier supplier, CategoryParams params) {
         Money honestFloor = new Money(product.referencePrice().multiply(params.costFloorRatio()));

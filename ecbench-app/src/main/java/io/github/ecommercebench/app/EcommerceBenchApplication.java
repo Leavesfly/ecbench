@@ -18,6 +18,9 @@ import picocli.CommandLine;
 @SpringBootApplication
 public class EcommerceBenchApplication {
 
+    /**
+     * 启动无 Web 的 Spring 容器，取回运行组件工厂交给 Picocli 执行命令，并把命令返回值归并为进程退出码。
+     */
     public static void main(String[] args) {
         ConfigurableApplicationContext context =
                 new SpringApplicationBuilder(EcommerceBenchApplication.class)

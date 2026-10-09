@@ -39,7 +39,8 @@ abstract class AbstractJsonLlmClient implements LlmClient {
     /**
      * 向 Provider 发送一次带重试的 JSON POST，并按协议选择鉴权头。
      *
-     * <p>anthropic 用 x-api-key + anthropic-version，其余用 Authorization: Bearer；HTTP 4xx（除 408/409/429）视为不可重试， 5xx 与网络异常标为可重试交由 RetryExecutor。
+     * <p>anthropic 用 x-api-key + anthropic-version，其余用 Authorization: Bearer；HTTP 4xx（除 408/409/429）视为不可重试，
+     * 5xx 与网络异常标为可重试交由 RetryExecutor。
      */
     protected JsonNode post(String path, ObjectNode body, boolean anthropic) {
         return retryExecutor.execute(

@@ -185,7 +185,10 @@ public final class KernelManager {
     /**
      * 取得或重建某 supplier/SKU 的谈判内核。
      *
-     * <p>当尚无状态、或上一轮已成交/被拒时，视为开启新一轮采购周期（cycle +1，用于派生独立随机流）： 据品类参数计算有效底线与初始报价，按家族/欺诈类型取 (kappa, stance)， 反解出让开盘价贴近初始报价的 d0，再据此构建内核、置为 ACTIVE 并登记追踪记录与开盘报价。
+     * <p>当尚无状态、或上一轮已成交/被拒时，视为开启新一轮采购周期（cycle +1，用于派生独立随机流）：
+     * 据品类参数计算有效底线与初始报价，按家族/欺诈类型取 (kappa, stance)，
+     * 反解出让开盘价贴近初始报价的 d0，再据此构建内核、置为 ACTIVE，
+     * 并登记追踪记录与开盘报价。
      */
     private CounterpartKernel getOrCreateKernel(Supplier supplier, Product product, int day) {
         String key = key(supplier.supplierName(), product.productId());
