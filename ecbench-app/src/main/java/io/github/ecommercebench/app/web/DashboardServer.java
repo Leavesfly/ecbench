@@ -30,8 +30,9 @@ public final class DashboardServer implements AutoCloseable {
                         new SessionScanner(logDir),
                         new CompareService(mapper),
                         new RunArtifactService(mapper));
-        this.executor = Executors.newFixedThreadPool(WORKER_THREADS);
+        // 先绑定端口再建线程池：绑定失败（如端口被占）时不会泄漏已创建的工作线程。
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
+        this.executor = Executors.newFixedThreadPool(WORKER_THREADS);
         this.httpServer.createContext("/api", api);
         this.httpServer.createContext("/", new StaticAssets());
         this.httpServer.setExecutor(this.executor);

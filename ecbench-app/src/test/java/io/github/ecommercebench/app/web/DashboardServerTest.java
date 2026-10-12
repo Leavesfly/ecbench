@@ -98,8 +98,18 @@ class DashboardServerTest {
     }
 
     @Test
-    void chatboxReturnsEmptySuppliersWhenNoTrajectory() throws Exception {
+    void chatboxWithoutTrajectoryIsNotFound() throws Exception {
         assertThat(get("/api/sessions/2026_qwen3.7-plus/chatbox?run=0").statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void unknownButWellFormedSessionIsNotFound() throws Exception {
+        assertThat(get("/api/sessions/2026_absent/analysis?run=0").statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void malformedSessionNameIsBadRequest() throws Exception {
+        assertThat(get("/api/sessions/bad%20name/analysis?run=0").statusCode()).isEqualTo(400);
     }
 
     @Test
