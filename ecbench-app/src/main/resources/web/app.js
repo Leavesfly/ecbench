@@ -48,6 +48,23 @@ const PANEL_ZH = {
 
 const roleZh = (role) => ROLE_ZH[role] || role || '未知';
 
+/* 指标矩阵的维度分组（spec §5.5，29 个 label 的归属固定，不得临场判断）。 */
+const METRIC_GROUPS = [
+  ['谈判质量', ['SE+', 'CSE+', '%Oracle', 'AGR+', 'avg_rounds', 'money_saved']],
+  ['欺诈规避', ['bad_order_share', 'spend_on_bad', 'spend_bad_share', 'vip_fee_paid']],
+  ['现金流与偿付', ['final_balance', 'initial_balance', 'peak_total_assets', 'peak_drawdown',
+    'bankrupt', 'final_day', 'stores / reopens']],
+  ['运营效率', ['tool_calls', 'profit_per_tool_call', 'context_evictions', 'memory_calls']],
+  ['运营执行', ['on_time_ship', 'return_rate', 'controllable_return_rate']],
+  ['长周期学习', ['se_half_lift', 'agr_half_lift', 'fraud_avoid_lift', 'time_to_zero_bad',
+    'rounds_improvement']],
+];
+
+/* 雷达轴标签的中文注解（轴序与后端 ProfileAxis 一致）。 */
+const AXIS_ZH = [
+  '主评分', '谈判质量', '欺诈规避', '现金流与偿付', '运营效率', '运营执行', '学习（AnchorRatio）',
+];
+
 const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map() };
 
 const $ = (id) => document.getElementById(id);
@@ -149,7 +166,8 @@ async function loadCompare() {
   const chosen = [...state.selected];
   if (!chosen.length) {
     setStatus('未选择会话');
-    ['ranking', 'metric-table', 'radar-legend'].forEach((id) => { $(id).innerHTML = ''; });
+    ['ranking', 'metric-table', 'radar-legend', 'primary-cards', 'dimensions', 'crossings']
+      .forEach((id) => { $(id).innerHTML = ''; });
     $('radar').innerHTML = '';
     $('balance-chart').innerHTML = '';
     $('radar-note').textContent = '';
@@ -162,6 +180,9 @@ async function loadCompare() {
     const data = await api('/api/compare?' + query);
     setStatus(`已对比 ${data.sessions.length} 个会话`, 'live');
     renderKpis(data);
+    renderPrimary(data);
+    renderDimensions(data);
+    renderCrossings(data);
     renderRadar(data.radar, data.sessions);
     renderRanking(data.ranking);
     renderMetricTable(data.sessions);
@@ -178,9 +199,10 @@ function renderKpis(data) {
     ['kpi-score-who', 'kpi-runs', 'kpi-calls-note'].forEach((id) => { $(id).textContent = ''; });
     return;
   }
-  const top = data.ranking.find((r) => r.score !== null) || null;
-  $('kpi-score').textContent = top ? fmtMoney(top.score) : 'n/a';
-  $('kpi-score-who').textContent = top ? shortName(top.name) : '无有效主评分';
+  const rows = (data.primaryScore && data.primaryScore.rows) || [];
+  const best = rows.find((row) => row.rank === 1) || null;
+  $('kpi-score').textContent = best && best.value !== null ? best.value.toFixed(2) + ' ×' : '不适用';
+  $('kpi-score-who').textContent = best ? shortName(best.name) : '无有效主评分';
 
   const runs = data.sessions.reduce((sum, s) => sum + s.runCount, 0);
   $('kpi-sessions').textContent = String(data.sessions.length);
@@ -194,6 +216,210 @@ function renderKpis(data) {
     .filter((v) => typeof v === 'number');
   $('kpi-calls').textContent = calls.length ? fmtNum(calls.reduce((a, b) => a + b, 0) / calls.length) : 'n/a';
   $('kpi-calls-note').textContent = calls.length ? `${calls.length} 个会话有数据` : '无工具调用统计';
+}
+
+/* ------------------------------------------------- paper views (§3.7/§4.3) */
+
+function renderPrimary(data) {
+  const box = $('primary-cards');
+  const rows = (data.primaryScore && data.primaryScore.rows) || [];
+  if (!rows.length) {
+    box.innerHTML = '<p class="hint">无主评分数据（analysis.json 缺 reward.final_score）</p>';
+    return;
+  }
+  box.innerHTML = rows.map((row) => `
+    <div class="primary-card">
+      <div class="who">${esc(shortName(row.name))}</div>
+      <div class="value">${row.value === null ? '不适用' : row.value.toFixed(2) + ' ×'}</div>
+      <div class="rank">排名第 ${row.rank === null ? '—' : row.rank} · 年末总资产 ${fmtMoney(row.finalBalance)}</div>
+      <div class="rank">破产 run ${row.bankruptRuns} 个 · 终止原因 ${esc(row.termination || '未知')}</div>
+    </div>`).join('');
+}
+
+function renderDimensions(data) {
+  const box = $('dimensions');
+  const axes = (data.dimensions || []);
+  if (!axes.length) {
+    box.innerHTML = '<p class="hint">无维度数据</p>';
+    return;
+  }
+  box.innerHTML = axes.map((axis) => `
+    <article class="dimension">
+      <header>
+        <h3>${esc(axis.labelZh)}</h3>
+        <span class="ref">${esc(axis.paperRef)}</span>
+      </header>
+      ${dimensionHeadline(axis, data)}
+      ${dimensionTable(axis)}
+      ${dimensionBlocks(axis, data)}
+      ${axis.key === 'learning' ? renderLearningCard(data.learning, data.sessions) : ''}
+    </article>`).join('');
+}
+
+/** 卡片顶部：排名指标名（英文 + 中文注解）、方向、各会话的值与 rank。 */
+function dimensionHeadline(axis, data) {
+  const metric = axis.rankMetric || {};
+  const direction = metric.direction === 'lower' ? '越低越好' : '越高越好';
+  const rows = (axis.rows || []).map((row) => `
+    <tr>
+      <td>${esc(shortName(row.name))}</td>
+      <td class="${row.value === null ? 'na' : ''}">${row.value === null ? '不适用' : fmtNum(row.value)}</td>
+      <td class="${row.rank === null ? 'na' : ''}">${row.rank === null ? '—' : '#' + row.rank}</td>
+    </tr>`).join('');
+  return `
+    <div class="headline">
+      <b>${esc(metric.label || '')}</b>
+      <span class="ref">${esc(metric.labelZh || '')} · ${direction}${metric.unit ? ' · ' + esc(metric.unit) : ''}</span>
+    </div>
+    <table><thead><tr><th>会话</th><th>值</th><th>维度排名</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/** 诊断指标小表：行 = 诊断指标（英文 + 中文注解），列 = 会话。 */
+function dimensionTable(axis) {
+  const diagnostics = axis.diagnostics || [];
+  if (!diagnostics.length) return '';
+  const names = (axis.rows || []).map((row) => row.name);
+  const head = names.map((name) => `<th>${esc(shortName(name))}</th>`).join('');
+  const body = diagnostics.map((item) => `
+    <tr>
+      <td title="${esc(item.label)}">${esc(item.label)}<span class="ref"> ${esc(item.labelZh)}</span></td>
+      ${names.map((name) => {
+        const value = item.values ? item.values[name] : null;
+        return `<td class="${value === null || value === undefined ? 'na' : ''}">${fmtNum(value)}</td>`;
+      }).join('')}
+    </tr>`).join('');
+  return `<table><thead><tr><th>诊断指标</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/** 三类嵌套诊断块：八类活动带、五类骗局支出、退货四层 + 发货速度构成。 */
+function dimensionBlocks(axis, data) {
+  const blocks = axis.blocks || {};
+  if (axis.key === 'efficiency' && blocks.callsByBand) {
+    const entries = Object.entries(blocks.callsByBand).map(([band, value]) => [
+      `${band}（${BAND_ZH[band] || band}）`, value.count, value.share,
+    ]);
+    return barsBlock(entries);
+  }
+  if (axis.key === 'fraud' && blocks.spendByFraudType) {
+    const entries = Object.entries(blocks.spendByFraudType);
+    const colors = ['#bd4136', '#b0761a', '#6b4fa1', '#26808f', '#a44f7d'];
+    const stacked = stackedBlock(
+      entries.map(([type, value]) => [`${type}（${FRAUD_ZH[type] || type}）`, value.spend]), colors);
+    const detail = entries.map(([type, value]) => `
+      <div class="bar-row">
+        <span>${esc(type)}</span>
+        <span class="num">${fmtNum(value.orders)} 单 / ${fmtNum(value.units)} 件</span>
+        <span class="num">${fmtMoney(value.spend)}</span>
+      </div>`).join('');
+    return stacked + detail;
+  }
+  if (axis.key === 'execution') {
+    const layers = blocks.returnLayers || {};
+    const entries = Object.entries(layers).map(([key, value]) => [LAYER_ZH[key] || key, value]);
+    const colors = ['#8a94a2', '#b0761a', '#26808f', '#bd4136'];
+    const speed = blocks.shipSpeed
+      ? `<div class="legend-inline">${Object.entries(blocks.shipSpeed)
+          .map(([key, value]) => `<span>${esc(key)}：${fmtNum(value)}</span>`).join('')}</div>`
+      : '';
+    return stackedBlock(entries, colors) + speed;
+  }
+  return '';
+}
+
+/** 横向条：entries = [[标签, 计数, 占比]]，条长按占比归一化。 */
+function barsBlock(entries) {
+  const max = Math.max(1, ...entries.map((entry) => Number(entry[2]) || 0));
+  return `<div class="bars">${entries.map(([label, count, share]) => `
+    <div class="bar-row">
+      <span>${esc(label)}</span>
+      <span class="track"><i class="fill" style="width:${(((Number(share) || 0) / max) * 100).toFixed(1)}%"></i></span>
+      <span class="num">${fmtNum(count)} 次 · ${fmtNum(share)}%</span>
+    </div>`).join('')}</div>`;
+}
+
+/** 堆叠条：entries = [[标签, 数值]]，按总量占比分段；总量为 0 时显示空态。 */
+function stackedBlock(entries, colors) {
+  const total = entries.reduce((sum, entry) => sum + (Number(entry[1]) || 0), 0);
+  if (!total) return '<p class="hint">无样本（全部为 0）</p>';
+  const segments = entries.map((entry, index) => {
+    const value = Number(entry[1]) || 0;
+    const width = ((value / total) * 100).toFixed(2);
+    return `<i style="width:${width}%;background:${colors[index % colors.length]}" title="${esc(entry[0])}"></i>`;
+  }).join('');
+  const legend = entries.map((entry, index) => `
+    <span><i style="background:${colors[index % colors.length]}"></i>${esc(entry[0])} ${fmtNum(entry[1])}</span>`).join('');
+  return `<div class="stacked">${segments}</div><div class="legend-inline">${legend}</div>`;
+}
+
+/** 学习维度卡：论文 §E.6 的锚定与半年比较；无产物时给出中文空态与条款出处。 */
+function renderLearningCard(learning, sessions) {
+  const entries = learning ? Object.entries(learning) : [];
+  if (!entries.length) return '<p class="hint">无学习维度数据</p>';
+  return entries.map(([name, value]) => {
+    if (!value || value.episodes === 0) {
+      return `<p class="hint">${esc(shortName(name))}：无重复采购记录，AnchorRatio 不适用（§E.6 过滤规则 4）；
+        若该会话产物早于逐谈判记录落盘，需重跑基准才能计算。</p>`;
+    }
+    const rows = [
+      ['AnchorRatio', '锚定比（越低越好，1.0 = 与随机排列无异）', value.anchorRatio],
+      ['AnchorRegret', '锚定遗憾', value.anchorRegret],
+      ['NewLow', '创新低率', value.newLow],
+      ['z_anchor', '锚定 z 分数（Stouffer 合并）', value.zAnchor],
+      ['h_SE', '剩余半期提升', value.seHalfLift],
+      ['b_SE', '逐日盈余趋势', value.seTrend],
+      ['h_fraud', '欺诈半期提升', value.fraudHalfLift],
+    ];
+    return `<table><thead><tr><th>学习指标</th><th>值</th></tr></thead><tbody>
+      ${rows.map(([label, note, raw]) => `
+        <tr><td title="${esc(note)}">${esc(label)}<span class="ref"> ${esc(note)}</span></td>
+        <td class="${raw === null ? 'na' : ''}">${fmtNum(raw)}</td></tr>`).join('')}
+      <tr><td>episodes / repeatPairs / reorders<span class="ref"> 计入回合数 / 重复采购对 / 再订购次数</span></td>
+        <td>${value.episodes} / ${value.repeatPairs} / ${value.reorders}</td></tr>
+    </tbody></table>${dualCaliberNote(name, value, sessions)}`;
+  }).join('');
+}
+
+/**
+ * 双口径提示（spec §5.5）：矩阵里的 se_half_lift 来自 analysis.json 的追踪器口径，本卡是 §E.6 重算值；
+ * 两者都有值且差 &gt; 1e-6 时明示差异，避免误读。
+ */
+function dualCaliberNote(name, value, sessions) {
+  const tracked = trackerHalfLift(sessions, name);
+  if (tracked === null || value.seHalfLift === null || value.seHalfLift === undefined) return '';
+  if (Math.abs(tracked - value.seHalfLift) <= 1e-6) return '';
+  return '<p class="note">与追踪器 learning_speed.se_half_lift 存在差异（排序口径），以本卡 §E.6 重算值为准。</p>';
+}
+
+/** 从指标矩阵取追踪器口径的 se_half_lift（analysis.json 的 negotiation_quality.learning_speed）。 */
+function trackerHalfLift(sessions, name) {
+  const session = (sessions || []).find((item) => item.name === name);
+  if (!session) return null;
+  const stat = (session.metrics || []).find((metric) => metric.label === 'se_half_lift');
+  return stat && typeof stat.mean === 'number' ? stat.mean : null;
+}
+
+/** rank crossings（附录 F.8）：与主评分排名不一致的格子标红。 */
+function renderCrossings(data) {
+  const rows = data.rankCrossings || [];
+  const box = $('crossings');
+  if (!rows.length) {
+    box.innerHTML = '<p class="hint">无排名数据</p>';
+    return;
+  }
+  const axes = (data.dimensions || []).map((axis) => [axis.key, axis.labelZh]);
+  const head = axes.map(([, labelZh]) => `<th>${esc(labelZh)}</th>`).join('');
+  const body = rows.map((row) => `
+    <tr>
+      <td>${esc(shortName(row.name))}</td>
+      <td>${row.primary === null || row.primary === undefined ? '—' : '#' + row.primary}</td>
+      ${axes.map(([key]) => {
+        const rank = row.ranks ? row.ranks[key] : null;
+        const crosses = rank !== null && rank !== undefined && row.primary !== null && rank !== row.primary;
+        return `<td class="${rank === null || rank === undefined ? 'na' : ''}${crosses ? ' cross' : ''}">
+          ${rank === null || rank === undefined ? '—' : '#' + rank}</td>`;
+      }).join('')}
+    </tr>`).join('');
+  box.innerHTML = `<table><thead><tr><th>会话</th><th>主评分</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 /* -------------------------------------------------------------- radar */
@@ -230,8 +456,9 @@ function renderRadar(radar, sessions) {
     const [x, y] = pointAt(idx, 1.2);
     const anchor = Math.abs(x - cx) < 12 ? 'middle' : (x > cx ? 'start' : 'end');
     const cls = liveAxes.has(idx) ? 'axis-label' : 'axis-label muted';
-    const text = label.length > 22 ? label.slice(0, 21) + '…' : label;
-    markup += `<text class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
+    const text = AXIS_ZH[idx] || label;
+    markup += `<text class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">`
+      + `<title>${esc(label)}</title>${esc(text)}</text>`;
   });
 
   const skipped = [];
@@ -319,12 +546,30 @@ function renderMetricTable(sessions) {
 }
 
 function paintMetricRows() {
-  const head = state.sessions.filter((s) => state.selected.has(s.name)).map((s) => `<th>${esc(shortName(s.name))}</th>`);
-  const body = metricRows.map((row) => `
+  const head = state.sessions.filter((s) => state.selected.has(s.name))
+    .map((s) => `<th>${esc(shortName(s.name))}</th>`);
+  const byLabel = new Map(metricRows.map((row) => [row.label, row]));
+  const rowHtml = (row) => `
     <tr data-label="${esc(row.label.toLowerCase())}">
       <td>${esc(row.label)}</td>
       ${row.cells.map((c) => `<td class="${c.na ? 'na' : ''}">${esc(c.text)}</td>`).join('')}
-    </tr>`).join('');
+    </tr>`;
+  const grouped = new Set();
+  let body = '';
+  METRIC_GROUPS.forEach(([title, labels], index) => {
+    const rows = labels.map((label) => byLabel.get(label)).filter(Boolean);
+    if (!rows.length) return;
+    rows.forEach((row) => grouped.add(row.label));
+    body += `<tr class="group-head" data-group="${index}" data-label="${esc(title.toLowerCase())}">
+      <td colspan="${head.length + 1}">${esc(title)}（${rows.length}）</td></tr>`;
+    body += rows.map(rowHtml).join('');
+  });
+  // 归组之外的 label（例如后端新增指标）兜底到「其余」组，避免任何一行被静默丢弃
+  const rest = metricRows.filter((row) => !grouped.has(row.label));
+  if (rest.length) {
+    body += `<tr class="group-head" data-label="其余"><td colspan="${head.length + 1}">其余（${rest.length}）</td></tr>`;
+    body += rest.map(rowHtml).join('');
+  }
   $('metric-table').innerHTML =
     `<table><thead><tr><th>指标</th>${head.join('')}</tr></thead><tbody>${body}</tbody></table>`;
   filterMetricRows();
@@ -332,8 +577,21 @@ function paintMetricRows() {
 
 function filterMetricRows() {
   const needle = ($('metric-filter').value || '').trim().toLowerCase();
-  document.querySelectorAll('#metric-table tbody tr').forEach((tr) => {
-    tr.hidden = Boolean(needle) && !tr.dataset.label.includes(needle);
+  const rows = [...document.querySelectorAll('#metric-table tbody tr')];
+  if (!needle) {
+    rows.forEach((tr) => { tr.hidden = false; });
+    return;
+  }
+  let keepGroup = false;
+  rows.forEach((tr) => {
+    const isGroup = tr.classList.contains('group-head');
+    if (isGroup) {
+      keepGroup = tr.dataset.label.includes(needle);
+      tr.hidden = !keepGroup;
+      return;
+    }
+    const hit = tr.dataset.label.includes(needle);
+    tr.hidden = !(hit || keepGroup);
   });
 }
 
