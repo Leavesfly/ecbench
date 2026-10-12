@@ -24,7 +24,7 @@ import picocli.CommandLine.Mixin;
         mixinStandardHelpOptions = true,
         version = "ecbench 1.0",
         description = "E-Commerce Bench 运行器（与 Python run.py 兼容）",
-        subcommands = {EvaluationCommand.class})
+        subcommands = {EvaluationCommand.class, ServeCommand.class})
 public final class BenchmarkCommand implements Callable<Integer> {
 
     @Mixin
