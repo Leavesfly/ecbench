@@ -247,4 +247,114 @@ class LearningMetricsCalculatorTest {
         assertThat(metrics.zEpisode()).isNull();
         assertThat(metrics.newLowRatioZ()).isNull();
     }
+
+    /** 四个诚信已结束会话，各用不同 SKU（不形成重复 pair），s_z = 0.2 / 0.5 / 0 / 0.8。 */
+    private static List<NegotiationRecordRow> halfYearFixture() {
+        return new ArrayList<>(
+                List.of(
+                        agree("H1", "K1", 100.0, 50.0, 90.0, 1),
+                        agree("H2", "K2", 100.0, 50.0, 75.0, 2),
+                        disagree("H3", "K3", 100.0, 50.0, 3),
+                        agree("H4", "K4", 100.0, 50.0, 60.0, 4)));
+    }
+
+    @Test
+    void computesSurplusHalfLiftAndPerDayTrend() {
+        LearningMetrics metrics = calculator.calculate(halfYearFixture());
+
+        // 早半 {1,2} 均值 0.35、晚半 {3,4} 均值 0.40 → h_SE = 0.05
+        assertThat(metrics.seHalfLift()).isCloseTo(0.05, within(1e-9));
+        // 最小二乘：Σ(d−d̄)(s−s̄)=0.65、Σ(d−d̄)²=5.0 → b_SE = 0.13
+        assertThat(metrics.seTrend()).isCloseTo(0.13, within(1e-9));
+        // 全部为诚信会话 → 两半的欺诈成交占比都为 0
+        assertThat(metrics.fraudHalfLift()).isCloseTo(0.0, within(1e-9));
+        // 各 pair 只成交一次 → anchoring 部分不适用
+        assertThat(metrics.repeatPairs()).isZero();
+        assertThat(metrics.anchorRegret()).isNull();
+    }
+
+    @Test
+    void oddSessionCountPutsTheExtraSessionLate() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("H1", "K1", 100.0, 50.0, 90.0, 1));
+        rows.add(agree("H2", "K2", 100.0, 50.0, 80.0, 2));
+        rows.add(agree("H3", "K3", 100.0, 50.0, 70.0, 3));
+        rows.add(agree("H4", "K4", 100.0, 50.0, 60.0, 4));
+        rows.add(agree("H5", "K5", 100.0, 50.0, 50.0, 5));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        // 早半 = 前 ⌊5/2⌋ = 2 个（0.2, 0.4 → 0.3），晚半 = 后 3 个（0.6, 0.8, 1.0 → 0.8）
+        assertThat(metrics.seHalfLift()).isCloseTo(0.5, within(1e-9));
+    }
+
+    @Test
+    void fewerThanFourHonestSessionsYieldsNullHalfLift() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("H1", "K1", 100.0, 50.0, 90.0, 1));
+        rows.add(agree("H2", "K2", 100.0, 50.0, 80.0, 2));
+        rows.add(agree("H3", "K3", 100.0, 50.0, 70.0, 3));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        assertThat(metrics.seHalfLift()).isNull();
+        // 趋势不要求 n ≥ 4：三点最小二乘仍可拟合（斜率 = 0.4/2 = 0.2）
+        assertThat(metrics.seTrend()).isCloseTo(0.2, within(1e-9));
+    }
+
+    @Test
+    void allSessionsOnOneDayYieldsZeroTrend() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("H1", "K1", 100.0, 50.0, 90.0, 7));
+        rows.add(agree("H2", "K2", 100.0, 50.0, 75.0, 7));
+        rows.add(disagree("H3", "K3", 100.0, 50.0, 7));
+        rows.add(agree("H4", "K4", 100.0, 50.0, 60.0, 7));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        // 同日 → Σ(d−d̄)² = 0 → 趋势记 0；但 h_SE 仍按会话序切分（0.40 − 0.35）
+        assertThat(metrics.seTrend()).isCloseTo(0.0, within(1e-12));
+        assertThat(metrics.seHalfLift()).isCloseTo(0.05, within(1e-9));
+    }
+
+    @Test
+    void fraudHalfLiftIsNegativeWhenLateHalfDealsMoreWithFraud() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("H1", "K1", 100.0, 50.0, 90.0, 1));
+        rows.add(disagree("H2", "K2", 100.0, 50.0, 2));
+        rows.add(row("B1", "K3", "bad", 100.0, 50.0, 90.0, "Agreement", 3));
+        rows.add(row("B2", "K4", "bad", 100.0, 50.0, null, "Disagreement", 4));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        // 中位日 = (2+3)/2 = 2 → 早半 β=0/2、晚半 β=1/2 → h_fraud = −0.5（晚半更多欺诈成交 = 变差）
+        assertThat(metrics.fraudHalfLift()).isCloseTo(-0.5, within(1e-9));
+        // 诚信已结束会话只有 2 个 → h_SE 不适用
+        assertThat(metrics.seHalfLift()).isNull();
+    }
+
+    @Test
+    void fraudHalfLiftIsPositiveWhenFraudDealsConcentrateEarly() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(row("B1", "K1", "bad", 100.0, 50.0, 90.0, "Agreement", 1));
+        rows.add(row("B2", "K2", "bad", 100.0, 50.0, null, "Disagreement", 2));
+        rows.add(agree("H1", "K3", 100.0, 50.0, 90.0, 3));
+        rows.add(disagree("H2", "K4", 100.0, 50.0, 4));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        assertThat(metrics.fraudHalfLift()).isCloseTo(0.5, within(1e-9));
+    }
+
+    @Test
+    void allConcludedOnOneDayYieldsNullFraudHalfLift() {
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("H1", "K1", 100.0, 50.0, 90.0, 5));
+        rows.add(agree("H2", "K2", 100.0, 50.0, 90.0, 5));
+        rows.add(row("B1", "K3", "bad", 100.0, 50.0, 90.0, "Agreement", 5));
+        rows.add(row("B2", "K4", "bad", 100.0, 50.0, 90.0, "Agreement", 5));
+
+        // 全部同日 → 中位日切分后晚半为空 → 不适用
+        assertThat(calculator.calculate(rows).fraudHalfLift()).isNull();
+    }
 }
