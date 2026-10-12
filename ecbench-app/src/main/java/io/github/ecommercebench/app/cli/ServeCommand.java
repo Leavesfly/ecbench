@@ -1,10 +1,14 @@
 package io.github.ecommercebench.app.cli;
 
+import io.github.ecommercebench.app.config.ResourcePaths;
 import io.github.ecommercebench.app.web.DashboardServer;
+import io.github.ecommercebench.evaluation.io.SupplierRosterReader;
+import io.github.ecommercebench.evaluation.io.SupplierRosterReader.RosterEntry;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
@@ -16,6 +20,9 @@ import picocli.CommandLine.Option;
  *
  * <p>与批处理运行不同，本命令是唯一会绑定端口的入口（默认仅监听本地回环），从而保留项目「默认无 Web」的设计；
  * 进程阻塞直到收到中断（Ctrl-C），退出码 0；目录不存在或端口不可用返回 2。
+ *
+ * <p>{@code --catalog} 仅用于给 chatbox 谈判记录标注供应商类型/人格/欺诈类型（论文附录 G 的阅读方式）；名册缺失时
+ * 自动降级为无标注，不影响启动，也不引入新的路径解析入口（该路径不参与 {@code {name}} 的安全校验）。
  */
 @Command(name = "serve", description = "启动本地 Web dashboard 浏览 / 对比 run 产物")
 public final class ServeCommand implements Callable<Integer> {
@@ -29,6 +36,11 @@ public final class ServeCommand implements Callable<Integer> {
     @Option(names = "--host", description = "绑定地址，默认仅本地回环", defaultValue = "127.0.0.1")
     private String host;
 
+    @Option(
+            names = "--catalog",
+            description = "供应商名册 CSV（用于 chatbox 欺诈标注），默认取资源根 data/suppliers.csv")
+    private String catalog;
+
     @Override
     public Integer call() {
         Path root = resolveLogDir();
@@ -37,7 +49,8 @@ public final class ServeCommand implements Callable<Integer> {
             return 2;
         }
         CountDownLatch stopped = new CountDownLatch(1);
-        try (DashboardServer server = new DashboardServer(root, host, port)) {
+        Map<String, RosterEntry> roster = loadRoster();
+        try (DashboardServer server = new DashboardServer(root, host, port, roster)) {
             server.start();
             System.out.printf("Dashboard: http://%s:%d/ （log-dir=%s）%n", host, server.port(), root);
             awaitShutdown(stopped);
@@ -55,6 +68,23 @@ public final class ServeCommand implements Callable<Integer> {
     private Path resolveLogDir() {
         Path base = Path.of(System.getProperty("user.dir"));
         return (logDir.isAbsolute() ? logDir : base.resolve(logDir)).normalize();
+    }
+
+    /** 读取供应商名册；不可用时返回空 map（chatbox 降级为无标注，服务照常启动）。 */
+    private Map<String, RosterEntry> loadRoster() {
+        Path catalogCsv = resolveCatalog(catalog, Path.of(System.getProperty("user.dir")));
+        Map<String, RosterEntry> roster = new SupplierRosterReader().readByEmail(catalogCsv);
+        if (roster.isEmpty()) {
+            System.err.println("供应商名册不可用，chatbox 不显示欺诈标注: " + catalogCsv);
+        }
+        return roster;
+    }
+
+    /** 名册路径解析：{@code --catalog} 覆盖优先，否则回退到资源根 {@code data/suppliers.csv}。 */
+    static Path resolveCatalog(String override, Path workingDir) {
+        ResourcePaths paths = ResourcePaths.of(workingDir);
+        Path custom = paths.optional(override);
+        return custom != null ? custom : paths.dataDir(null).resolve("suppliers.csv");
     }
 
     /** 注册关闭钩子并阻塞，直到进程被中断。 */

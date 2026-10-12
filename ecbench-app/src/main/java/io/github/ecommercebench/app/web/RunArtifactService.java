@@ -8,12 +8,14 @@ import io.github.ecommercebench.evaluation.ChatboxExtractor;
 import io.github.ecommercebench.evaluation.io.AnalysisJsonReader;
 import io.github.ecommercebench.evaluation.io.BalanceCsvReader;
 import io.github.ecommercebench.evaluation.io.RunLayoutResolver;
+import io.github.ecommercebench.evaluation.io.SupplierRosterReader.RosterEntry;
 import io.github.ecommercebench.evaluation.model.BalancePoint;
 import io.github.ecommercebench.evaluation.model.ChatboxConversation;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -23,6 +25,9 @@ import java.util.Map;
  * {@link BalanceCsvReader} 转成序列（{@code total_balance} 为权威列）；chatbox 经
  * {@link ChatboxExtractor} 按供应商分组后，逐行解析为 {@code role/content}。产物路径由
  * {@link RunLayoutResolver} 解析，缺失文件抛 {@link ArtifactNotFoundException}。
+ *
+ * <p>chatbox 的每个供应商另外附带名册标注（{@code supplierType}/{@code personality}/{@code fraudType}），
+ * 供前端按论文附录 G 的方式标出欺诈类型；名册缺失或未命中时三字段为 JSON null，不影响既有形状。
  */
 public final class RunArtifactService {
 
@@ -31,9 +36,15 @@ public final class RunArtifactService {
     private final BalanceCsvReader balanceReader = new BalanceCsvReader();
     private final ChatboxExtractor chatboxExtractor = new ChatboxExtractor();
     private final ObjectMapper mapper;
+    private final Map<String, RosterEntry> roster;
 
     public RunArtifactService(ObjectMapper mapper) {
+        this(mapper, Map.of());
+    }
+
+    public RunArtifactService(ObjectMapper mapper, Map<String, RosterEntry> roster) {
         this.mapper = mapper;
+        this.roster = roster;
     }
 
     /** 原样返回该 run 的 analysis JSON 树。 */
@@ -71,6 +82,10 @@ public final class RunArtifactService {
         for (ChatboxConversation conversation : conversations.values()) {
             ObjectNode node = suppliers.addObject();
             node.put("supplier", conversation.supplier());
+            RosterEntry entry = roster.get(conversation.supplier().toLowerCase(Locale.ROOT));
+            putText(node, "supplierType", entry == null ? null : entry.type());
+            putText(node, "personality", entry == null ? null : entry.personality());
+            putText(node, "fraudType", entry == null ? null : entry.fraudType());
             ArrayNode messages = node.putArray("messages");
             for (String raw : conversation.rawLines()) {
                 appendMessage(messages, raw);
@@ -96,6 +111,15 @@ public final class RunArtifactService {
         ObjectNode message = messages.addObject();
         message.put("role", parsed.path("role").asText(""));
         message.put("content", parsed.path("content").asText(""));
+    }
+
+    /** 写入可空文本字段：null 时写 JSON null（而非省略字段），保证前端形状稳定。 */
+    private static void putText(ObjectNode node, String field, String value) {
+        if (value == null) {
+            node.putNull(field);
+        } else {
+            node.put(field, value);
+        }
     }
 
     private static void require(Path file) {

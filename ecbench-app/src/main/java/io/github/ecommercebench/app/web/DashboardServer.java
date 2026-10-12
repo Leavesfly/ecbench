@@ -2,10 +2,12 @@ package io.github.ecommercebench.app.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
+import io.github.ecommercebench.evaluation.io.SupplierRosterReader.RosterEntry;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 
@@ -23,13 +25,18 @@ public final class DashboardServer implements AutoCloseable {
     private final ExecutorService executor;
 
     public DashboardServer(Path logDir, String host, int port) throws IOException {
+        this(logDir, host, port, Map.of());
+    }
+
+    public DashboardServer(Path logDir, String host, int port, Map<String, RosterEntry> roster)
+            throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         ApiRouter api =
                 new ApiRouter(
                         mapper,
                         new SessionScanner(logDir),
                         new CompareService(mapper),
-                        new RunArtifactService(mapper));
+                        new RunArtifactService(mapper, roster));
         // 先绑定端口再建线程池：绑定失败（如端口被占）时不会泄漏已创建的工作线程。
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.executor = Executors.newFixedThreadPool(WORKER_THREADS);

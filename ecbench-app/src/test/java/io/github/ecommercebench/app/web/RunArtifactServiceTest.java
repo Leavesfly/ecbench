@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.ecommercebench.evaluation.io.SupplierRosterReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -60,6 +62,55 @@ class RunArtifactServiceTest {
         assertThat(node.path("suppliers")).hasSize(1);
         assertThat(node.path("suppliers").get(0).path("supplier").asText()).isEqualTo("oak@a.com");
         assertThat(node.path("suppliers").get(0).path("messages")).hasSize(2);
+    }
+
+    @Test
+    void chatboxAnnotatesSupplierFromRoster(@TempDir Path session) throws Exception {
+        Files.createDirectories(session.resolve("trajectories"));
+        String call =
+                "{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"tc1\",\"type\":\"function\","
+                        + "\"function\":{\"name\":\"chatbox\",\"arguments\":\"{\\\"uid\\\":\\\"bad@a.com\\\"}\"}}]}";
+        String reply =
+                "{\"role\":\"tool\",\"tool_call_id\":\"tc1\","
+                        + "\"content\":\"{\\\"message\\\":\\\"message_sent\\\"}\"}";
+        Files.writeString(
+                session.resolve("trajectories/run_0_messages.jsonl"), call + "\n" + reply + "\n");
+
+        Map<String, SupplierRosterReader.RosterEntry> roster =
+                Map.of(
+                        "bad@a.com",
+                        new SupplierRosterReader.RosterEntry(
+                                "bad@a.com", "Cedar Distribution", "bad", "Tough", "vip_fee"));
+        RunArtifactService annotated = new RunArtifactService(new ObjectMapper(), roster);
+
+        JsonNode supplier = annotated.chatbox(session, 0).path("suppliers").get(0);
+
+        assertThat(supplier.path("supplier").asText()).isEqualTo("bad@a.com");
+        assertThat(supplier.path("supplierType").asText()).isEqualTo("bad");
+        assertThat(supplier.path("personality").asText()).isEqualTo("Tough");
+        assertThat(supplier.path("fraudType").asText()).isEqualTo("vip_fee");
+    }
+
+    @Test
+    void chatboxWithoutRosterMatchEmitsNullAnnotations(@TempDir Path session) throws Exception {
+        Files.createDirectories(session.resolve("trajectories"));
+        String call =
+                "{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"tc1\",\"type\":\"function\","
+                        + "\"function\":{\"name\":\"chatbox\","
+                        + "\"arguments\":\"{\\\"uid\\\":\\\"unknown@a.com\\\"}\"}}]}";
+        String reply =
+                "{\"role\":\"tool\",\"tool_call_id\":\"tc1\","
+                        + "\"content\":\"{\\\"message\\\":\\\"message_sent\\\"}\"}";
+        Files.writeString(
+                session.resolve("trajectories/run_0_messages.jsonl"), call + "\n" + reply + "\n");
+
+        JsonNode supplier = service.chatbox(session, 0).path("suppliers").get(0);
+
+        assertThat(supplier.path("supplierType").isNull()).isTrue();
+        assertThat(supplier.path("personality").isNull()).isTrue();
+        assertThat(supplier.path("fraudType").isNull()).isTrue();
+        // 既有字段不受影响
+        assertThat(supplier.path("messages")).hasSize(2);
     }
 
     @Test
