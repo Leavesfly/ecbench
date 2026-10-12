@@ -219,6 +219,20 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate extract-chatbox \
 java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log/<sessionB>
 ```
 
+### 本地 Web 看板（serve）
+
+`serve` 是唯一会绑定端口的入口（默认仅监听 `127.0.0.1`），用于在浏览器里演示多 run 对比；
+`run` / `evaluate` 仍以无 Web 的批处理形态运行。
+
+```bash
+java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080 --host 127.0.0.1
+# 打开 http://127.0.0.1:8080/ ：会话勾选、指标对比表、七轴雷达 + 排名、余额曲线叠加、单 run 下钻（analysis + chatbox）
+# Ctrl-C 停止
+```
+
+只读接口：`/api/sessions`、`/api/compare?sessions=<name>`（缺省对比全部会话）、`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`。
+数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`），图表由前端 Chart.js 渲染。
+
 ## 测试与质量门
 
 ```bash
