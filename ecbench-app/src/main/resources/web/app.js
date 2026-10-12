@@ -67,6 +67,10 @@ const AXIS_ZH = [
 
 const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map() };
 
+/* 对比请求的代次：每次 loadCompare 递增，响应回来时若代次已旧则丢弃。
+   否则「全选 → 立即清空」这类连续操作下，较慢的旧响应会覆盖较新的空态渲染。 */
+let compareGeneration = 0;
+
 const $ = (id) => document.getElementById(id);
 
 async function api(path) {
@@ -164,6 +168,7 @@ function renderSessions() {
 
 async function loadCompare() {
   const chosen = [...state.selected];
+  const generation = ++compareGeneration;
   if (!chosen.length) {
     setStatus('未选择会话');
     ['ranking', 'metric-table', 'radar-legend', 'primary-cards', 'dimensions', 'crossings']
@@ -172,12 +177,16 @@ async function loadCompare() {
     $('balance-chart').innerHTML = '';
     $('radar-note').textContent = '';
     $('balance-note').textContent = '';
+    // 下钻入口随选择一同复位，避免残留上一次会话的按钮（已渲染的下钻内容保留供阅读）。
+    state.drilled = null;
+    $('run-picker').innerHTML = '<p class="hint">选择会话后出现</p>';
     renderKpis(null);
     return;
   }
   const query = chosen.map((n) => 'sessions=' + encodeURIComponent(n)).join('&');
   try {
     const data = await api('/api/compare?' + query);
+    if (generation !== compareGeneration) return;
     setStatus(`已对比 ${data.sessions.length} 个会话`, 'live');
     renderKpis(data);
     renderPrimary(data);
@@ -187,8 +196,9 @@ async function loadCompare() {
     renderRanking(data.ranking);
     renderMetricTable(data.sessions);
     renderRunPicker(data.sessions);
-    await loadBalance(chosen);
+    await loadBalance(chosen, generation);
   } catch (error) {
+    if (generation !== compareGeneration) return;
     setStatus('对比加载失败：' + error.message, 'bad');
   }
 }
@@ -577,12 +587,15 @@ function paintMetricRows() {
 
 function filterMetricRows() {
   const needle = ($('metric-filter').value || '').trim().toLowerCase();
+  const stale = document.querySelector('#metric-table tr.no-match');
+  if (stale) stale.remove();
   const rows = [...document.querySelectorAll('#metric-table tbody tr')];
   if (!needle) {
     rows.forEach((tr) => { tr.hidden = false; });
     return;
   }
   let keepGroup = false;
+  let visible = 0;
   rows.forEach((tr) => {
     const isGroup = tr.classList.contains('group-head');
     if (isGroup) {
@@ -592,21 +605,38 @@ function filterMetricRows() {
     }
     const hit = tr.dataset.label.includes(needle);
     tr.hidden = !(hit || keepGroup);
+    if (!tr.hidden) visible += 1;
   });
+  // 过滤到零行时给明确提示，避免用户误以为表格坏了（旧行为是默默变成 0 行）。
+  if (!visible) appendNoMatch(needle, rows);
+}
+
+/** 在指标矩阵末尾插入一行「无匹配」提示；列数跟表头对齐。 */
+function appendNoMatch(needle, rows) {
+  const tbody = document.querySelector('#metric-table tbody');
+  if (!tbody) return;
+  const columns = document.querySelectorAll('#metric-table thead th').length
+    || (rows[0] ? rows[0].children.length : 1);
+  const tr = document.createElement('tr');
+  tr.className = 'no-match';
+  tr.innerHTML = `<td colspan="${columns}">无匹配「${esc(needle)}」的指标或维度</td>`;
+  tbody.append(tr);
 }
 
 /* ------------------------------------------------------------ balance */
 
-async function loadBalance(chosen) {
+async function loadBalance(chosen, generation) {
   state.balance.clear();
   for (const name of chosen) {
     try {
       const payload = await api(`/api/sessions/${encodeURIComponent(name)}/balance?run=0`);
+      if (generation !== compareGeneration) return;
       if (payload.series && payload.series.length) state.balance.set(name, payload.series);
     } catch (error) {
       /* 该会话无余额产物：跳过，不影响其它曲线 */
     }
   }
+  if (generation !== compareGeneration) return;
   drawBalance();
 }
 

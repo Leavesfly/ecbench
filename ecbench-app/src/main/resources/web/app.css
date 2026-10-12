@@ -436,3 +436,4 @@ details.block[open] > summary { border-bottom: 1px solid var(--line-soft); color
   letter-spacing: .08em;
   cursor: pointer;
 }
+#metric-table tr.no-match td { text-align: left; color: var(--ink-faint); font-size: 11px; }
