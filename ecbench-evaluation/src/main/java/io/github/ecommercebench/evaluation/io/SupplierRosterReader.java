@@ -18,7 +18,9 @@ import org.apache.commons.csv.CSVRecord;
  *
  * <p>供 dashboard 在 chatbox 谈判记录上标注供应商类型（诚信/欺诈）、人格与欺诈类型（论文附录 G 的失败案例阅读方式）。
  * 刻意**不**复用 {@code CsvCatalogLoader.load()}——后者要求六张 CSV 齐全且任一缺失即抛异常，不适合只读看板。
- * 本读取器全程容错：文件缺失、表头缺 {@code supplier_email} 列、单行坏值都只跳过并在 stderr 记一次警告，永不抛异常。
+ * 本读取器全程容错：文件缺失、表头缺 {@code supplier_email} 列、单行坏值、整体畸形（如引号未闭合使
+ * commons-csv 在迭代期抛 {@link java.io.UncheckedIOException}）都只降级并在 stderr 记警告，**永不抛异常**；
+ * 否则 {@code serve} 会在启动阶段直接失败，违背「名册不可用时服务照常启动」的不变量。
  */
 public final class SupplierRosterReader {
 
@@ -34,7 +36,7 @@ public final class SupplierRosterReader {
     public record RosterEntry(
             String email, String name, String type, String personality, String fraudType) {}
 
-    /** 按 email（小写）索引名册；任何不可用情形都返回已解析部分，可能为空 map。 */
+    /** 按 email（小写）索引名册；任何不可用情形都返回已解析部分，可能为空 map。本方法不抛异常。 */
     public Map<String, RosterEntry> readByEmail(Path suppliersCsv) {
         Map<String, RosterEntry> roster = new LinkedHashMap<>();
         if (suppliersCsv == null || !Files.isRegularFile(suppliersCsv)) {
@@ -47,14 +49,29 @@ public final class SupplierRosterReader {
                 warn("供应商名册缺少 supplier_email 列，跳过欺诈标注: " + suppliersCsv);
                 return roster;
             }
+            int skipped = 0;
             for (CSVRecord record : parser) {
-                RosterEntry entry = toEntry(record);
-                if (entry != null) {
-                    roster.put(entry.email(), entry);
+                try {
+                    RosterEntry entry = toEntry(record);
+                    if (entry != null) {
+                        roster.put(entry.email(), entry);
+                    }
+                } catch (RuntimeException badRow) {
+                    // 单行坏值（如列数不足使 record.get 抛 IllegalArgumentException）只跳本行，
+                    // 不得连带丢弃其后的好行。
+                    skipped++;
                 }
             }
-        } catch (IOException | IllegalArgumentException exception) {
+            if (skipped > 0) {
+                warn("供应商名册有 " + skipped + " 行取值异常，已跳过: " + suppliersCsv);
+            }
+        } catch (IOException | RuntimeException exception) {
+            // RuntimeException 覆盖 commons-csv 在迭代期抛出的 UncheckedIOException（如引号未闭合）。
             warn("供应商名册解析中断（已保留 " + roster.size() + " 条）: " + exception.getMessage());
+            return roster;
+        }
+        if (roster.isEmpty()) {
+            warn("供应商名册无可用条目，跳过欺诈标注: " + suppliersCsv);
         }
         return roster;
     }

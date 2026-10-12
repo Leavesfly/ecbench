@@ -72,4 +72,43 @@ class SupplierRosterReaderTest {
 
         assertThat(reader.readByEmail(csv)).isEmpty();
     }
+
+    /** 引号未闭合使 commons-csv 在迭代时抛 UncheckedIOException；契约要求不穿透，否则 serve 启动失败。 */
+    @Test
+    void malformedCsvWithUnterminatedQuoteDoesNotThrow(@TempDir Path dir) throws Exception {
+        Path csv = dir.resolve("suppliers.csv");
+        Files.writeString(
+                csv,
+                HEADER
+                        + "SUP-0004,\"Unterminated,broken@a.com,good,Friendly,0.4,,All,5\n"
+                        + "SUP-0005,Trailing Row,trailing@a.com,good,Friendly,0.4,,All,5\n");
+
+        assertThat(reader.readByEmail(csv)).isEmpty();
+    }
+
+    /** 单行列数不足只应跳过该行，不得连带丢弃其后的好行。 */
+    @Test
+    void shortRowIsSkippedAndFollowingGoodRowsSurvive(@TempDir Path dir) throws Exception {
+        Path csv = dir.resolve("suppliers.csv");
+        Files.writeString(
+                csv,
+                HEADER
+                        + "SUP-0006,Short Row,short@a.com\n"
+                        + "SUP-0007,Good Row,good@a.com,good,Friendly,0.4,,All,5\n");
+
+        Map<String, RosterEntry> roster = reader.readByEmail(csv);
+
+        assertThat(roster).hasSize(1);
+        assertThat(roster).containsKey("good@a.com");
+        assertThat(roster.get("good@a.com").type()).isEqualTo("good");
+    }
+
+    /** 表头存在但无数据行时也算名册不可用，需给出一行提示（不得静默）。 */
+    @Test
+    void headerOnlyCsvYieldsEmptyMap(@TempDir Path dir) throws Exception {
+        Path csv = dir.resolve("suppliers.csv");
+        Files.writeString(csv, HEADER);
+
+        assertThat(reader.readByEmail(csv)).isEmpty();
+    }
 }

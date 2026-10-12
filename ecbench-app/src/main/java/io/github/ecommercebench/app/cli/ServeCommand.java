@@ -70,14 +70,15 @@ public final class ServeCommand implements Callable<Integer> {
         return (logDir.isAbsolute() ? logDir : base.resolve(logDir)).normalize();
     }
 
-    /** 读取供应商名册；不可用时返回空 map（chatbox 降级为无标注，服务照常启动）。 */
+    /**
+     * 读取供应商名册；不可用时返回空 map（chatbox 降级为无标注，服务照常启动）。
+     *
+     * <p>降级提示由 {@link SupplierRosterReader} 统一输出（它能区分缺文件/缺列/坏行/畸形四种原因），
+     * 此处不重复告警，以免同一件事在 stderr 出现两行。
+     */
     private Map<String, RosterEntry> loadRoster() {
         Path catalogCsv = resolveCatalog(catalog, Path.of(System.getProperty("user.dir")));
-        Map<String, RosterEntry> roster = new SupplierRosterReader().readByEmail(catalogCsv);
-        if (roster.isEmpty()) {
-            System.err.println("供应商名册不可用，chatbox 不显示欺诈标注: " + catalogCsv);
-        }
-        return roster;
+        return new SupplierRosterReader().readByEmail(catalogCsv);
     }
 
     /** 名册路径解析：{@code --catalog} 覆盖优先，否则回退到资源根 {@code data/suppliers.csv}。 */
