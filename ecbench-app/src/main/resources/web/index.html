@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>E-CommerceBench · Telemetry Console</title>
+<title>E-CommerceBench · 运行遥测看板</title>
 <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
@@ -13,12 +13,12 @@
     <div class="brand-mark">EC</div>
     <div>
       <h1>E-CommerceBench</h1>
-      <p class="brand-sub">run telemetry console</p>
+      <p class="brand-sub">运行遥测看板</p>
     </div>
   </div>
 
   <div class="rail-block">
-    <h2 class="micro">sessions</h2>
+    <h2 class="micro">会话</h2>
     <div id="session-list" class="session-list"><p class="hint">加载中…</p></div>
     <div class="rail-actions">
       <button id="select-all" type="button">全选</button>
@@ -27,7 +27,7 @@
   </div>
 
   <div class="rail-block">
-    <h2 class="micro">drill down</h2>
+    <h2 class="micro">下钻</h2>
     <div id="run-picker" class="run-picker"><p class="hint">选择会话后出现</p></div>
   </div>
 
@@ -40,17 +40,34 @@
 <main class="stage">
 
   <section class="kpis" id="kpis">
-    <article class="kpi reveal"><span class="micro">best final balance</span><strong id="kpi-score">—</strong><em id="kpi-score-who"></em></article>
-    <article class="kpi reveal"><span class="micro">sessions compared</span><strong id="kpi-sessions">—</strong><em id="kpi-runs"></em></article>
-    <article class="kpi reveal"><span class="micro">axes with data</span><strong id="kpi-axes">—</strong><em>of 7 profile axes</em></article>
-    <article class="kpi reveal"><span class="micro">tool calls (mean)</span><strong id="kpi-calls">—</strong><em id="kpi-calls-note"></em></article>
+    <article class="kpi reveal"><span class="micro">最佳主评分（年末总资产倍数）</span><strong id="kpi-score">—</strong><em id="kpi-score-who"></em></article>
+    <article class="kpi reveal"><span class="micro">已对比会话</span><strong id="kpi-sessions">—</strong><em id="kpi-runs"></em></article>
+    <article class="kpi reveal"><span class="micro">有数据的画像轴</span><strong id="kpi-axes">—</strong><em>共 7 轴（主评分 + 六维度）</em></article>
+    <article class="kpi reveal"><span class="micro">工具调用均值</span><strong id="kpi-calls">—</strong><em id="kpi-calls-note"></em></article>
   </section>
 
   <section class="grid">
+    <article class="card span-12 reveal">
+      <header class="card-head">
+        <h2>主评分与六维度排名</h2>
+        <span class="micro">论文 §3.7 · 主评分 = 年末总资产 ÷ ¥100,000</span>
+      </header>
+      <div id="primary-cards" class="primary-cards"><p class="hint">—</p></div>
+      <p class="note">年末总资产 = 银行账户 + 平台钱包 + 未结算托管（余额 CSV 的 total_balance 权威列）。</p>
+    </article>
+
+    <article class="card span-12 reveal">
+      <header class="card-head">
+        <h2>六维度诊断</h2>
+        <span class="micro">论文 §4.3.1–4.3.6 · 每卡顶部为该维度的排名指标</span>
+      </header>
+      <div id="dimensions" class="dimensions"><p class="hint">—</p></div>
+    </article>
+
     <article class="card span-5 reveal">
       <header class="card-head">
         <h2>七轴画像</h2>
-        <span class="micro">min–max normalized · 0–1</span>
+        <span class="micro">min–max 归一化 · 0–1 · 离中心越远越好</span>
       </header>
       <div class="chart-wrap"><svg id="radar" viewBox="0 0 420 380" role="img" aria-label="七轴归一化雷达图"></svg></div>
       <div id="radar-legend" class="legend"></div>
@@ -59,18 +76,19 @@
 
     <article class="card span-7 reveal">
       <header class="card-head">
-        <h2>排名</h2>
-        <span class="micro">primary score = final_balance mean</span>
+        <h2>排名交叉</h2>
+        <span class="micro">论文附录 F.8 · 标红 = 与主评分排名不一致</span>
       </header>
+      <div id="crossings" class="table-wrap"><p class="hint">—</p></div>
       <div id="ranking" class="table-wrap"><p class="hint">—</p></div>
     </article>
 
     <article class="card span-12 reveal">
       <header class="card-head">
-        <h2>余额曲线叠加</h2>
-        <span class="micro">total_balance · 权威列</span>
+        <h2>资产轨迹叠加</h2>
+        <span class="micro">total_balance 权威列 = 银行 + 平台钱包 + 未结算托管</span>
       </header>
-      <div class="chart-wrap wide"><svg id="balance-chart" viewBox="0 0 960 300" role="img" aria-label="余额曲线叠加图"></svg></div>
+      <div class="chart-wrap wide"><svg id="balance-chart" viewBox="0 0 960 300" role="img" aria-label="资产轨迹叠加图"></svg></div>
       <div id="balance-legend" class="legend"></div>
       <p id="balance-note" class="note"></p>
     </article>
@@ -78,7 +96,7 @@
     <article class="card span-12 reveal">
       <header class="card-head">
         <h2>指标矩阵</h2>
-        <input id="metric-filter" class="filter" type="search" placeholder="过滤指标…" aria-label="过滤指标" />
+        <input id="metric-filter" class="filter" type="search" placeholder="过滤指标或维度…" aria-label="过滤指标或维度" />
       </header>
       <div id="metric-table" class="table-wrap tall"><p class="hint">—</p></div>
     </article>
@@ -87,7 +105,7 @@
   <section class="grid" id="drilldown" hidden>
     <article class="card span-6 reveal">
       <header class="card-head">
-        <h2>analysis.json</h2>
+        <h2>analysis.json 原始面板</h2>
         <span class="micro" id="drill-name"></span>
       </header>
       <div id="analysis" class="panels"><p class="hint">点击左侧会话名下钻</p></div>
@@ -96,7 +114,7 @@
     <article class="card span-6 reveal">
       <header class="card-head">
         <h2>chatbox 谈判记录</h2>
-        <span class="micro">by supplier</span>
+        <span class="micro">按供应商分组 · 正文保留模型原文</span>
       </header>
       <div id="chatbox" class="transcript"><p class="hint">点击左侧会话名下钻</p></div>
     </article>

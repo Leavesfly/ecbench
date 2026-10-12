@@ -324,11 +324,7 @@ details.block[open] > summary { border-bottom: 1px solid var(--line-soft); color
 .supplier > summary::-webkit-details-marker { display: none; }
 .supplier > summary b { color: var(--cyan); font-weight: 500; }
 
-.msg { display: grid; grid-template-columns: 66px 1fr; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line-soft); font-size: 11.5px; }
-.msg .who { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); padding-top: 2px; }
-.msg.assistant .who { color: var(--amber); }
-.msg.tool .who { color: var(--cyan); }
-.msg .body { color: var(--ink-dim); white-space: pre-wrap; word-break: break-word; }
+/* .msg 的版式与角色色已移到文件末尾的「chatbox：浅色气泡」节（旧的 66px 两列 grid 会使中文角色名挤在窄列里换行，已删）。 */
 
 /* ---------- motion ---------- */
 
@@ -357,3 +353,86 @@ details.block[open] > summary { border-bottom: 1px solid var(--line-soft); color
 ::-webkit-scrollbar-track { background: var(--bg-inset); }
 ::-webkit-scrollbar-thumb { background: #c3cbd6; border: 2px solid var(--bg-inset); }
 ::-webkit-scrollbar-thumb:hover { background: #a9b3c0; }
+
+/* ---------- chatbox：浅色气泡 + 角色色条 + 供应商标签 ---------- */
+
+.msg {
+  background: var(--bg-inset);
+  border-left: 3px solid var(--ink-faint);
+  border-radius: 3px;
+  padding: 6px 8px;
+  margin: 6px 0;
+  font-size: 11.5px;
+}
+.msg.assistant { border-left-color: var(--cyan); }
+.msg.tool { border-left-color: var(--amber); }
+.msg.user, .msg.system { border-left-color: var(--ink-faint); }
+.msg .who {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--ink-dim);
+  margin-bottom: 3px;
+}
+.msg.assistant .who { color: var(--cyan); }
+.msg.tool .who { color: var(--amber); }
+.msg .body { color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+
+.supplier summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.supplier .count { color: var(--ink-faint); font-size: 11px; }
+.tag {
+  font-size: 10px;
+  letter-spacing: .06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.tag.bad { color: var(--red); background: rgba(189, 65, 54, .08); }
+.tag.good { color: var(--green); background: rgba(61, 139, 80, .08); }
+
+/* ---------- 主评分卡与六维度卡（Task 8 填充内容） ---------- */
+
+.primary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.primary-card { background: var(--bg-inset); border: 1px solid var(--line-soft); border-radius: 4px; padding: 10px 12px; }
+.primary-card .who { color: var(--ink-dim); font-size: 11px; }
+.primary-card .value { font-family: var(--display); font-size: 22px; color: var(--ink); }
+.primary-card .rank { color: var(--ink-faint); font-size: 11px; }
+
+.dimensions { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.dimension { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; background: var(--bg-card); }
+.dimension header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dimension h3 { font-family: var(--display); font-size: 15px; margin: 0; color: var(--ink); }
+.dimension .ref { color: var(--ink-faint); font-size: 10px; }
+.dimension .headline { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 8px; }
+.dimension .headline b { font-family: var(--display); font-size: 20px; color: var(--ink); }
+.dimension table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dimension th, .dimension td { text-align: right; padding: 2px 4px; border-bottom: 1px solid var(--line-soft); }
+.dimension th:first-child, .dimension td:first-child { text-align: left; color: var(--ink-dim); }
+.dimension td.na { color: var(--ink-faint); }
+.bars { margin: 8px 0 2px; }
+.bar-row { display: grid; grid-template-columns: 96px 1fr 84px; align-items: center; gap: 6px; font-size: 11px; }
+.bar-row .track { background: var(--bg-inset); border-radius: 2px; height: 8px; overflow: hidden; }
+.bar-row .fill { height: 100%; background: var(--cyan); }
+.bar-row .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.stacked { display: flex; height: 10px; border-radius: 2px; overflow: hidden; background: var(--bg-inset); margin: 6px 0; }
+.stacked i { display: block; height: 100%; }
+.legend-inline { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10px; color: var(--ink-dim); }
+.legend-inline span i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; }
+
+/* ---------- rank crossings ---------- */
+
+#crossings table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#crossings th, #crossings td { padding: 3px 6px; border-bottom: 1px solid var(--line-soft); text-align: center; }
+#crossings th:first-child, #crossings td:first-child { text-align: left; }
+#crossings td.cross { border-left: 3px solid var(--red); background: rgba(189, 65, 54, .07); }
+#crossings td.na { color: var(--ink-faint); }
+
+/* ---------- 指标矩阵的维度分组 ---------- */
+
+#metric-table tr.group-head td {
+  background: var(--bg-inset);
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: .08em;
+  cursor: pointer;
+}

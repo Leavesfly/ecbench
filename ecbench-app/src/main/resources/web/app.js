@@ -5,6 +5,49 @@
 
 const PALETTE = ['#b0761a', '#26808f', '#3d8b50', '#bd4136', '#6b4fa1', '#9a7d12', '#3d6fa8', '#a44f7d'];
 const POINT_RING = '#ffffff';
+
+/* 角色与术语译名（spec §5.3）：论文/产物原始名保留英文，中文注解紧随其后。 */
+const ROLE_ZH = {
+  assistant: '智能体',
+  tool: '供应商回复 · 工具结果',
+  user: '系统',
+  system: '系统',
+};
+
+const FRAUD_ZH = {
+  fake_urgency: '虚假紧迫',
+  future_discount: '未来折扣',
+  qty_bait: '数量诱饵',
+  quality_downgrade: '次品交付',
+  vip_fee: 'VIP 会员费',
+};
+
+const BAND_ZH = {
+  waiting: '等待', shipping: '发货', listing: '上架', withdraw: '提现',
+  bargaining: '议价', state_polling: '状态查询', memory: '记忆', remainder: '其余',
+};
+
+const LAYER_ZH = {
+  exp_return_rate_natural: '自然退货',
+  exp_return_rate_from_pricing: '定价过高',
+  exp_return_rate_from_ship_speed: '配送过慢',
+  exp_return_rate_from_defective_fraud: '欺诈次品',
+};
+
+/* analysis.json 七个面板的中文注解（键名保留英文原文，便于与产物对照）。 */
+const PANEL_ZH = {
+  reward: 'reward（奖励与终止）',
+  profitability: 'profitability（盈利与偿付）',
+  negotiation_quality: 'negotiation_quality（谈判质量）',
+  fulfilment_quality: 'fulfilment_quality（履约质量）',
+  return_management: 'return_management（退货管理）',
+  fraud_identification: 'fraud_identification（欺诈识别）',
+  supplier_engagement: 'supplier_engagement（供应商触达）',
+  operational_efficiency: 'operational_efficiency（运营效率）',
+};
+
+const roleZh = (role) => ROLE_ZH[role] || role || '未知';
+
 const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map() };
 
 const $ = (id) => document.getElementById(id);
@@ -94,7 +137,7 @@ function renderSessions() {
     name.textContent = session.name;
     const meta = document.createElement('span');
     meta.className = 'meta';
-    meta.textContent = `r${session.runs}${session.hasBalance ? ' ·bal' : ''}`;
+    meta.textContent = `${session.runs} 个 run${session.hasBalance ? ' · 有余额' : ''}`;
     label.append(checkbox, name, meta);
     box.append(label);
   });
@@ -137,11 +180,11 @@ function renderKpis(data) {
   }
   const top = data.ranking.find((r) => r.score !== null) || null;
   $('kpi-score').textContent = top ? fmtMoney(top.score) : 'n/a';
-  $('kpi-score-who').textContent = top ? shortName(top.name) : '无有效主分';
+  $('kpi-score-who').textContent = top ? shortName(top.name) : '无有效主评分';
 
   const runs = data.sessions.reduce((sum, s) => sum + s.runCount, 0);
   $('kpi-sessions').textContent = String(data.sessions.length);
-  $('kpi-runs').textContent = `${runs} run(s)`;
+  $('kpi-runs').textContent = `${runs} 个 run`;
 
   const withData = data.radar.axes.filter((_, i) => data.radar.series.some((s) => s.values[i] !== null)).length;
   $('kpi-axes').textContent = `${withData} / 7`;
@@ -150,7 +193,7 @@ function renderKpis(data) {
     .map((s) => (s.metrics.find((m) => m.label === 'tool_calls') || {}).mean)
     .filter((v) => typeof v === 'number');
   $('kpi-calls').textContent = calls.length ? fmtNum(calls.reduce((a, b) => a + b, 0) / calls.length) : 'n/a';
-  $('kpi-calls-note').textContent = calls.length ? `${calls.length} session(s) 有数据` : '无工具调用统计';
+  $('kpi-calls-note').textContent = calls.length ? `${calls.length} 个会话有数据` : '无工具调用统计';
 }
 
 /* -------------------------------------------------------------- radar */
@@ -227,7 +270,7 @@ function renderRadar(radar, sessions) {
 
   $('radar-legend').innerHTML = radar.series
     .map((s, i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(shortName(s.name))}</span>`)
-    .join('') + '<span><i class="median"></i>median</span>';
+    .join('') + '<span><i class="median"></i>中位数</span>';
 
   const notes = [];
   if (skipped.length) notes.push('未成面：' + skipped.join('；'));
@@ -249,7 +292,7 @@ function renderRanking(ranking) {
       <td class="${r.score === null ? 'na' : ''}">${r.score === null ? 'n/a' : fmtMoney(r.score)}</td>
     </tr>`).join('');
   $('ranking').innerHTML =
-    '<table><thead><tr><th>session</th><th>primary score</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    '<table><thead><tr><th>会话</th><th>主评分（年末总资产）</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 /* -------------------------------------------------------- metric grid */
@@ -283,7 +326,7 @@ function paintMetricRows() {
       ${row.cells.map((c) => `<td class="${c.na ? 'na' : ''}">${esc(c.text)}</td>`).join('')}
     </tr>`).join('');
   $('metric-table').innerHTML =
-    `<table><thead><tr><th>metric</th>${head.join('')}</tr></thead><tbody>${body}</tbody></table>`;
+    `<table><thead><tr><th>指标</th>${head.join('')}</tr></thead><tbody>${body}</tbody></table>`;
   filterMetricRows();
 }
 
@@ -379,7 +422,7 @@ function drawBalance() {
   legend.innerHTML = [...state.balance.keys()]
     .map((name, i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(shortName(name))}</span>`)
     .join('');
-  note.textContent = `${state.balance.size} 条曲线 · ${dates.length} 个交易日`;
+  note.textContent = `${state.balance.size} 条曲线 · ${dates.length} 个交易日 · 纵轴为年末总资产`;
 
   const crosshair = $('crosshair');
   const tooltip = ensureTooltip();
@@ -445,19 +488,19 @@ function renderRunPicker(sessions) {
 async function drill(name) {
   state.drilled = name;
   $('drilldown').hidden = false;
-  $('drill-name').textContent = name + ' · run_0';
+  $('drill-name').textContent = name + ' · run_0（下钻固定首个 run）';
   $('analysis').innerHTML = '<p class="hint">读取中…</p>';
   $('chatbox').innerHTML = '<p class="hint">读取中…</p>';
   const base = `/api/sessions/${encodeURIComponent(name)}`;
   try {
     renderAnalysis(await api(`${base}/analysis?run=0`));
   } catch (error) {
-    $('analysis').innerHTML = `<p class="hint">analysis 读取失败：${esc(error.message)}</p>`;
+    $('analysis').innerHTML = `<p class="hint">analysis.json 读取失败：${esc(error.message)}</p>`;
   }
   try {
     renderChatbox(await api(`${base}/chatbox?run=0`));
   } catch (error) {
-    $('chatbox').innerHTML = `<p class="hint">chatbox 读取失败：${esc(error.message)}</p>`;
+    $('chatbox').innerHTML = `<p class="hint">谈判记录读取失败：${esc(error.message)}</p>`;
   }
   $('drilldown').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -466,17 +509,17 @@ function renderAnalysis(analysis) {
   const blocks = Object.entries(analysis).map(([panel, value]) => {
     const rows = flatten(value);
     return `<details class="block"${panel === 'reward' ? ' open' : ''}>
-      <summary>${esc(panel)}</summary>
+      <summary>${esc(PANEL_ZH[panel] || panel)}</summary>
       <dl class="kv">${rows}</dl>
     </details>`;
   }).join('');
-  $('analysis').innerHTML = blocks || '<p class="hint">空 analysis</p>';
+  $('analysis').innerHTML = blocks || '<p class="hint">analysis.json 为空</p>';
 }
 
 function flatten(value, depth) {
   const level = depth || 0;
   if (value === null || typeof value !== 'object') {
-    return `<dt>${esc(level ? '' : 'value')}</dt><dd>${esc(display(value))}</dd>`;
+    return `<dt>${esc(level ? '' : '值')}</dt><dd>${esc(display(value))}</dd>`;
   }
   return Object.entries(value).map(([key, child]) => {
     if (child !== null && typeof child === 'object' && !Array.isArray(child) && level < 2) {
@@ -502,13 +545,28 @@ function renderChatbox(payload) {
   }
   $('chatbox').innerHTML = suppliers.map((supplier, index) => `
     <details class="supplier"${index === 0 ? ' open' : ''}>
-      <summary><b>${esc(supplier.supplier)}</b> · ${supplier.messages.length} 条</summary>
+      <summary><b>${esc(supplier.supplier)}</b>
+        <span class="count">${supplier.messages.length} 条</span>
+        ${rosterTag(supplier)}</summary>
       ${supplier.messages.map((m) => `
         <div class="msg ${esc(m.role)}">
-          <span class="who">${esc(m.role || '?')}</span>
+          <span class="who">${esc(roleZh(m.role))}</span>
           <span class="body">${esc(collapse(m.content))}</span>
         </div>`).join('')}
     </details>`).join('');
+}
+
+/** 供应商标签：欺诈者标出骗局类型，诚信者标出人格；名册未命中则不显示标签。 */
+function rosterTag(supplier) {
+  if (supplier.supplierType === 'bad') {
+    const fraud = FRAUD_ZH[supplier.fraudType] || supplier.fraudType || '未知骗局';
+    return `<span class="tag bad">欺诈 · ${esc(fraud)}</span>`;
+  }
+  if (supplier.supplierType === 'good') {
+    const who = supplier.personality ? ` · ${esc(supplier.personality)}` : '';
+    return `<span class="tag good">诚信${who}</span>`;
+  }
+  return '';
 }
 
 const collapse = (text) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 700);
