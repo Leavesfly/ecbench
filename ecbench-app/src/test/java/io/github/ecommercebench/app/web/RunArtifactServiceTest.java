@@ -49,7 +49,9 @@ class RunArtifactServiceTest {
         String call =
                 "{\"role\":\"assistant\",\"tool_calls\":[{\"id\":\"tc1\",\"function\":"
                         + "{\"name\":\"chatbox\",\"arguments\":\"{\\\"uid\\\":\\\"oak@a.com\\\"}\"}}]}";
-        String reply = "{\"role\":\"tool\",\"tool_call_id\":\"tc1\",\"content\":\"{\\\"message\\\":\\\"message_sent\\\"}\"}";
+        String reply =
+                "{\"role\":\"tool\",\"tool_call_id\":\"tc1\","
+                        + "\"content\":\"{\\\"message\\\":\\\"message_sent\\\"}\"}";
         Files.writeString(
                 session.resolve("trajectories/run_0_messages.jsonl"), call + "\n" + reply + "\n");
 
