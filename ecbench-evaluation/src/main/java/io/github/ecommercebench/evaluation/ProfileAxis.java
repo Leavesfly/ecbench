@@ -6,8 +6,9 @@ import io.github.ecommercebench.evaluation.model.ComparisonReport.SessionCompari
 /**
  * 论文 §3.7 / Figure 2 的七个评估轴（主要得分 + 顺时针 6 维），按固定顺序排列。
  *
- * <p>每轴从会话聚合的 {@link MetricStat} 均值取原始值。欺诈规避、偿付能力、运营执行为「越低越好」（归一化时翻转）； 学习轴用 {@code se_half_lift}
- * 代理（越高越好，方向与论文 AnchorRatio 相反，属 spec 记录的偏差）。派生的偿付/效率轴在分母为 0 或缺样本时返回 {@code null}。
+ * <p>每轴从会话聚合的 {@link MetricStat} 均值取原始值，学习轴例外：它读 {@link SessionComparison#learning()} 的
+ * {@code anchorRatio}（论文 §E.6 的 AnchorRatio，由逐谈判记录重算），因此旧产物没有该记录时学习轴为 null。
+ * 欺诈规避、偿付能力、运营执行与学习为「越低越好」（归一化时翻转）；派生的偿付/效率轴在分母为 0 或缺样本时返回 {@code null}。
  */
 public enum ProfileAxis {
     PRIMARY("primary", "Primary score", false),
@@ -16,7 +17,7 @@ public enum ProfileAxis {
     SOLVENCY("solvency", "Cash flow & solvency", true),
     EFFICIENCY("efficiency", "Operational efficiency", false),
     EXECUTION("execution", "Operations execution", true),
-    LEARNING("learning", "Learning over horizon (se_half_lift proxy)", false);
+    LEARNING("learning", "Learning (AnchorRatio)", true);
 
     private final String key;
     private final String label;
@@ -44,7 +45,7 @@ public enum ProfileAxis {
     }
 
     /**
-     * 该轴在给定会话上的原始值；缺样本或分母为 0 时返回 {@code null}。
+     * 该轴在给定会话上的原始值；缺样本或分母为 0 时返回 {@code null}。学习轴额外在无逐谈判记录产物时返回 {@code null}。
      */
     public Double value(SessionComparison session) {
         return switch (this) {
@@ -56,7 +57,7 @@ public enum ProfileAxis {
                     difference(mean(session, "final_balance"), mean(session, "initial_balance")),
                     mean(session, "tool_calls"));
             case EXECUTION -> mean(session, "controllable_return_rate");
-            case LEARNING -> mean(session, "se_half_lift");
+            case LEARNING -> session.learning() == null ? null : session.learning().anchorRatio();
         };
     }
 

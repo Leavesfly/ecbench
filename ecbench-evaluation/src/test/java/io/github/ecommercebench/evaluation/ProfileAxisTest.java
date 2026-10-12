@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.within;
 
 import io.github.ecommercebench.evaluation.model.ComparisonReport.MetricStat;
 import io.github.ecommercebench.evaluation.model.ComparisonReport.SessionComparison;
+import io.github.ecommercebench.evaluation.model.SessionLearning;
 
 import java.util.List;
 
@@ -53,10 +54,11 @@ class ProfileAxisTest {
         assertThat(ProfileAxis.PRIMARY.lowerIsBetter()).isFalse();
         assertThat(ProfileAxis.NEGOTIATION.lowerIsBetter()).isFalse();
         assertThat(ProfileAxis.EFFICIENCY.lowerIsBetter()).isFalse();
-        assertThat(ProfileAxis.LEARNING.lowerIsBetter()).isFalse();
         assertThat(ProfileAxis.FRAUD.lowerIsBetter()).isTrue();
         assertThat(ProfileAxis.SOLVENCY.lowerIsBetter()).isTrue();
         assertThat(ProfileAxis.EXECUTION.lowerIsBetter()).isTrue();
+        // 论文 §E.6：AnchorRatio 1.0 = 与自身价格随机排列无异，<1 优于随机 → 越低越好
+        assertThat(ProfileAxis.LEARNING.lowerIsBetter()).isTrue();
     }
 
     @Test
@@ -70,7 +72,6 @@ class ProfileAxisTest {
         // efficiency = (final - initial) / tool_calls = 50000/500
         assertThat(ProfileAxis.EFFICIENCY.value(session)).isCloseTo(100.0, within(1e-9));
         assertThat(ProfileAxis.EXECUTION.value(session)).isCloseTo(0.10, within(1e-9));
-        assertThat(ProfileAxis.LEARNING.value(session)).isCloseTo(0.05, within(1e-9));
     }
 
     @Test
@@ -109,6 +110,32 @@ class ProfileAxisTest {
     void exposesStableKeyAndLabel() {
         assertThat(ProfileAxis.PRIMARY.key()).isEqualTo("primary");
         assertThat(ProfileAxis.SOLVENCY.key()).isEqualTo("solvency");
-        assertThat(ProfileAxis.LEARNING.label()).isNotBlank();
+        assertThat(ProfileAxis.LEARNING.key()).isEqualTo("learning");
+        assertThat(ProfileAxis.LEARNING.label()).isEqualTo("Learning (AnchorRatio)");
+    }
+
+    private static SessionLearning learning(Double anchorRatio) {
+        return new SessionLearning(
+                anchorRatio, 0.15, 0.5, 0.2, -0.5, 0.05, 0.13, -0.5, 1, 1, 2);
+    }
+
+    @Test
+    void learningAxisReadsAnchorRatioFromSessionLearning() {
+        SessionComparison session = new SessionComparison("modelL", 2, List.of(), learning(1.35));
+
+        assertThat(ProfileAxis.LEARNING.value(session)).isCloseTo(1.35, within(1e-9));
+    }
+
+    @Test
+    void learningAxisIsNullWithoutSessionLearning() {
+        // fullSession() 用三参构造（learning = null），即使指标矩阵里有 se_half_lift 也不被学习轴采用
+        assertThat(ProfileAxis.LEARNING.value(fullSession())).isNull();
+    }
+
+    @Test
+    void learningAxisIsNullWhenAnchorRatioIsNotApplicable() {
+        SessionComparison session = new SessionComparison("modelN", 1, List.of(), learning(null));
+
+        assertThat(ProfileAxis.LEARNING.value(session)).isNull();
     }
 }
