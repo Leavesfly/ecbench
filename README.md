@@ -197,6 +197,7 @@ DASHSCOPE_API_KEY   ZHIPU_API_KEY   MOONSHOT_API_KEY   DEEPSEEK_API_KEY
 - `trajectories/run_<i>_messages.jsonl`、`run_<i>_output.log`
 - `balance/run_<i>_daily_balance.csv`（`total_balance` 为权威列）
 - `metrics/run_<i>_negotiation_metrics.json`、`run_<i>_analysis.json`
+- `metrics/run_<i>_negotiation_records.jsonl`（**Java 侧附加产物**：逐谈判原始记录，论文 §E.6 学习维度指标的重算输入；Python 参考实现不产出该文件，缺失时学习维度显示为不适用）
 
 其中 `analysis.json` 含 7 个面板：`reward`、`profitability`、`negotiation_quality`、`fraud_identification`、`supplier_engagement`、`return_management`、`fulfilment_quality`。
 
@@ -219,6 +220,10 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate extract-chatbox \
 java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log/<sessionB>
 ```
 
+`evaluate profile` 的七轴画像中，学习轴口径为论文 §E.6 的 **AnchorRatio**（越低越好，1.0 表示与自身价格的随机排列无异），
+由 `metrics/run_<i>_negotiation_records.jsonl` 重算得出（固定种子置换零分布，B=400，同产物逐位可复现）；
+早于该产物的旧会话在此轴上留空。
+
 ### 本地 Web 看板（serve）
 
 `serve` 是唯一会绑定端口的入口（默认仅监听 `127.0.0.1`），用于在浏览器里演示多 run 对比；
@@ -231,17 +236,23 @@ java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080 -
 ```
 
 只读接口：`/api/sessions`、`/api/compare?sessions=<name>`（缺省对比全部会话）、`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`。
-数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`），图表由前端 Chart.js 渲染。
+数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`）；
+前端为零依赖单页应用，图表以纯 SVG 渲染，不引用任何外部 CDN 资源。
 
 ## 测试与质量门
 
 ```bash
-mvn clean verify
+mvn clean test                                            # 全模块测试
+mvn -pl ecbench-evaluation,ecbench-app checkstyle:check   # 所改模块风格门
+mvn -DskipTests clean package                             # 重打 fat jar
 ```
 
-- 全 7 模块共 **56 个测试类、200+ 个测试方法**，含离线 E2E（`BenchmarkEndToEndTest`）与 Python↔Java 双向兼容测试（`PythonCompatibilityTest`）。
-- **Spotless**（google-java-format）+ **Checkstyle**（行宽 120、禁 star import、方法 ≤ 150 行），违规即 `BUILD FAILURE`。
+- 全 7 模块共 **56+ 个测试类、300+ 个测试方法**，含离线 E2E（`BenchmarkEndToEndTest`）与 Python↔Java 双向兼容测试（`PythonCompatibilityTest`）。
+- **Checkstyle**（行宽 120、禁 star import、方法 ≤ 150 行）：所改模块须 0 违规。
 - **JaCoCo** 行覆盖率门：`domain` / `simulation` / `opponent` 均须 ≥ 85%，未达标即 `BUILD FAILURE`。
+- **Spotless 已知红基线**：根 pom 的 `<googleJavaFormat/>` 未设 `<style>AOSP</style>`，默认 2 空格与仓库既有 4 空格模块冲突，
+  `spotless:check` 在 `evaluation` 模块即报 20+ 个文件违规，因而 `mvn clean verify` 无法全绿。**不要**用 `mvn spotless:apply` “修复”——
+  它会重排整模块既有文件、产生巨量无关 diff。修法是把根 pom 改为 `<googleJavaFormat><style>AOSP</style></googleJavaFormat>`，属独立任务。
 
 ## 与 Python 参考实现的关系
 
