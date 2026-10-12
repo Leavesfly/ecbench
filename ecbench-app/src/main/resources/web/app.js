@@ -227,7 +227,7 @@ function renderRadar(radar, sessions) {
 
   $('radar-legend').innerHTML = radar.series
     .map((s, i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(shortName(s.name))}</span>`)
-    .join('') + '<span><i style="background:transparent;border-style:dashed"></i>median</span>';
+    .join('') + '<span><i class="median"></i>median</span>';
 
   const notes = [];
   if (skipped.length) notes.push('未成面：' + skipped.join('；'));
@@ -401,8 +401,11 @@ function drawBalance() {
       return `${esc(shortName(name))}: <b>${value}</b>`;
     });
     tooltip.innerHTML = `<div>${esc(dates[nearest])}</div>${lines.join('<br>')}`;
-    tooltip.style.left = Math.min(event.clientX + 14, window.innerWidth - 250) + 'px';
-    tooltip.style.top = (event.clientY + 12) + 'px';
+    // 先写内容再量尺寸，四个方向都夹取：避免右侧溢出（旧代码用 250 夹但 max-width 是 260）与底部顶出屏幕。
+    const tipWidth = Math.min(tooltip.offsetWidth || 260, 260);
+    const tipHeight = tooltip.offsetHeight || 60;
+    tooltip.style.left = Math.max(8, Math.min(event.clientX + 14, window.innerWidth - tipWidth - 8)) + 'px';
+    tooltip.style.top = Math.max(8, Math.min(event.clientY + 12, window.innerHeight - tipHeight - 8)) + 'px';
     tooltip.classList.add('on');
   };
   svg.onmouseleave = () => {

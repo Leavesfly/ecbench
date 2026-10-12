@@ -17,6 +17,8 @@
   --display: "Iowan Old Style", "Palatino Linotype", "Bodoni 72", Georgia, serif;
   --mono: "SF Mono", Menlo, Monaco, "Cascadia Mono", "Roboto Mono", monospace;
   --rail: 264px;
+  /* 锁定浅色：避免在系统深色模式下，::-webkit-scrollbar 规则覆盖不到的 UA 原生面（滚动条、原生 select、自动填充底色）变深。 */
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -224,6 +226,8 @@ button:active { transform: translateY(1px); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--ink-dim); }
 .legend i { width: 9px; height: 9px; flex: none; border: 1px solid rgba(16,24,40,.18); }
+/* median 图例用一段虚线表达（与 .median-poly 的 stroke/dasharray 一致），不再渲染成空方框。 */
+.legend i.median { width: 14px; height: 0; border: 0; border-top: 1.2px dashed var(--ink-dim); }
 
 .tooltip {
   position: fixed;
