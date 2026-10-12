@@ -231,13 +231,20 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log
 
 ```bash
 java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080 --host 127.0.0.1
-# 打开 http://127.0.0.1:8080/ ：会话勾选、指标对比表、七轴雷达 + 排名、余额曲线叠加、单 run 下钻（analysis + chatbox）
+# 打开 http://127.0.0.1:8080/ ：会话勾选、主评分与六维度排名、六维度诊断卡（八类活动带 / 五类骗局支出 / 退货四层）、
+# 排名交叉、七轴雷达、资产轨迹叠加、按维度分组的指标矩阵、单 run 下钻（analysis.json + chatbox 谈判记录，含欺诈标注）
 # Ctrl-C 停止
 ```
 
-只读接口：`/api/sessions`、`/api/compare?sessions=<name>`（缺省对比全部会话）、`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`。
-数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`）；
-前端为零依赖单页应用，图表以纯 SVG 渲染，不引用任何外部 CDN 资源。
+选项：`--log-dir`（会话根目录，默认 `log`）、`--port`（默认 `8080`，`0` 为随机端口）、`--host`（默认 `127.0.0.1`）、
+`--catalog`（供应商名册 CSV，默认取资源根 `data/suppliers.csv`；用于在 chatbox 谈判记录上标注供应商类型与欺诈类型，
+名册缺失时自动降级为无标注，服务照常启动）。
+
+只读接口：`/api/sessions`、`/api/compare?sessions=<name>`（缺省对比全部会话；返回 `sessions`/`radar`/`ranking`
+以及论文 §4.3 的 `primaryScore`/`dimensions`/`rankCrossings`/`learning` 四段）、
+`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`。
+数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`），
+维度视图口径见 `DimensionAxis`（论文 §3.7）；前端为零依赖单页应用，图表以纯 SVG 渲染，不引用任何外部 CDN 资源。
 
 ## 测试与质量门
 
