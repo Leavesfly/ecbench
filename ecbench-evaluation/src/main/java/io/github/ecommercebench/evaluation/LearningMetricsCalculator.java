@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 
 /**
@@ -15,16 +16,36 @@ import java.util.TreeMap;
  * <p>输入为一个 episode 的逐谈判记录，输出 {@link LearningMetrics}。序贯价格纪律部分：只保留诚信、已成交、有结束日、
  * 价格字段齐备且议价区间 {@code Δ = 参考价 − 成本底价 > 0} 的 (supplier, SKU) pair，且要求该 pair 至少成交两次；
  * 把每次成交价映射为区间内位置 {@code π}（截断到 [0,1]，与论文「positions here are clipped, unlike SE」一致），
- * 从第二笔起与该 pair 的历史最优 {@code m} 比较，得到 {@code AnchorRegret} 与创新低率 {@code NewLow}（容差 ε=0.01）。
+ * 从第二笔起与该 pair 的历史最优 {@code m} 比较，得到 {@code AnchorRegret} 与创新低率 {@code NewLow}（容差 ε=0.01）；
+ * 再用 B=400 次固定种子的独立置换构造零分布，得到 {@code AnchorRatio}（观测值 ÷ 零均值）与置换 z。
  *
  * <p>确定性保证：pair 迭代序为 key（supplier 与 skuId 以 NUL 分隔拼接，与 {@code NegotiationTracker} 的键约定一致）的
- * 字典序（{@link TreeMap}），pair 内按结束日升序且同日保持输入序（{@link List#sort} 稳定），因此同输入逐位可复现。
- * 本类不做四舍五入，展示层负责取整口径。
+ * 字典序（{@link TreeMap}），pair 内按结束日升序且同日保持输入序（{@link List#sort} 稳定），置换用单个共享
+ * {@link Random}（默认种子 20260101），因此同输入 + 同种子逐位可复现。零分布的离散度是**总体**标准差（除以 B），
+ * 与档案其他处的样本标准差刻意不同，不可互比。本类不做四舍五入，展示层负责取整口径。
  */
 public final class LearningMetricsCalculator {
 
     /** 论文 §E.6 的创新低容差 ε。 */
     private static final double EPSILON = 0.01;
+
+    /** 论文 §E.6 的置换重复次数 B。 */
+    private static final int DEFAULT_REPLICATES = 400;
+
+    /** 默认随机种子：保证同一产物多次计算结果逐位一致。 */
+    private static final long DEFAULT_SEED = 20260101L;
+
+    private final long seed;
+    private final int replicates;
+
+    public LearningMetricsCalculator() {
+        this(DEFAULT_SEED, DEFAULT_REPLICATES);
+    }
+
+    public LearningMetricsCalculator(long seed, int replicates) {
+        this.seed = seed;
+        this.replicates = replicates;
+    }
 
     /** 计算一个 episode 的 §E.6 指标；不适用者为 null。 */
     public LearningMetrics calculate(List<NegotiationRecordRow> rows) {
@@ -36,14 +57,19 @@ public final class LearningMetricsCalculator {
         int reorders = pairs.stream().mapToInt(Pair::reorders).sum();
         double regret = levelStatistic(pairs, true);
         double newLow = levelStatistic(pairs, false);
+        double[] nullRegret = permutationNull(pairs, true);
+        double[] nullNewLow = permutationNull(pairs, false);
+        Double ratio = nullRegret[0] == 0.0 ? null : regret / nullRegret[0];
+        Double zEpisode = nullRegret[1] == 0.0 ? null : (nullRegret[0] - regret) / nullRegret[1];
+        Double newLowZ = nullNewLow[1] == 0.0 ? null : (newLow - nullNewLow[0]) / nullNewLow[1];
         return new LearningMetrics(
                 regret,
                 newLow,
-                null,
-                null,
-                null,
-                null,
-                null,
+                ratio,
+                zEpisode,
+                newLowZ,
+                nullRegret[0],
+                nullRegret[1],
                 null,
                 null,
                 null,
@@ -133,5 +159,49 @@ public final class LearningMetricsCalculator {
             best = Math.min(best, current);
         }
         return new double[] {sum, count};
+    }
+
+    /**
+     * 构造论文 §E.6 的置换零分布：B 次重复，每次对**每个 pair 独立**洗牌其位置序列后重算同一统计量。
+     *
+     * <p>单个共享 {@link Random}（固定种子）按 pair 字典序依次洗牌，因此结果逐位可复现。返回 [均值, 总体标准差]。
+     */
+    private double[] permutationNull(List<Pair> pairs, boolean regret) {
+        Random random = new Random(seed);
+        double[] values = new double[replicates];
+        for (int b = 0; b < replicates; b++) {
+            List<Pair> shuffled = new ArrayList<>(pairs.size());
+            for (Pair pair : pairs) {
+                shuffled.add(new Pair(pair.key(), shuffle(pair.positions(), random)));
+            }
+            values[b] = levelStatistic(shuffled, regret);
+        }
+        return moments(values);
+    }
+
+    /** Fisher–Yates 洗牌副本，使用共享 Random 保证同种子下的确定性。 */
+    private static double[] shuffle(double[] source, Random random) {
+        double[] copy = source.clone();
+        for (int i = copy.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            double swap = copy[i];
+            copy[i] = copy[j];
+            copy[j] = swap;
+        }
+        return copy;
+    }
+
+    /** 均值与**总体**标准差（除以 B，论文 §E.6），返回 [mean, populationStd]。 */
+    private static double[] moments(double[] values) {
+        double mean = 0.0;
+        for (double value : values) {
+            mean += value;
+        }
+        mean /= values.length;
+        double sumSquares = 0.0;
+        for (double value : values) {
+            sumSquares += (value - mean) * (value - mean);
+        }
+        return new double[] {mean, Math.sqrt(sumSquares / values.length)};
     }
 }

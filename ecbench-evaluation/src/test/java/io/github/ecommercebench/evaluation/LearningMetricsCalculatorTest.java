@@ -185,4 +185,66 @@ class LearningMetricsCalculatorTest {
         assertThat(metrics.anchorRegret()).isCloseTo(0.0, within(1e-9));
         assertThat(metrics.newLow()).isCloseTo(1.0, within(1e-9));
     }
+
+    @Test
+    void permutationNullConvergesToAnalyticMean() {
+        LearningMetrics metrics = calculator.calculate(mainPair());
+
+        // 6 个置换的解析均值：regret = 1.6/6/2 = 0.13333…，容差取 B=400 抽样均值的 ≈4σ
+        assertThat(metrics.nullMean()).isCloseTo(2.0 / 15.0, within(0.02));
+        assertThat(metrics.nullStd()).isGreaterThan(0.0);
+        // 观测 regret 0.15 高于零分布均值 → AnchorRatio > 1（比自身价格随机排列更贵）
+        assertThat(metrics.anchorRatio()).isCloseTo(0.15 / (2.0 / 15.0), within(0.2));
+        assertThat(metrics.anchorRatio()).isGreaterThan(1.0);
+    }
+
+    @Test
+    void ratioAndZAreInternallyConsistentWithTheNullMoments() {
+        LearningMetrics metrics = calculator.calculate(mainPair());
+
+        assertThat(metrics.anchorRatio())
+                .isCloseTo(metrics.anchorRegret() / metrics.nullMean(), within(1e-12));
+        assertThat(metrics.zEpisode())
+                .isCloseTo(
+                        (metrics.nullMean() - metrics.anchorRegret()) / metrics.nullStd(),
+                        within(1e-12));
+        // 观测 regret 高于零分布均值 → z 为负（论文：负 z = 比自身随机排列更贵）
+        assertThat(metrics.zEpisode()).isNegative();
+        // NewLow 的零分布矩不在 LearningMetrics 契约内（spec §4.2），故只断言可观测的方向：
+        // 观测 NewLow 0.5 高于解析零均值 2.5/6 = 0.41667 → 正（优于自身随机排列）
+        assertThat(metrics.newLowRatioZ()).isPositive();
+    }
+
+    @Test
+    void sameSeedIsBitwiseReproducible() {
+        LearningMetrics first = new LearningMetricsCalculator(20260101L, 400).calculate(mainPair());
+        LearningMetrics second = new LearningMetricsCalculator(20260101L, 400).calculate(mainPair());
+
+        assertThat(first).isEqualTo(second);
+    }
+
+    @Test
+    void differentSeedStillConvergesToTheSameAnalyticNull() {
+        LearningMetrics other = new LearningMetricsCalculator(999L, 400).calculate(mainPair());
+
+        assertThat(other.nullMean()).isCloseTo(2.0 / 15.0, within(0.02));
+        assertThat(other.anchorRegret()).isCloseTo(0.15, within(1e-9));
+    }
+
+    @Test
+    void degenerateNullYieldsNullRatioAndZ() {
+        // 两笔都以成本底价成交 → π 全为 0 → 观测与零分布都退化（μ=0、σ=0）
+        List<NegotiationRecordRow> rows = new ArrayList<>();
+        rows.add(agree("S1", "SKU1", 100.0, 50.0, 50.0, 1));
+        rows.add(agree("S1", "SKU1", 100.0, 50.0, 50.0, 2));
+
+        LearningMetrics metrics = calculator.calculate(rows);
+
+        assertThat(metrics.anchorRegret()).isCloseTo(0.0, within(1e-9));
+        assertThat(metrics.nullMean()).isCloseTo(0.0, within(1e-9));
+        assertThat(metrics.nullStd()).isCloseTo(0.0, within(1e-9));
+        assertThat(metrics.anchorRatio()).isNull();
+        assertThat(metrics.zEpisode()).isNull();
+        assertThat(metrics.newLowRatioZ()).isNull();
+    }
 }
