@@ -89,6 +89,22 @@ class NegotiationRecordJsonlReaderTest {
     }
 
     @Test
+    void skipsNonNumericAndNullArrayElementsInsteadOfFailing(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("run_0_negotiation_records.jsonl");
+        Files.writeString(
+                file,
+                "{\"supplier\":\"ok@a.com\",\"agent_prices\":[70.0,null,\"x\"],"
+                        + "\"critical_violations\":[null,\"ResViol\"]}\n");
+
+        NegotiationRecordRow row = reader.read(file).get(0);
+
+        // 跳掉不可用元素而不是填 null：否则 record 紧凑构造器的 List.copyOf 会抛 NPE 而废掉整份产物
+        assertThat(row.agentPrices()).containsExactly(70.0);
+        assertThat(row.supplierPrices()).isEmpty();
+        assertThat(row.criticalViolations()).containsExactly("ResViol");
+    }
+
+    @Test
     void missingFileYieldsEmptyList(@TempDir Path dir) {
         assertThat(reader.read(dir.resolve("absent.jsonl"))).isEmpty();
     }

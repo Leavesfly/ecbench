@@ -138,11 +138,15 @@ class NegotiationRecordJsonlWriterTest {
     }
 
     @Test
-    void closeIsIdempotent(@TempDir Path dir) {
-        NegotiationRecordJsonlWriter writer =
-                new NegotiationRecordJsonlWriter(dir.resolve("run_0_negotiation_records.jsonl"), MAPPER);
+    void closeIsIdempotentAndWriterStaysUsable(@TempDir Path dir) {
+        Path file = dir.resolve("run_0_negotiation_records.jsonl");
+        NegotiationRecordJsonlWriter writer = new NegotiationRecordJsonlWriter(file, MAPPER);
 
         writer.close();
         writer.close();
+        // close() 不持有长持流，故关闭后仍可写（与 MetricsJsonWriter 的一次性写出语义一致）
+        writer.writeAll(List.of(record("after-close@a.com", "sku1", "good")));
+
+        assertThat(file).exists();
     }
 }

@@ -16,7 +16,8 @@ import java.util.List;
  * 逐谈判原始记录 JSONL 读取器（论文 §E.6 学习维度指标的唯一输入）。
  *
  * <p>文件不存在时返回空列表（旧产物没有该文件，属正常情况而非错误）；空行、非法 JSON 行与非对象行**跳过而不中断**，与
- * {@code ChatboxExtractor} 对半写入行的处理一致。缺失字段一律容忍为 null / 空列表，由下游过滤器决定是否剔除。
+ * {@code ChatboxExtractor} 对半写入行的处理一致。缺失字段一律容忍为 null / 空列表，数组内类型不符或为 JSON null 的元素
+ * 同样被跳过（不得填 null，否则 {@code List.copyOf} 会抛 NPE 而废掉整份产物），由下游过滤器决定是否剔除。
  */
 public final class NegotiationRecordJsonlReader {
 
@@ -103,7 +104,12 @@ public final class NegotiationRecordJsonlReader {
             return List.of();
         }
         List<String> out = new ArrayList<>(value.size());
-        value.forEach(item -> out.add(item.asText()));
+        value.forEach(
+                item -> {
+                    if (!item.isNull()) {
+                        out.add(item.asText());
+                    }
+                });
         return out;
     }
 
@@ -113,7 +119,12 @@ public final class NegotiationRecordJsonlReader {
             return List.of();
         }
         List<Double> out = new ArrayList<>(value.size());
-        value.forEach(item -> out.add(item.isNumber() ? item.asDouble() : null));
+        value.forEach(
+                item -> {
+                    if (item.isNumber()) {
+                        out.add(item.asDouble());
+                    }
+                });
         return out;
     }
 }

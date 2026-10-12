@@ -14,8 +14,11 @@ class RunDirectoryTest {
     void negotiationRecordsJsonlLivesUnderMetricsDir(@TempDir Path logDir) {
         RunDirectory directory = RunDirectory.create(logDir, "20260101_080000", "fake/model");
 
+        // 用字面量钉住产物位置（spec §4.1 的硬契约），避免断言复制实现表达式而失去意义
         assertThat(directory.negotiationRecordsJsonl(0))
-                .isEqualTo(directory.metricsDir().resolve("run_0_negotiation_records.jsonl"));
+                .isEqualTo(
+                        logDir.resolve(
+                                "20260101_080000_fake_model/metrics/run_0_negotiation_records.jsonl"));
         assertThat(directory.negotiationRecordsJsonl(3).getFileName().toString())
                 .isEqualTo("run_3_negotiation_records.jsonl");
     }
