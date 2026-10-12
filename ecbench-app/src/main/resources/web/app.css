@@ -1,0 +1,23 @@
+body { font-family: system-ui, -apple-system, sans-serif; margin: 1.5rem; color: #1f2328; background: #fafbfc; }
+h1 { font-size: 1.25rem; margin: 0 0 .3rem; }
+h2 { font-size: 1rem; margin: 0 0 .6rem; color: #444; }
+h3 { font-size: .85rem; margin: 0 0 .4rem; color: #555; }
+header { margin-bottom: 1.2rem; }
+#status { color: #666; font-size: .85rem; }
+section { margin-bottom: 1.8rem; }
+.row { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+.panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: .7rem; max-width: 100%; overflow: auto; }
+table { border-collapse: collapse; font-size: .8rem; }
+th, td { border: 1px solid #e5e7eb; padding: 3px 8px; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+caption { text-align: left; font-size: .75rem; color: #777; padding-bottom: 4px; }
+canvas { max-width: 480px; max-height: 360px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; }
+pre { background: #f6f8fa; padding: .6rem; max-height: 320px; overflow: auto; font-size: .75rem; margin: 0; }
+.actions { margin: .4rem 0; }
+button { font-size: .8rem; padding: 2px 8px; margin-right: .4rem; cursor: pointer; }
+label { font-size: .82rem; margin-right: .9rem; white-space: nowrap; }
+details { font-size: .8rem; margin-bottom: .35rem; }
+summary { cursor: pointer; color: #333; }
+.role-assistant { color: #0b5cad; }
+.role-tool { color: #6b7280; }
+.empty { color: #888; font-size: .82rem; }

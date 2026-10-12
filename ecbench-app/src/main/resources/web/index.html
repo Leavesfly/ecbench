@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>E-CommerceBench · 多 Run 对比看板</title>
+<link rel="stylesheet" href="/app.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>E-CommerceBench 多 Run 对比看板</h1>
+  <span id="status">加载中…</span>
+</header>
+
+<section id="sessions">
+  <h2>会话（勾选以对比）</h2>
+  <div id="session-list"></div>
+  <div class="actions"><button id="select-all">全选</button><button id="clear">清空</button></div>
+</section>
+
+<section id="metrics">
+  <h2>指标对比</h2>
+  <div id="metric-table" class="panel"></div>
+</section>
+
+<section id="profile">
+  <h2>七轴雷达 + 跨会话排名</h2>
+  <div class="row">
+    <canvas id="radar" width="460" height="360"></canvas>
+    <div id="ranking" class="panel"></div>
+  </div>
+</section>
+
+<section id="balance">
+  <h2>余额曲线叠加（total_balance）</h2>
+  <canvas id="balance-chart" width="760" height="320"></canvas>
+</section>
+
+<section id="drilldown">
+  <h2>单 Run 下钻</h2>
+  <div id="run-picker" class="actions"></div>
+  <div class="row">
+    <div class="panel"><h3>analysis.json</h3><pre id="analysis"></pre></div>
+    <div class="panel"><h3>chatbox 谈判记录</h3><div id="chatbox"></div></div>
+  </div>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>
