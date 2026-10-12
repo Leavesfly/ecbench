@@ -2569,7 +2569,11 @@ BREAKING CHANGE: 旧产物（无 negotiation_records.jsonl）的雷达学习轴�
 
 **实测到的门禁基线（2026-10-12，本计划开工前）**：
 - `mvn -o -pl ecbench-evaluation spotless:check` → **BUILD FAILURE**，「Violations also present in 22 other files」（共 23 个文件）。根因：根 pom 的 `<googleJavaFormat/>` 未指定 `<style>AOSP</style>`，默认 GOOGLE 2 空格，而 evaluation/app/opponent 等模块既有代码是 4 空格。**这是先于本特性存在的红基线**，不是本次引入。
-- `mvn -o checkstyle:check`（根，全模块）→ **BUILD FAILURE**，唯一违规：`ecbench-simulation/.../SimulationEngine.java:[494] LineLength: 124 个字符，最多 120`。同样是先存在的。
+- `mvn -o checkstyle:check`（根，全模块）→ **BUILD FAILURE**。实测共 **6 处存量违规**（均为先存在、与本特性无关）：
+  `ecbench-simulation/.../SimulationEngine.java:494`（124 字符）、`ecbench-opponent/.../NegotiationTracker.java:150`（121 字符）、
+  `ecbench-llm/src/test/.../ProviderClientsTest.java:61/94/95/123`（132/124/141/125 字符）。
+  注意：Maven **失败即停**，按 reactor 顺序先倒在 simulation，所以只看首次输出会误判为「唯一违规」；
+  盘点全量必须加 `--fail-never`（即 `mvn -o checkstyle:check --fail-never`）。
 - `mvn -o -pl ecbench-evaluation checkstyle:check` → **BUILD SUCCESS**（0 violations）。
 - 结论：**`mvn clean verify` 在本仓库当前无法全绿**（spotless 绑在 verify 阶段）。本任务用「全模块 test + 所改模块 checkstyle + 重打 fat jar」作为真实门禁，并把 spotless 基线如实写进收尾报告。
 
@@ -2651,7 +2655,12 @@ mvn -DskipTests clean package                   # 重打 fat jar
   它会重排整模块既有文件、产生巨量无关 diff。修法是把根 pom 改为 `<googleJavaFormat><style>AOSP</style></googleJavaFormat>`，属独立任务。
 ```
 
-- [ ] **Step 7:（可选，独立提交）修掉唯一的 Checkstyle 存量违规**
+- [ ] **Step 7:（可选，独立提交）修掉所改模块之外的存量 Checkstyle 违规**
+
+实测共 6 处（见上方基线）。**本计划只修 simulation 那一处**（纯格式换行、零行为变更）；
+opponent 与 llm 的 5 处**不修**：它们在本特性声明不改的模块内（opponent 还带 JaCoCo ≥85% 门），
+且 llm 的 4 处在测试文件里，盲改排版属与本特性无关的范围蔓延。代价：根级 `checkstyle:check` 仍为红，
+本特性的门禁以「所改模块（evaluation + app）0 违规」为准；剩余 5 处应作为独立的仓库卫生任务处理。
 
 `ecbench-simulation/.../SimulationEngine.java:491-494` 现为 124 字符超限。按同文件 L495-500 的既有换行风格改为：
 
@@ -2676,7 +2685,7 @@ git add ecbench-simulation/src/main/java/io/github/ecommercebench/simulation/Sim
 git commit -m "style(simulation): wrap 124-char line to satisfy checkstyle (pre-existing violation)"
 ```
 
-若不希望在本特性中触碰 `ecbench-simulation`，跳过本步，并在收尾报告中如实说明「根级 checkstyle 有 1 处存量违规（SimulationEngine.java:494），非本次引入」。
+若不希望在本特性中触碰 `ecbench-simulation`，跳过本步，并在收尾报告中如实说明存量违规（simulation 1 + opponent 1 + llm 4，均非本次引入）。
 
 - [ ] **Step 8: 提交文档**
 
