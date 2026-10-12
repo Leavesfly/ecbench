@@ -80,6 +80,38 @@ class CompareServiceTest {
         assertThat(node.path("ranking")).isEmpty();
     }
 
+    @Test
+    void appendsPaperDimensionSectionsWithoutTouchingLegacyOnes(@TempDir Path log) throws Exception {
+        Path a = log.resolve("2026_a-model");
+        Path b = log.resolve("2026_b-model");
+        session(a, 90000);
+        session(b, 120000);
+
+        JsonNode node = service.compare(List.of(a, b));
+
+        // 既有三段不变
+        assertThat(node.path("sessions")).hasSize(2);
+        assertThat(node.path("radar").path("axes")).hasSize(7);
+        assertThat(node.path("ranking").get(0).path("name").asText()).isEqualTo("2026_b-model");
+        // 新增四段
+        assertThat(node.path("primaryScore").path("labelZh").asText()).isEqualTo("年末总资产倍数");
+        assertThat(node.path("primaryScore").path("rows")).hasSize(2);
+        assertThat(node.path("dimensions")).hasSize(6);
+        assertThat(node.path("rankCrossings")).hasSize(2);
+        assertThat(node.path("learning").path("2026_a-model")).isNotNull();
+        assertThat(node.path("learning").path("2026_a-model").path("anchorRatio").isNull()).isTrue();
+    }
+
+    @Test
+    void dimensionsSurviveEmptyInput(@TempDir Path log) {
+        JsonNode node = service.compare(List.of());
+
+        assertThat(node.path("dimensions")).hasSize(6);
+        assertThat(node.path("dimensions").get(0).path("key").asText()).isEqualTo("negotiation");
+        assertThat(node.path("primaryScore").path("rows")).isEmpty();
+        assertThat(node.path("rankCrossings")).isEmpty();
+    }
+
     private static JsonNode find(JsonNode metrics, String label) {
         for (JsonNode metric : metrics) {
             if (label.equals(metric.path("label").asText())) {
