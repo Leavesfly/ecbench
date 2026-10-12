@@ -32,6 +32,10 @@ public final class RunLayoutResolver {
         public Path negotiationMetricsJson(int runIndex) {
             return metricsDir.resolve("run_" + runIndex + "_negotiation_metrics.json");
         }
+
+        public Path negotiationRecordsJsonl(int runIndex) {
+            return metricsDir.resolve("run_" + runIndex + "_negotiation_records.jsonl");
+        }
     }
 
     public RunLayout resolve(Path sessionDir) {

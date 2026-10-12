@@ -68,6 +68,11 @@ public final class RunDirectory {
         return metricsDir().resolve("run_" + runIndex + "_analysis.json");
     }
 
+    /** 逐谈判原始记录 JSONL（论文 §E.6 学习维度指标的重算输入，Java 侧附加产物）。 */
+    public Path negotiationRecordsJsonl(int runIndex) {
+        return metricsDir().resolve("run_" + runIndex + "_negotiation_records.jsonl");
+    }
+
     private static String sanitize(String model) {
         return model == null ? "unknown" : model.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
