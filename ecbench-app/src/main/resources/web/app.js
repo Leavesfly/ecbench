@@ -3,7 +3,8 @@
 /* E-CommerceBench telemetry console.
    只读消费 serve 的 /api/* JSON；图表为自绘 SVG，无任何外部依赖。 */
 
-const PALETTE = ['#f0a63c', '#57c6d6', '#82c98f', '#e2685c', '#b48ce0', '#e8d06a', '#6fa8dc', '#d98cb3'];
+const PALETTE = ['#b0761a', '#26808f', '#3d8b50', '#bd4136', '#6b4fa1', '#9a7d12', '#3d6fa8', '#a44f7d'];
+const POINT_RING = '#ffffff';
 const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map() };
 
 const $ = (id) => document.getElementById(id);
@@ -368,7 +369,7 @@ function drawBalance() {
       }
       markup += `<path class="line-path" d="${line}" stroke="${color}" />`;
       segment.forEach(([x, y]) => {
-        markup += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="${color}" stroke="#11151b" stroke-width="1" />`;
+        markup += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="${color}" stroke="${POINT_RING}" stroke-width="1" />`;
       });
     });
   });
