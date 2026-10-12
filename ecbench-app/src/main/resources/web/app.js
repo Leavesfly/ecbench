@@ -175,6 +175,8 @@ async function loadCompare() {
       .forEach((id) => { $(id).innerHTML = ''; });
     $('radar').innerHTML = '';
     $('balance-chart').innerHTML = '';
+    $('balance-legend').innerHTML = '';
+    state.balance.clear();
     $('radar-note').textContent = '';
     $('balance-note').textContent = '';
     // 下钻入口随选择一同复位，避免残留上一次会话的按钮（已渲染的下钻内容保留供阅读）。
@@ -535,13 +537,18 @@ function renderRanking(ranking) {
 /* -------------------------------------------------------- metric grid */
 
 let metricRows = [];
+/* 指标矩阵的列序：必须取自后端返回的 data.sessions 序（= 请求参数序），不能从 state.sessions 反推，
+   否则「非扫描序勾选」时表头与数据列会错位，把某模型的指标值挂到另一个模型名下。 */
+let metricColumns = [];
 
 function renderMetricTable(sessions) {
   if (!sessions.length) {
     $('metric-table').innerHTML = '<p class="hint">无数据</p>';
     metricRows = [];
+    metricColumns = [];
     return;
   }
+  metricColumns = sessions.map((s) => s.name);
   const labels = sessions[0].metrics.map((m) => m.label);
   metricRows = labels.map((label) => {
     const cells = sessions.map((s) => {
@@ -556,8 +563,7 @@ function renderMetricTable(sessions) {
 }
 
 function paintMetricRows() {
-  const head = state.sessions.filter((s) => state.selected.has(s.name))
-    .map((s) => `<th>${esc(shortName(s.name))}</th>`);
+  const head = metricColumns.map((name) => `<th>${esc(shortName(name))}</th>`);
   const byLabel = new Map(metricRows.map((row) => [row.label, row]));
   const rowHtml = (row) => `
     <tr data-label="${esc(row.label.toLowerCase())}">
@@ -582,6 +588,14 @@ function paintMetricRows() {
   }
   $('metric-table').innerHTML =
     `<table><thead><tr><th>指标</th>${head.join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  // 分组标题可点击折叠/展开（spec §5.5 要求「可折叠分组」）：只切换 class，
+  // 行级可见性统一由 filterMetricRows 按 DOM 序从所属分组标题的 collapsed 态推导。
+  $('metric-table').onclick = (event) => {
+    const groupHead = event.target.closest('tr.group-head');
+    if (!groupHead) return;
+    groupHead.classList.toggle('collapsed');
+    filterMetricRows();
+  };
   filterMetricRows();
 }
 
@@ -590,25 +604,26 @@ function filterMetricRows() {
   const stale = document.querySelector('#metric-table tr.no-match');
   if (stale) stale.remove();
   const rows = [...document.querySelectorAll('#metric-table tbody tr')];
-  if (!needle) {
-    rows.forEach((tr) => { tr.hidden = false; });
-    return;
-  }
   let keepGroup = false;
+  let collapsed = false;
   let visible = 0;
   rows.forEach((tr) => {
     const isGroup = tr.classList.contains('group-head');
     if (isGroup) {
-      keepGroup = tr.dataset.label.includes(needle);
+      keepGroup = !needle || tr.dataset.label.includes(needle);
+      collapsed = tr.classList.contains('collapsed');
       tr.hidden = !keepGroup;
       return;
     }
-    const hit = tr.dataset.label.includes(needle);
-    tr.hidden = !(hit || keepGroup);
-    if (!tr.hidden) visible += 1;
+    // 有过滤词时搜索优先于折叠态；无过滤词时尊重各组的折叠态。
+    const show = needle
+      ? (tr.dataset.label.includes(needle) || keepGroup)
+      : !collapsed;
+    tr.hidden = !show;
+    if (show) visible += 1;
   });
   // 过滤到零行时给明确提示，避免用户误以为表格坏了（旧行为是默默变成 0 行）。
-  if (!visible) appendNoMatch(needle, rows);
+  if (needle && !visible) appendNoMatch(needle, rows);
 }
 
 /** 在指标矩阵末尾插入一行「无匹配」提示；列数跟表头对齐。 */
