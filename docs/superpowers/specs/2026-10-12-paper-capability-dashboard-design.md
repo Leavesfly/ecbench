@@ -149,17 +149,18 @@
   - 半年比较：`n < 4` → `seHalfLift` null；奇数 `n` → 多的一个归晚半；全同日 → `seTrend == 0`；`h_fraud` 方向（构造晚半欺诈成交更多的样本 → 负值）
 - `NegotiationRecordJsonlReaderTest`：round-trip（写出→读回字段等值）、文件不存在 → 空列表、坏行跳过、缺字段容忍
 - `NegotiationRecordJsonlWriterTest`（app 层，`@TempDir`）：写出行数 == 记录数；空列表 → 空文件；`Money` 精度落盘正确
-- `CompositeRunObserverTest` 扩展：`onRunComplete` 生成 jsonl；`onFailure` 生成 jsonl 且不抛
+- `CompatibleRunLoggingTest` 扩展（仓库**无** `CompositeRunObserverTest`；该类已持有构造 observer 与 `RunResult` 的现成写法）：`onRunComplete` 生成 jsonl（空记录 → 空文件）；`onFailure` 也生成 jsonl 且不抛。另一处调用点 `CompositeRunObserverToolCallCountTest` 只需补第 6 个构造参数（`List::of`）
 - `RunComparatorTest` 扩展：有 jsonl → `learning != null` 且 `anchorRatio` 与 calculator 一致；无 jsonl → `learning == null` 且 metrics 29 行与改动前一致
 - `ProfileAxisTest` 扩展：`LEARNING.lowerIsBetter() == true`；`learning == null` → `value()` 为 null；有值 → 取 `anchorRatio`
 
 受口径切换影响、**必须同步修改**的既有测试（已逐个核验）：
 
 - `ProfileAxisTest`：现有断言 `LEARNING.lowerIsBetter() == false`（L56）与 `LEARNING.value(session) == 0.05`（取自 `se_half_lift`，L35/L73）均会红，改为新口径断言
-- `EvaluationCommandProfileTest`：fixture 仅造了 `negotiation_quality.learning_speed.se_half_lift`（L30），无逐谈判记录 → 学习轴将为空，需补 jsonl fixture 或改为断言空轴
+- `EvaluationCommandProfileTest`：已核验只断言「PNG 存在且非空」与 CSV 表头 `rank,model,primary_raw`，**不断言学习轴取值**；`RadarPlotter` 将 NaN 回退为 0.0（L97）→ 口径切换后仍通过，无需修改
+- `CrossModelProfilerTest`：已核验不涉及 `learning`/`se_half_lift`，且经 3 参 `session(...)` 助手构造 `SessionComparison`（保留旧构造）→ 无需修改
 - `RankingTableTest`：只断言轴 key 集合（含 `learning`），key 本次不改 → 无需修改
-- `CrossModelProfilerTest`：若其 fixture 依赖学习轴非空，需同步补 jsonl 或调整期望（实现时根据 RED 输出判定）
 - `CompatibleRunLoggingTest` / `AnalysisGoldenParityTest` / `PythonCompatibilityTest`：已核验均**不断言产物文件集合**（只断言各文件内容与表头），新增 `negotiation_records.jsonl` 不影响其通过
+- JaCoCo 行覆盖率 ≥ 0.85 的门禁仅在 `ecbench-domain`/`ecbench-opponent`/`ecbench-simulation` 三个 pom 内配置；本次只改 `ecbench-evaluation` 与 `ecbench-app`（无覆盖率硬门）且 `ecbench-opponent` 零改动 → 不触发覆盖率风险
 
 ## 5. 子项目 2 设计
 
@@ -363,7 +364,7 @@
 改动：
 - `ecbench-app`：`log/RunDirectory.java`、`log/CompositeRunObserver.java`、`run/RunComponentFactory.java`、`web/CompareService.java`、`web/RunArtifactService.java`、`web/DashboardServer.java`、`cli/ServeCommand.java`、`resources/web/{index.html,app.css,app.js}`
 - `ecbench-evaluation`：`ProfileAxis.java`、`RunComparator.java`、`io/RunLayoutResolver.java`、`model/ComparisonReport.java`
-- 既有测试：`RunComparatorTest`、`ProfileAxisTest`（或同名）、`CompositeRunObserverTest`、`DashboardServerTest`/`ApiRouterTest`（新增段与 roster 降级）
+- 既有测试：`RunComparatorTest`、`ProfileAxisTest`、`CompatibleRunLoggingTest`、`CompositeRunObserverToolCallCountTest`、`CompareServiceTest`、`RunArtifactServiceTest`、`DashboardServerTest`（新增段与 roster 降级；仓库无 `ApiRouterTest`，路由行为由 `DashboardServerTest` 覆盖）
 - `README.md`（serve 小节）
 
 不改：`ecbench-opponent`（全部）、`ecbench-domain`（全部）、`ecbench-simulation`、`ecbench-agent`、`ecbench-llm`、`MetricsJsonWriter.java`、`RunComparator.METRIC_DEFS`、`EcommerceBenchApplication.java`（仍 `WebApplicationType.NONE`）、`run`/`evaluate` 的命令语义。
