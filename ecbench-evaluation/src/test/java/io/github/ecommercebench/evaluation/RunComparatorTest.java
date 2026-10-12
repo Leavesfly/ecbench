@@ -25,6 +25,19 @@ class RunComparatorTest {
         Files.writeString(metrics.resolve("run_" + index + "_analysis.json"), json);
     }
 
+    private static void writeRecords(Path session, int index, String lines) throws Exception {
+        Path metrics = session.resolve("metrics");
+        Files.createDirectories(metrics);
+        Files.writeString(metrics.resolve("run_" + index + "_negotiation_records.jsonl"), lines);
+    }
+
+    /** 一个诚信 pair 的两次成交（π = 0.8 → 0.6）：regret 0、NewLow 1、reorders 1。 */
+    private static final String PAIR_LINES =
+            "{\"supplier\":\"S1\",\"sku_id\":\"K1\",\"supplier_type\":\"good\",\"reference_price\":100.0,"
+                    + "\"cost_floor\":50.0,\"final_price\":90.0,\"outcome\":\"Agreement\",\"day_concluded\":1}\n"
+                    + "{\"supplier\":\"S1\",\"sku_id\":\"K1\",\"supplier_type\":\"good\",\"reference_price\":100.0,"
+                    + "\"cost_floor\":50.0,\"final_price\":80.0,\"outcome\":\"Agreement\",\"day_concluded\":2}\n";
+
     @Test
     void computesMeanStdAndSkipsNullMetrics(@TempDir Path tempDir) throws Exception {
         Path session = tempDir.resolve("20260101_080000_m");
@@ -121,5 +134,45 @@ class RunComparatorTest {
                 .isCloseTo(100.0, within(1e-9));
         assertThat(report.sessions().get(1).metric("final_balance").mean())
                 .isCloseTo(300.0, within(1e-9));
+    }
+
+    @Test
+    void attachesSessionLearningWhenRecordsArtifactExists(@TempDir Path tempDir) throws Exception {
+        Path session = tempDir.resolve("20260101_080000_learn");
+        writeAnalysis(session, 0, "{\"profitability\":{\"final_balance\":100.0}}");
+        writeRecords(session, 0, PAIR_LINES);
+
+        SessionComparison comparison = new RunComparator().compare(List.of(session)).sessions().get(0);
+
+        assertThat(comparison.learning()).isNotNull();
+        assertThat(comparison.learning().repeatPairs()).isEqualTo(1);
+        assertThat(comparison.learning().reorders()).isEqualTo(1);
+        assertThat(comparison.learning().anchorRegret()).isCloseTo(0.0, within(1e-9));
+        assertThat(comparison.learning().newLow()).isCloseTo(1.0, within(1e-9));
+        // 学习指标不混入指标矩阵，以免改变与 Python compare_runs 对齐的比较表形状
+        assertThat(comparison.metrics()).hasSize(RunComparator.METRIC_DEFS.size());
+        assertThat(comparison.metric("anchor_ratio")).isNull();
+    }
+
+    @Test
+    void legacySessionWithoutRecordsHasNullLearningAndUnchangedMetrics(@TempDir Path tempDir)
+            throws Exception {
+        Path session = tempDir.resolve("20260101_080000_old");
+        writeAnalysis(session, 0, "{\"profitability\":{\"final_balance\":100.0}}");
+
+        SessionComparison comparison = new RunComparator().compare(List.of(session)).sessions().get(0);
+
+        assertThat(comparison.learning()).isNull();
+        assertThat(comparison.metrics()).hasSize(RunComparator.METRIC_DEFS.size());
+        assertThat(RunComparator.METRIC_DEFS).hasSize(29);
+        assertThat(comparison.metric("final_balance").mean()).isCloseTo(100.0, within(1e-9));
+    }
+
+    @Test
+    void threeArgSessionComparisonConstructorKeepsLearningNull() {
+        SessionComparison legacy = new SessionComparison("modelX", 1, List.of());
+
+        assertThat(legacy.learning()).isNull();
+        assertThat(legacy.name()).isEqualTo("modelX");
     }
 }

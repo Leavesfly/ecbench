@@ -6,6 +6,7 @@ import io.github.ecommercebench.evaluation.io.RunLayoutResolver;
 import io.github.ecommercebench.evaluation.model.ComparisonReport;
 import io.github.ecommercebench.evaluation.model.ComparisonReport.MetricStat;
 import io.github.ecommercebench.evaluation.model.ComparisonReport.SessionComparison;
+import io.github.ecommercebench.evaluation.model.SessionLearning;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -21,6 +22,10 @@ import java.util.stream.Stream;
  * <p>对每个会话加载其全部 {@code run_*_analysis.json}（organized metrics/ 或 legacy 平铺），按 {@link #METRIC_DEFS}
  * 的 JSON path 取值， 数值样本计算样本均值与样本标准差（n-1）；null/缺失/非数值被跳过而非计为 0；布尔按 1.0/0.0 计入（与 Python {@code
  * float(bool)} 一致）。 特殊的 "stores / reopens" 无 path，以文本 fallback 表示。
+ *
+ * <p>另外按会话读取逐谈判记录（{@code metrics/run_{i}_negotiation_records.jsonl}），把论文 §E.6 的学习维度指标挂在
+ * {@link SessionComparison#learning()} 上；旧产物没有该文件时为 null。{@link #METRIC_DEFS} 保持不变以与 Python
+ * {@code compare_runs} 的比较表形状对齐，学习指标不混入指标矩阵。
  */
 public final class RunComparator {
 
@@ -79,14 +84,21 @@ public final class RunComparator {
 
     private final AnalysisJsonReader reader;
     private final RunLayoutResolver resolver;
+    private final LearningMetricsService learning;
 
     public RunComparator() {
-        this(new AnalysisJsonReader(), new RunLayoutResolver());
+        this(new AnalysisJsonReader(), new RunLayoutResolver(), new LearningMetricsService());
     }
 
     public RunComparator(AnalysisJsonReader reader, RunLayoutResolver resolver) {
+        this(reader, resolver, new LearningMetricsService());
+    }
+
+    public RunComparator(
+            AnalysisJsonReader reader, RunLayoutResolver resolver, LearningMetricsService learning) {
         this.reader = reader;
         this.resolver = resolver;
+        this.learning = learning;
     }
 
     public ComparisonReport compare(List<Path> sessionDirs) {
@@ -97,7 +109,10 @@ public final class RunComparator {
             for (MetricDef def : METRIC_DEFS) {
                 metrics.add(computeMetric(def, reports));
             }
-            sessions.add(new SessionComparison(dir.getFileName().toString(), reports.size(), metrics));
+            SessionLearning sessionLearning = learning.forSession(dir);
+            sessions.add(
+                    new SessionComparison(
+                            dir.getFileName().toString(), reports.size(), metrics, sessionLearning));
         }
         return new ComparisonReport(sessions);
     }

@@ -15,12 +15,20 @@ public record ComparisonReport(List<SessionComparison> sessions) {
     }
 
     /**
-     * 单个会话的聚合：名称、run 数与各指标统计。
+     * 单个会话的聚合：名称、run 数、各指标统计与论文 §E.6 学习指标。
+     *
+     * <p>{@code learning} 为 null 表示该会话没有逐谈判记录产物（旧产物）；此时雷达的学习轴留空。保留三参构造以兼容
+     * 既有调用点（等价于 {@code learning = null}）。
      */
-    public record SessionComparison(String name, int runCount, List<MetricStat> metrics) {
+    public record SessionComparison(
+            String name, int runCount, List<MetricStat> metrics, SessionLearning learning) {
 
         public SessionComparison {
             metrics = List.copyOf(metrics);
+        }
+
+        public SessionComparison(String name, int runCount, List<MetricStat> metrics) {
+            this(name, runCount, metrics, null);
         }
 
         public MetricStat metric(String label) {
