@@ -63,8 +63,13 @@ class CompositeRunObserverToolCallCountTest {
         SimulationEngine engine = newEngine();
         RunDirectory dir = RunDirectory.create(tempDir, "20260101_080000", "fake/model");
         try (CompositeRunObserver observer =
-                     new CompositeRunObserver(
-                             dir, 0, engine, MAPPER, CompositeRunObserverToolCallCountTest::emptyNegotiation)) {
+                new CompositeRunObserver(
+                        dir,
+                        0,
+                        engine,
+                        MAPPER,
+                        CompositeRunObserverToolCallCountTest::emptyNegotiation,
+                        List::of)) {
             observer.onRunStart(seedJob());
             observer.onToolResults(
                     List.of(

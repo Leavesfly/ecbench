@@ -139,7 +139,8 @@ public final class RunComponentFactory {
         EcommerceToolManager toolManager = new EcommerceToolManager(toolRegistry, engine, objectMapper);
 
         CompositeRunObserver observer =
-                new CompositeRunObserver(directory, index, engine, objectMapper, tracker::aggregate);
+                new CompositeRunObserver(
+                        directory, index, engine, objectMapper, tracker::aggregate, tracker::completed);
         EcommerceBenchAgent agent =
                 new EcommerceBenchAgent(
                         mainClient,

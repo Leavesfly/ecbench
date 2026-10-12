@@ -8,6 +8,7 @@ import io.github.ecommercebench.agent.tool.ToolExecutionResult;
 import io.github.ecommercebench.domain.money.Money;
 import io.github.ecommercebench.llm.model.ChatMessage;
 import io.github.ecommercebench.opponent.metrics.NegotiationMetrics;
+import io.github.ecommercebench.opponent.model.NegotiationRecord;
 import io.github.ecommercebench.simulation.SimulationEngine;
 import io.github.ecommercebench.simulation.daily.DailyResult;
 import io.github.ecommercebench.simulation.dto.BalanceView;
@@ -19,10 +20,11 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * 组合式运行观察者：把 Agent 主循环事件委派给四个兼容写入器（消息 JSONL、余额 CSV、指标 JSON、输出日志）。
+ * 组合式运行观察者：把 Agent 主循环事件委派给五个写入器（消息 JSONL、余额 CSV、指标 JSON、输出日志、逐谈判记录 JSONL）。
  *
  * <p>余额行在 episode 起始（第 0 天）与每批工具执行后按当前日期快照，由 {@link BalanceCsvWriter} 按日期去重，等价于 Python 在
- * daily_trigger 时写行的效果。谈判指标经 {@code Supplier} 惰性获取，使本类与谈判子系统的装配解耦。close 幂等地关闭全部写入器。
+ * daily_trigger 时写行的效果。谈判指标与逐谈判记录经 {@code Supplier} 惰性获取，使本类与谈判子系统的装配解耦；后者是论文
+ * §E.6 学习维度指标的重算输入（Java 侧附加产物）。close 幂等地关闭全部写入器。
  */
 public final class CompositeRunObserver implements RunObserver, AutoCloseable {
 
@@ -30,8 +32,10 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
     private final BalanceCsvWriter balance;
     private final MetricsJsonWriter metrics;
     private final OutputLogWriter outputLog;
+    private final NegotiationRecordJsonlWriter records;
     private final SimulationEngine engine;
     private final Supplier<NegotiationMetrics> negotiationSupplier;
+    private final Supplier<List<NegotiationRecord>> recordsSupplier;
 
     // 峰值回撤跟踪：端口 Python _peak_drawdown（逐日 total 净值的最大峰-谷跌幅）
     private double peakTotal = Double.NEGATIVE_INFINITY;
@@ -40,19 +44,24 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
     // 逐工具调用计数：按线格式工具名累加，供运营效率面板（论文 §E.4）聚合为八类活动带
     private final Map<String, Integer> toolCallCounts = new LinkedHashMap<>();
 
-    /** 按 run 目录与索引装配四类写入器（消息/余额/指标/输出），并持有引擎与惰性谈判指标供应器。 */
+    /** 按 run 目录与索引装配五类写入器（消息/余额/指标/输出/逐谈判记录），并持有引擎与两个惰性供应器。 */
     public CompositeRunObserver(
             RunDirectory directory,
             int runIndex,
             SimulationEngine engine,
             ObjectMapper mapper,
-            Supplier<NegotiationMetrics> negotiationSupplier) {
+            Supplier<NegotiationMetrics> negotiationSupplier,
+            Supplier<List<NegotiationRecord>> recordsSupplier) {
         this.engine = engine;
         this.negotiationSupplier = negotiationSupplier;
+        this.recordsSupplier = recordsSupplier;
         this.messages = new JsonlMessageWriter(directory.messagesJsonl(runIndex), mapper);
         this.balance = new BalanceCsvWriter(directory.balanceCsv(runIndex));
         this.metrics = new MetricsJsonWriter(directory, runIndex, mapper);
         this.outputLog = new OutputLogWriter(directory.outputLog(runIndex));
+        this.records =
+                new NegotiationRecordJsonlWriter(
+                        directory.negotiationRecordsJsonl(runIndex), mapper);
     }
 
     /** episode 起始：落盘 job 的初始消息并快照第 0 天余额。 */
@@ -85,21 +94,23 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
         messages.writeContextTruncation(turn, tokensFreed);
     }
 
-    /** 收尾：快照余额，取谈判指标并写入，最后连同回撤与工具计数一并写出分析产物。 */
+    /** 收尾：快照余额，取谈判指标与逐谈判记录并写入，最后连同回撤与工具计数一并写出分析产物。 */
     @Override
     public void onRunComplete(RunResult result) {
         snapshotBalance();
         NegotiationMetrics negotiation = negotiationSupplier.get();
         metrics.writeNegotiationMetrics(negotiation);
+        records.writeAll(recordsSupplier.get());
         metrics.writeAnalysis(result, engine, negotiation, maxDrawdown, peakTotal, toolCallCounts);
     }
 
-    /** 失败路径：记一行 [FAILURE]，并尽力写出谈判指标（此处指标异常被吞掉，以免掩盖原始异常）。 */
+    /** 失败路径：记一行 [FAILURE]，并尽力写出谈判指标与逐谈判记录（此处异常被吞掉，以免掩盖原始异常）。 */
     @Override
     public void onFailure(Throwable error) {
         outputLog.write("[FAILURE] " + error);
         try {
             metrics.writeNegotiationMetrics(negotiationSupplier.get());
+            records.writeAll(recordsSupplier.get());
         } catch (RuntimeException ignored) {
             // 尽力而为：失败路径下指标缺失不得掩盖原始异常。
         }
@@ -126,12 +137,13 @@ public final class CompositeRunObserver implements RunObserver, AutoCloseable {
                         storage));
     }
 
-    /** 依次关闭消息/余额/指标/输出四类写入器（各写入器 close 幂等）。 */
+    /** 依次关闭消息/余额/指标/输出/逐谈判记录五类写入器（各写入器 close 幂等）。 */
     @Override
     public void close() {
         messages.close();
         balance.close();
         metrics.close();
         outputLog.close();
+        records.close();
     }
 }

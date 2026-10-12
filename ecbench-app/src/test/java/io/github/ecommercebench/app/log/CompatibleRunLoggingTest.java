@@ -12,10 +12,13 @@ import io.github.ecommercebench.agent.tool.ToolExecutionResult;
 import io.github.ecommercebench.domain.catalog.CatalogData;
 import io.github.ecommercebench.domain.catalog.CsvCatalogLoader;
 import io.github.ecommercebench.domain.config.RunConfig;
+import io.github.ecommercebench.domain.money.Money;
 import io.github.ecommercebench.domain.random.RandomStreams;
 import io.github.ecommercebench.llm.model.ChatMessage;
 import io.github.ecommercebench.llm.model.ToolCall;
 import io.github.ecommercebench.opponent.metrics.NegotiationMetrics;
+import io.github.ecommercebench.opponent.model.NegotiationRecord;
+import io.github.ecommercebench.opponent.model.SupplierFamily;
 import io.github.ecommercebench.simulation.SimulationEngine;
 
 import java.nio.file.Files;
@@ -27,8 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * 兼容产物写入测试：断言运行目录生成四类 Python 兼容文件——严格表头的余额 CSV、逐行独立 JSON 的消息 JSONL（含 tool_call_id /
- * reasoning_content / context_truncation 事件）、两个 metrics JSON（undefined 指标为 JSON null），且不泄漏密钥。
+ * 兼容产物写入测试：断言运行目录生成四类 Python 兼容文件与一份 Java 侧附加的逐谈判记录 JSONL——严格表头的余额 CSV、
+ * 逐行独立 JSON 的消息 JSONL（含 tool_call_id / reasoning_content / context_truncation 事件）、两个 metrics JSON
+ * （undefined 指标为 JSON null），且不泄漏密钥。
  */
 class CompatibleRunLoggingTest {
 
@@ -63,7 +67,16 @@ class CompatibleRunLoggingTest {
     private static CompositeRunObserver observer(Path tempDir, SimulationEngine engine) {
         RunDirectory dir = RunDirectory.create(tempDir, "20260101_080000", "fake/model");
         return new CompositeRunObserver(
-                dir, 0, engine, MAPPER, CompatibleRunLoggingTest::emptyNegotiation);
+                dir,
+                0,
+                engine,
+                MAPPER,
+                CompatibleRunLoggingTest::emptyNegotiation,
+                CompatibleRunLoggingTest::emptyRecords);
+    }
+
+    private static List<NegotiationRecord> emptyRecords() {
+        return List.of();
     }
 
     @Test
@@ -223,5 +236,63 @@ class CompatibleRunLoggingTest {
         // assistant 正文允许包含用户文本；密钥不得出现在余额/指标等非消息产物中。
         assertThat(Files.readString(dir.balanceCsv(0))).doesNotContain(SECRET);
         assertThat(Files.readString(dir.outputLog(0))).doesNotContain(SECRET);
+    }
+
+    @Test
+    void runCompleteWritesNegotiationRecordsArtifact(@TempDir Path tempDir) throws Exception {
+        SimulationEngine engine = newEngine();
+        RunDirectory dir = RunDirectory.create(tempDir, "20260101_080000", "fake/model");
+        try (CompositeRunObserver observer =
+                new CompositeRunObserver(
+                        dir, 0, engine, MAPPER, CompatibleRunLoggingTest::emptyNegotiation, List::of)) {
+            observer.onRunStart(seedJob());
+            observer.onRunComplete(
+                    new RunResult(
+                            TerminationReason.ENV_COMPLETED,
+                            "max_days",
+                            1,
+                            List.of(),
+                            1,
+                            "2026-01-02",
+                            100000.0,
+                            0,
+                            0));
+        }
+
+        Path artifact = dir.negotiationRecordsJsonl(0);
+        assertThat(artifact).exists();
+        assertThat(Files.readString(artifact)).isEmpty();
+    }
+
+    @Test
+    void failurePathStillWritesNegotiationRecords(@TempDir Path tempDir) throws Exception {
+        SimulationEngine engine = newEngine();
+        RunDirectory dir = RunDirectory.create(tempDir, "20260101_080000", "fake/model");
+        NegotiationRecord record =
+                new NegotiationRecord(
+                        "oak@a.com",
+                        "sku1",
+                        "good",
+                        SupplierFamily.CANDID,
+                        Money.of("100.00"),
+                        Money.of("50.00"),
+                        Money.of("100.00"),
+                        1);
+        record.complete("Agreement", Money.of("90.00"), "SupplierAccept", 2);
+        try (CompositeRunObserver observer =
+                new CompositeRunObserver(
+                        dir,
+                        0,
+                        engine,
+                        MAPPER,
+                        CompatibleRunLoggingTest::emptyNegotiation,
+                        () -> List.of(record))) {
+            observer.onRunStart(seedJob());
+            observer.onFailure(new IllegalStateException("boom"));
+        }
+
+        Path artifact = dir.negotiationRecordsJsonl(0);
+        assertThat(artifact).exists();
+        assertThat(Files.readString(artifact)).contains("\"supplier\":\"oak@a.com\"");
     }
 }
