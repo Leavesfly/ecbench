@@ -491,7 +491,8 @@ public final class SimulationEngine {
                         .filter(
                                 supplier ->
                                         storeType == null
-                                                || supplier.categoriesServed().stream().anyMatch(storeCategories::contains))
+                                                || supplier.categoriesServed().stream()
+                                                        .anyMatch(storeCategories::contains))
                         .filter(
                                 supplier ->
                                         productName == null
