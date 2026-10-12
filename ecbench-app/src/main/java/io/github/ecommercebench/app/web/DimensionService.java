@@ -231,7 +231,8 @@ public final class DimensionService {
             List<JsonNode> runs = runsPerSession.get(names.indexOf(name));
             putNumber(row, "finalBalance", meanOfRuns(runs, "profitability", "final_balance"));
             row.put("bankruptRuns", countTrue(runs, "profitability", "bankrupt"));
-            putText(row, "termination", lastTermination(runs));
+            putText(row, "termination", lastTextual(runs, "reward", "termination_reason"));
+            putText(row, "terminationDetail", lastTextual(runs, "reward", "termination_detail"));
         }
         return node;
     }
@@ -260,12 +261,20 @@ public final class DimensionService {
         return count;
     }
 
-    /** 最后一个 run 的终止原因（reward.termination_reason）；无 run 或缺字段时返回 null。 */
-    private static String lastTermination(List<JsonNode> runs) {
+    /**
+     * 最后一个含该文本字段的 run 的取值；无 run、缺字段或值非文本时返回 null。
+     *
+     * <p>用于终止原因：spec §5.4 要求 reason 与 detail 两者都呈现（如 {@code env_terminated} +
+     * {@code max_turns_reached}），detail 往往信息量更大，不得丢弃。
+     */
+    private static String lastTextual(List<JsonNode> runs, String... path) {
         for (int i = runs.size() - 1; i >= 0; i--) {
-            JsonNode reason = runs.get(i).path("reward").path("termination_reason");
-            if (reason.isTextual()) {
-                return reason.asText();
+            JsonNode current = runs.get(i);
+            for (String key : path) {
+                current = current == null ? null : current.get(key);
+            }
+            if (current != null && current.isTextual()) {
+                return current.asText();
             }
         }
         return null;

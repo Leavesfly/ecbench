@@ -94,6 +94,9 @@ class DimensionServiceTest {
         assertThat(primary.path("rows").get(0).path("bankruptRuns").asInt()).isZero();
         assertThat(primary.path("rows").get(0).path("termination").asText())
                 .isEqualTo("env_terminated");
+        // spec §5.4 要求终止原因带 reason 与 detail 两者，detail（如 max_turns_reached）信息量更大，不得丢弃
+        assertThat(primary.path("rows").get(0).path("terminationDetail").asText())
+                .isEqualTo("max_turns_reached");
     }
 
     @Test
@@ -224,6 +227,9 @@ class DimensionServiceTest {
 
         assertThat(node.path("primaryScore").path("rows").get(0).path("value").isNull()).isTrue();
         assertThat(node.path("primaryScore").path("rows").get(0).path("rank").isNull()).isTrue();
+        // 缺 reward.termination_detail 时输出 JSON null（而非省略字段），保证前端形状稳定
+        assertThat(node.path("primaryScore").path("rows").get(0).path("terminationDetail").isNull())
+                .isTrue();
         assertThat(node.path("dimensions").get(0).path("rows").get(0).path("value").isNull()).isTrue();
         assertThat(node.path("rankCrossings").get(0).path("ranks").path("negotiation").isNull()).isTrue();
     }

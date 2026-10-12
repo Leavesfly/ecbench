@@ -296,6 +296,12 @@
 
 分组内行序保持 `METRIC_DEFS` 原序；过滤框对 label 与中文分组标题同时生效。
 
+**勘误（实施期裁定，2026-10-12）**：上表「现金流与偿付」组列出的行序（`final_balance` / `initial_balance` /
+`peak_total_assets` / `peak_drawdown` / `bankrupt` / `final_day` / `stores / reopens`）与 `METRIC_DEFS` 原序
+（`final_balance` / `bankrupt` / `final_day` / `peak_drawdown` / `stores / reopens` / `peak_total_assets` /
+`initial_balance`）不一致，本节正文与表格自相矛盾。经用户裁定：**以本表格的行序为准**（两个余额类指标相邻更易读）；
+「保持 `METRIC_DEFS` 原序」一句仅适用于其余五组（那五组两种序恰好相同，无歧义）。实现以 `app.js` 的 `METRIC_GROUPS` 常量为准。
+
 **学习维度的双口径说明（必须在前端明示，避免误读）**：矩阵「长周期学习」组的 5 行来自 `analysis.json` 的 `negotiation_quality.learning_speed`（追踪器口径，为保持 Python 对齐而不动）；学习维度卡展示的是 §E.6 重算值（来自逐谈判记录）。两者中的「剩余半期提升」理论上同源（同一批诚信会话），仅排序口径可能不同：当二者都有值且差的绝对值 > 1e-6 时，学习卡 note 追加中文提示 `与追踪器 learning_speed.se_half_lift 存在差异（排序口径），以本卡 §E.6 重算值为准`；否则不提示。
 
 空态文案（中文 + 论文条款）示例：

@@ -244,7 +244,7 @@ function renderPrimary(data) {
       <div class="who">${esc(shortName(row.name))}</div>
       <div class="value">${row.value === null ? '不适用' : row.value.toFixed(2) + ' ×'}</div>
       <div class="rank">排名第 ${row.rank === null ? '—' : row.rank} · 年末总资产 ${fmtMoney(row.finalBalance)}</div>
-      <div class="rank">破产 run ${row.bankruptRuns} 个 · 终止原因 ${esc(row.termination || '未知')}</div>
+      <div class="rank">破产 run ${row.bankruptRuns} 个 · 终止原因 ${esc(row.termination || '未知')}${row.terminationDetail ? '（' + esc(row.terminationDetail) + '）' : ''}</div>
     </div>`).join('');
 }
 
