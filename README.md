@@ -259,6 +259,12 @@ java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080 -
 数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`），
 维度视图口径见 `DimensionAxis`（论文 §3.7）；前端为零依赖单页应用，图表以纯 SVG 渲染，不引用任何外部 CDN 资源。
 
+导出接口（全部 GET、只读，返回附件下载）：
+`/api/export/{balance.png|radar.png|ranking.csv|ranking.json|matrix.csv}?sessions=<name>&sessions=<name>`，
+缺省 `sessions` 时取前 12 个会话（与 `/api/compare` 同语义）。余额 PNG 画该会话的**全部 run**
+（与 `evaluate plot --overlay` 同口径），图例名带会话前缀以区分同名 run；指标矩阵 CSV 为长表
+`session,metric,mean,std,n`。PNG 由服务端用与 CLI 完全相同的 XChart 渲染代码出字节流，不落盘。
+
 ### 在网页上提交运行
 
 看板除了浏览与对比，还能直接提交新的运行。
@@ -280,14 +286,22 @@ OPENAI_API_KEY=sk-yyyy
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/models` | 全部模型键 + 各自的密钥就绪状态 + 独立的 `npc` 段 |
-| POST | `/api/jobs` | 提交运行，返回 `202` 与任务 id |
+| POST | `/api/jobs` | 提交运行，返回 `202` 与任务 id；可选 `jobFileContent` 字段上传预构建 job JSONL 的**内容** |
 | GET | `/api/jobs` | 任务列表（含进度） |
 | GET | `/api/jobs/{id}` | 单个任务详情 |
 | DELETE | `/api/jobs/{id}` | 取消任务 |
 
 可提交字段：`model`（必填）、`maxTokens`、`maxTurns`、`maxDays`、`initialBalance`、`dailyFee`、
 `maxTokenCapacity`、`runs`、`seed`；缺省值与 CLI 完全一致。
-**`logDir` / `dataDir` / `tokenizerPath` / `jobFile` 不接受 HTTP 输入**，一律取服务进程的启动配置（否则就成了任意路径写入入口）。
+**`logDir` / `dataDir` / `tokenizerPath` 不接受 HTTP 输入**，一律取服务进程的启动配置（否则就成了任意路径写入入口）。
+
+表单里的「job JSONL（可选）」等价于命令行的 `--job-file`，但上传的是**文件内容**而不是路径——服务端把内容
+写进自己生成的临时文件，任务结束（含取消与失败）后自动删除，因此 `jobFile` 同样不接受路径输入。两点注意：
+
+- 请求体上限 64 KB（与其它字段共享），前端按 60 KB 预检，超限直接给出中文提示且不发请求；
+- `RunComponentFactory.resolveJob` **只使用文件第一行**，多 run 的 job 文件可只保留首个 job 再上传。
+
+上传内容在**提交期**就会预校验，畸形 JSONL 直接返回 `400`（带 1 基行号），而不是等 run 执行期变成任务 `FAILED`。
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8080/api/jobs \
