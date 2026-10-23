@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -19,15 +18,16 @@ public final class StaticAssets implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String resource = resolve(exchange.getRequestURI().getPath());
         if (resource == null) {
-            respond(exchange, 404, "text/plain; charset=utf-8", bytes("not found"));
+            HttpResponses.respond(exchange, 404, "text/plain; charset=utf-8", bytes("not found"));
             return;
         }
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(resource)) {
             if (in == null) {
-                respond(exchange, 404, "text/plain; charset=utf-8", bytes("missing asset"));
+                HttpResponses.respond(
+                        exchange, 404, "text/plain; charset=utf-8", bytes("missing asset"));
                 return;
             }
-            respond(exchange, 200, contentType(resource), in.readAllBytes());
+            HttpResponses.respond(exchange, 200, contentType(resource), in.readAllBytes());
         }
     }
 
@@ -52,13 +52,5 @@ public final class StaticAssets implements HttpHandler {
 
     private static byte[] bytes(String text) {
         return text.getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static void respond(HttpExchange exchange, int status, String type, byte[] body) throws IOException {
-        exchange.getResponseHeaders().set("Content-Type", type);
-        exchange.sendResponseHeaders(status, body.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(body);
-        }
     }
 }
