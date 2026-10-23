@@ -2,13 +2,8 @@ package io.github.ecommercebench.app.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.ecommercebench.app.run.RunComponentFactory;
-import io.github.ecommercebench.llm.LlmClientFactory;
-import io.github.ecommercebench.llm.http.RetryExecutor;
-import io.github.ecommercebench.llm.http.RetryPolicy;
-import io.github.ecommercebench.llm.provider.ProviderResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestClient;
 
 /**
  * 应用级无状态/只读单例装配。
@@ -29,16 +24,11 @@ public class ApplicationWiring {
     }
 
     /**
-     * 默认 LLM 客户端提供者：以环境变量构造 {@link ProviderResolver}，叠加指数退避重试执行器，并将工厂的 {@code create} 方法引用适配为提供者。
+     * 默认 LLM 客户端提供者：以「进程环境变量 + 仓库根 .env」的合并视图构造，组装逻辑委托给 {@link LlmClientProviders}。
      */
     @Bean
     public LlmClientProvider llmClientProvider(ObjectMapper objectMapper) {
-        ProviderResolver resolver = new ProviderResolver(System.getenv());
-        RetryExecutor retryExecutor = new RetryExecutor(duration -> Thread.sleep(duration.toMillis()));
-        LlmClientFactory factory =
-                new LlmClientFactory(
-                        resolver, objectMapper, RestClient.builder(), retryExecutor, RetryPolicy.defaults());
-        return factory::create;
+        return LlmClientProviders.fromEnvironment(EffectiveEnvironment.load().asMap(), objectMapper);
     }
 
     /**

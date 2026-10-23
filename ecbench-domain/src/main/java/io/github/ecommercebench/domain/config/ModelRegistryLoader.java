@@ -13,12 +13,15 @@ import java.util.Map;
 /** 从 models_config.json 读取主模型与供应商 NPC 模型。 */
 public final class ModelRegistryLoader {
 
+  /** 用于解析 models_config.json 的 Jackson 映射器。 */
   private final ObjectMapper objectMapper;
 
+  /** 使用默认 {@link ObjectMapper} 构造加载器。 */
   public ModelRegistryLoader() {
     this(new ObjectMapper());
   }
 
+  /** 注入自定义 {@link ObjectMapper}，主要用于测试或统一序列化配置。 */
   public ModelRegistryLoader(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
   }
@@ -80,6 +83,7 @@ public final class ModelRegistryLoader {
         map(node.get("extra_body")));
   }
 
+  /** 读取必需的对象字段；缺失或非对象时抛配置异常（owner 用于定位层级）。 */
   private JsonNode requiredObject(JsonNode parent, String field, String owner) {
     JsonNode node = parent.get(field);
     if (node == null || !node.isObject()) {
@@ -97,11 +101,13 @@ public final class ModelRegistryLoader {
     return value;
   }
 
+  /** 读取可选文本字段；节点缺失或为 null 时返回 null。 */
   private static String text(JsonNode node, String field) {
     JsonNode value = node.get(field);
     return value == null || value.isNull() ? null : value.asText();
   }
 
+  /** 将 JSON 节点转为字符串到对象的地图；节点缺失或为 null 时返回空地图。 */
   private Map<String, Object> map(JsonNode node) {
     if (node == null || node.isNull()) {
       return Map.of();

@@ -28,14 +28,18 @@ import org.apache.commons.csv.CSVRecord;
  */
 public final class CsvCatalogLoader {
 
+  /** 统一 CSV 格式：首行作为表头并跳过表头记录。 */
   private static final CSVFormat CSV_FORMAT =
       CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).get();
+  /** 用于解析内嵌 JSON 列（如需求/供给影响）的 Jackson 映射器。 */
   private final ObjectMapper objectMapper;
 
+  /** 使用默认 {@link ObjectMapper} 构造加载器。 */
   public CsvCatalogLoader() {
     this(new ObjectMapper());
   }
 
+  /** 注入自定义 {@link ObjectMapper}，主要用于测试或统一序列化配置。 */
   public CsvCatalogLoader(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
   }
@@ -57,6 +61,7 @@ public final class CsvCatalogLoader {
     return new CatalogData(products, suppliers, categoryParams, storeTypes, promotions, events);
   }
 
+  /** 加载 products.csv，映射商品 ID、店铺、类别、参考价与退货率等列。 */
   private List<Product> loadProducts(Path file) {
     String[] required = {
       "product_id",
@@ -85,6 +90,7 @@ public final class CsvCatalogLoader {
                 decimal(row, "return_rate")));
   }
 
+  /** 加载 suppliers.csv，将竖线分隔的供货类别拆列并将 urgency/bankruptcy_threshold 转型。 */
   private List<Supplier> loadSuppliers(Path file) {
     String[] required = {
       "supplier_id",
@@ -113,6 +119,7 @@ public final class CsvCatalogLoader {
                 integer(row, "bankruptcy_threshold")));
   }
 
+  /** 加载 category_params.csv，并以类别名为键聚合成不可变映射。 */
   private Map<String, CategoryParams> loadCategoryParams(Path file) {
     String[] required = {
       "category",
@@ -157,6 +164,7 @@ public final class CsvCatalogLoader {
     return result;
   }
 
+  /** 加载 store_types.csv，季节性系数从 {@link Seasonality} 白名单派生，并以店型 ID 为键聚合。 */
   private Map<String, StoreTypeConfig> loadStoreTypes(Path file) {
     String[] required = {
       "store_type_id",
@@ -188,6 +196,7 @@ public final class CsvCatalogLoader {
     return result;
   }
 
+  /** 加载 promotions.csv，将竖线分隔的多段促销区间逐个解析为 {@link PromotionPeriod}。 */
   private List<PromotionConfig> loadPromotions(Path file) {
     String[] required = {"event_name", "periods", "max_demand_multiplier", "elasticity_boost"};
     return parse(
@@ -201,6 +210,7 @@ public final class CsvCatalogLoader {
                 decimal(row, "elasticity_boost")));
   }
 
+  /** 加载 events.csv，将需求/供给影响列分别解析为映射与 JSON 树。 */
   private List<MarketEvent> loadEvents(Path file) {
     String[] required = {
       "event_name",
@@ -232,10 +242,12 @@ public final class CsvCatalogLoader {
     return new PromotionPeriod(parseMonthDay(parts[0]), parseMonthDay(parts[1]));
   }
 
+  /** 将 MMDD 字符串解析为 MonthDay（补齐 "--" 前缀以符合 ISO 月日格式）。 */
   private MonthDay parseMonthDay(String value) {
     return MonthDay.parse("--" + value);
   }
 
+  /** 将需求影响 JSON 字符串解析为类别到乘数的映射；解析失败抛非法参数异常。 */
   private Map<String, BigDecimal> demandEffects(String value) {
     try {
       return objectMapper.readValue(value, new TypeReference<>() {});
@@ -244,6 +256,7 @@ public final class CsvCatalogLoader {
     }
   }
 
+  /** 将 JSON 字符串解析为原始节点树；解析失败抛非法参数异常。 */
   private JsonNode json(String value) {
     try {
       return objectMapper.readTree(value);
@@ -263,10 +276,12 @@ public final class CsvCatalogLoader {
         .toList();
   }
 
+  /** 从 CSV 行读取指定列并解析为 BigDecimal。 */
   private static BigDecimal decimal(CSVRecord row, String column) {
     return new BigDecimal(row.get(column));
   }
 
+  /** 从 CSV 行读取指定列并解析为 int。 */
   private static int integer(CSVRecord row, String column) {
     return Integer.parseInt(row.get(column));
   }
@@ -303,8 +318,10 @@ public final class CsvCatalogLoader {
     }
   }
 
+  /** 将单条 CSV 记录映射为目标类型记录的函数式接口。 */
   @FunctionalInterface
   private interface RowMapper<T> {
+    /** 把一行 CSV 记录转换为目标对象，字段非法时可抛运行时异常由 {@code parse} 包装。 */
     T map(CSVRecord record);
   }
 }

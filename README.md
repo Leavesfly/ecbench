@@ -66,16 +66,23 @@ E-CommerceBench 电商经营基准的 **Java 17 + Spring Boot 3 + Maven 多模�
 
 ## 快速开始
 
-构建（`verify` 阶段会跑全部质量门并产出可执行 fat jar）：
+构建可执行 fat jar：
 
 ```bash
-mvn clean verify
+mvn -DskipTests clean package
 # fat jar -> ecbench-app/target/ecbench-app.jar
 ```
 
-运行基准（先设置对应 Provider 的密钥环境变量）：
+> 不要在这里用 `mvn clean verify`：它绑定的 Spotless 因根 pom 缺 `<style>AOSP</style>` 而必然报红，详见[测试与质量门](#测试与质量门)。
+
+**默认启动形态是 Web 服务**：不带 `--model` 时进程会启动本地 dashboard 并阻塞；带 `--model` 时行为与从前逐字一致，跑批处理并按 `0/1/2` 退出。
 
 ```bash
+# 起 Web 看板（默认行为；等价于显式的 serve 子命令）
+java -jar ecbench-app/target/ecbench-app.jar
+java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080
+
+# 跑批处理（先设置对应 Provider 的密钥环境变量）
 export GEMINI_API_KEY=...        # 或 OPENAI_API_KEY / ANTHROPIC_API_KEY 等
 
 # 单次运行，限制天数与轮数
@@ -85,17 +92,22 @@ java -jar ecbench-app/target/ecbench-app.jar --model gemini-3.5-flash --max-days
 java -jar ecbench-app/target/ecbench-app.jar --model gpt-5.6-sol --runs 5 --seed 42
 ```
 
-应用以 Spring Boot `WebApplicationType.NONE` 启动，不监听任何端口。
+应用始终以 Spring Boot `WebApplicationType.NONE` 启动，Spring 自身不监听任何端口；dashboard 的端口由内置的 JDK
+`HttpServer` 绑定（默认 `127.0.0.1:8080`），且只在走 Web 分支时才绑定。
 
-**退出码**：`0` 全部 run 成功；`1` 至少一个 run 失败；`2` 配置 / 参数错误。
+**退出码**：批处理路径 `0` 全部 run 成功；`1` 至少一个 run 失败；`2` 配置 / 参数错误。Web 路径正常中断（Ctrl-C）返回 `0`，
+日志目录不存在或端口不可用返回 `2`。
 
 ## 命令行参数
 
 与 Python `run.py` 兼容，另新增 `--seed` / `--data-dir` 两个可选参数。
 
+`--port` / `--host` / `--catalog` 三个 Web 选项也被根命令接受（两条路径共用同一套启动编排），因此
+`java -jar … --port 8081` 与 `java -jar … serve --port 8081` 等价。
+
 | 参数 | 默认值 | 说明 |
 |---|---|---|
-| `--model` | （必填） | `models_config.json` 中的模型键 |
+| `--model` | （无） | `models_config.json` 中的模型键；**缺省时不跑批处理，而是启动 Web dashboard** |
 | `--max-tokens` | `16384` | 单次 LLM 调用的最大 token 数 |
 | `--max-turns` | `4000` | 单次 episode 的最大 Agent 轮数 |
 | `--max-days` | `365` | 最大模拟天数 |
@@ -226,25 +238,80 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log
 
 ### 本地 Web 看板（serve）
 
-`serve` 是唯一会绑定端口的入口（默认仅监听 `127.0.0.1`），用于在浏览器里演示多 run 对比；
-`run` / `evaluate` 仍以无 Web 的批处理形态运行。
+不带 `--model` 的根命令与 `serve` 子命令行为完全一致，都仅绑定本地回环（默认 `127.0.0.1`），
+用于在浏览器里对比多 run 并直接提交新的运行；`evaluate` 仍以无 Web 的批处理形态运行。
 
 ```bash
 java -jar ecbench-app/target/ecbench-app.jar serve --log-dir ./log --port 8080 --host 127.0.0.1
-# 打开 http://127.0.0.1:8080/ ：会话勾选、主评分与六维度排名、六维度诊断卡（八类活动带 / 五类骗局支出 / 退货四层）、
-# 排名交叉、七轴雷达、资产轨迹叠加、按维度分组的指标矩阵、单 run 下钻（analysis.json + chatbox 谈判记录，含欺诈标注）
+# 打开 http://127.0.0.1:8080/ ：新建运行表单、任务队列、会话勾选、主评分与六维度排名、
+# 六维度诊断卡（八类活动带 / 五类骗局支出 / 退货四层）、排名交叉、七轴雷达、资产轨迹叠加、
+# 按维度分组的指标矩阵、单 run 下钻（analysis.json + chatbox 谈判记录，含欺诈标注）
 # Ctrl-C 停止
 ```
 
 选项：`--log-dir`（会话根目录，默认 `log`）、`--port`（默认 `8080`，`0` 为随机端口）、`--host`（默认 `127.0.0.1`）、
 `--catalog`（供应商名册 CSV，默认取资源根 `data/suppliers.csv`；用于在 chatbox 谈判记录上标注供应商类型与欺诈类型，
-名册缺失时自动降级为无标注，服务照常启动）。
+名册缺失时自动降级为无标注，服务照常启动）。后三个选项同样可直传给根命令。
 
 只读接口：`/api/sessions`、`/api/compare?sessions=<name>`（缺省对比全部会话；返回 `sessions`/`radar`/`ranking`
 以及论文 §4.3 的 `primaryScore`/`dimensions`/`rankCrossings`/`learning` 四段）、
-`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`。
+`/api/sessions/<name>/{analysis|balance|chatbox}?run=<i>`、`/api/models`、`/api/jobs`。
 数值口径完全复用 `evaluate` 子命令的同一套实现（`RunComparator` / `CrossModelProfiler` / `RankingTable`），
 维度视图口径见 `DimensionAxis`（论文 §3.7）；前端为零依赖单页应用，图表以纯 SVG 渲染，不引用任何外部 CDN 资源。
+
+### 在网页上提交运行
+
+看板除了浏览与对比，还能直接提交新的运行。
+
+**密钥**：服务启动时读取「环境变量 + 仓库根 `.env`」，**真实环境变量优先，`.env` 只填补缺失项**。
+密钥永不经浏览器传输。`.env` 已加入 `.gitignore`，格式为每行 `KEY=VALUE`（支持 `#` 注释与成对引号）：
+
+```
+DASHSCOPE_API_KEY=sk-xxxx
+OPENAI_API_KEY=sk-yyyy
+```
+
+> **坑**：供应商 NPC 模型（`npc_tools`，默认 `gpt-4o-mini`）走 openai，**每个 run 都需要 `OPENAI_API_KEY`**，
+> 即便主模型选的是 qwen / glm / kimi。缺它时任何运行都会在装配阶段失败；`GET /api/models` 的 `npc` 段与
+> 表单上方的告警条会提前指出。
+
+**接口**：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/models` | 全部模型键 + 各自的密钥就绪状态 + 独立的 `npc` 段 |
+| POST | `/api/jobs` | 提交运行，返回 `202` 与任务 id |
+| GET | `/api/jobs` | 任务列表（含进度） |
+| GET | `/api/jobs/{id}` | 单个任务详情 |
+| DELETE | `/api/jobs/{id}` | 取消任务 |
+
+可提交字段：`model`（必填）、`maxTokens`、`maxTurns`、`maxDays`、`initialBalance`、`dailyFee`、
+`maxTokenCapacity`、`runs`、`seed`；缺省值与 CLI 完全一致。
+**`logDir` / `dataDir` / `tokenizerPath` / `jobFile` 不接受 HTTP 输入**，一律取服务进程的启动配置（否则就成了任意路径写入入口）。
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/api/jobs \
+     -H 'Content-Type: application/json' \
+     -d '{"model":"qwen3.7-max","maxDays":10,"maxTurns":50}'
+```
+
+**调度**：全局单任务串行队列（上限 8 个未结束任务，超出返回 `409`）；一个任务内部仍可用 `runs` 并行多个 run。
+任务跑在独立的单线程执行器上，**不占用 HTTP 的 4 个工作线程**。进度从已落盘产物推导——`days` 取
+`balance/run_<i>_daily_balance.csv` 的数据行数最大值，`runsDone` 取 `metrics/run_<i>_analysis.json` 的个数，
+因此不侵入 Agent 主循环，也不新增任何产物文件。前端每 2.5 秒轮询，全部任务终态后自动停止。
+
+**取消是尽力而为**：`DELETE` 会中断执行线程，级联打断正在阻塞的模型调用；但 Agent 主循环不检查中断标志，
+若中断落在两次调用之间的纯计算段，要等下一个阻塞点才生效。已产出的部分产物留在磁盘。
+
+**状态只存内存**：服务重启后任务列表清空；历史 run 的产物仍在 `log/` 下，会话扫描照常可见。
+
+**跨站防护**：`POST` / `DELETE` 校验 `Origin`，只放行缺失（curl）或等于 `http://127.0.0.1:<port>` /
+`http://localhost:<port>` 的请求，其余返回 `403`。比对基准用服务端已知的绑定端口而非请求的 `Host` 头（后者可被
+DNS rebinding 篡改）。服务虽只绑回环，但浏览器里任意网页都能向它发 POST，不挡则任何恶意页面都能拿用户的密钥跑任务。
+
+**状态语义**：`SUCCEEDED` 只表示「编排正常结束」，不代表每个 run 都跑满了营业日。当所有 run 的 `canonicalReason`
+都不是 `env_completed`（破产 / 轮数用尽 / LLM 错误等折叠为 `env_terminated`）时，前端会降级显示为琥珀色的
+「已结束·未跑满」而非绿色的「已完成」。
 
 ## 测试与质量门
 
@@ -254,7 +321,7 @@ mvn -pl ecbench-evaluation,ecbench-app checkstyle:check   # 所改模块风格�
 mvn -DskipTests clean package                             # 重打 fat jar
 ```
 
-- 全 7 模块共 **56+ 个测试类、300+ 个测试方法**，含离线 E2E（`BenchmarkEndToEndTest`）与 Python↔Java 双向兼容测试（`PythonCompatibilityTest`）。
+- 全 7 模块共 **89 个测试类、476 个测试**（surefire 实测，0 failures / 1 skipped），含离线 E2E（`BenchmarkEndToEndTest`）与 Python↔Java 双向兼容测试（`PythonCompatibilityTest`）。
 - **Checkstyle**（行宽 120、禁 star import、方法 ≤ 150 行）：所改模块须 0 违规。
 - **JaCoCo** 行覆盖率门：`domain` / `simulation` / `opponent` 均须 ≥ 85%，未达标即 `BUILD FAILURE`。
 - **Spotless 已知红基线**：根 pom 的 `<googleJavaFormat/>` 未设 `<style>AOSP</style>`，默认 2 空格与仓库既有 4 空格模块冲突，

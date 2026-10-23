@@ -22,6 +22,26 @@ public final class RunDirectory {
 
     public static RunDirectory create(Path logDir, String timestamp, String model) {
         Path session = logDir.resolve(timestamp + "_" + sanitize(model));
+        return createAt(session);
+    }
+
+    /**
+     * 与 {@link #create} 同口径，但会话目录已存在时自动追加 {@code -2}、{@code -3}…直到不冲突。
+     *
+     * <p>{@code timestamp} 只有秒级精度，而 {@code Files.createDirectories} 对已存在的目录不报错——因此同一秒内
+     * 起两次运行（Web 侧接连提交两个 job，或一个快速失败后紧接着下一个）会静默共用同一个会话目录，把两次
+     * 产物写到一起。后缀仅在真的冲突时才出现，无冲突时命名与 {@code create} 逐字相同。
+     */
+    public static RunDirectory createUnique(Path logDir, String timestamp, String model) {
+        String base = timestamp + "_" + sanitize(model);
+        Path session = logDir.resolve(base);
+        for (int suffix = 2; Files.exists(session); suffix++) {
+            session = logDir.resolve(base + "-" + suffix);
+        }
+        return createAt(session);
+    }
+
+    private static RunDirectory createAt(Path session) {
         try {
             Files.createDirectories(session.resolve("trajectories"));
             Files.createDirectories(session.resolve("metrics"));

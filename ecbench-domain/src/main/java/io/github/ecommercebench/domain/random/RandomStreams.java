@@ -10,10 +10,14 @@ import java.util.Objects;
  */
 public final class RandomStreams {
 
+  /** FNV-1a 64 位哈希的初始偏移基。 */
   private static final long FNV_OFFSET_BASIS = 0xcbf29ce484222325L;
+  /** FNV-1a 64 位哈希的素数乘子，也参与根种子与用途哈希的混合。 */
   private static final long FNV_PRIME = 0x100000001b3L;
+  /** 所有子流共享的根种子，同一根种子下同一用途总能派生相同子种子。 */
   private final long rootSeed;
 
+  /** 以根种子构造流工厂；后续按用途派生的子流均只依赖于此根种子。 */
   public RandomStreams(long rootSeed) {
     this.rootSeed = rootSeed;
   }

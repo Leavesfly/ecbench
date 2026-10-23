@@ -2,24 +2,51 @@ package io.github.ecommercebench.app.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.ecommercebench.app.cli.CliRunOptions;
+import io.github.ecommercebench.app.job.JobService;
+import io.github.ecommercebench.app.job.ModelKeyGuard;
+import io.github.ecommercebench.app.run.RunOutcome;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 以随机端口拉起 dashboard，端到端验证静态页、各 JSON 接口与越界/缺失的错误映射。 */
+/**
+ * 以随机端口拉起 dashboard，端到端验证静态页、各 JSON 接口、写侧端点与越界/缺失/跨域的错误映射。
+ *
+ * <p>models_config.json 放在<b>独立</b>的 {@code @TempDir} 里：{@code SessionScanner} 会把 logDir 下每个非 {@code .}
+ * 前缀的子目录都当成会话，若把配置写进 log 目录，会话列表会莫名多出一项。
+ */
 class DashboardServerTest {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final String CONFIG_JSON =
+            "{\"npc_tools\":{\"provider\":\"openai\",\"model\":\"gpt-4o-mini\"},"
+                    + "\"models\":{\"gpt\":{\"provider\":\"openai\",\"model_name\":\"gpt-x\"}}}";
+
     private final HttpClient client = HttpClient.newHttpClient();
-    private DashboardServer server;
 
     @TempDir Path log;
+    @TempDir Path config;
+
+    private DashboardServer server;
+    private JobService jobService;
+    private ModelCatalogService models;
 
     @BeforeEach
     void startFixtureServer() throws Exception {
@@ -36,7 +63,12 @@ class DashboardServerTest {
                 session.resolve("balance/run_0_daily_balance.csv"),
                 "date,bank_balance,platform_wallet,total_balance,open_stores,warehouse_items,storage_charged\n"
                         + "2026-01-01,100000.00,0.00,100000.00,0,0,0.00\n");
-        server = new DashboardServer(log, "127.0.0.1", 0);
+
+        Files.createDirectories(config);
+        Files.writeString(config.resolve("models_config.json"), CONFIG_JSON);
+        models = new ModelCatalogService(newKeyGuard(Map.of("OPENAI_API_KEY", "sk-test")), MAPPER);
+        jobService = newJobService((options, onSession) -> List.of(new RunOutcome(0, null, null)));
+        server = new DashboardServer(log, "127.0.0.1", 0, Map.of(), models, jobService);
         server.start();
     }
 
@@ -45,11 +77,55 @@ class DashboardServerTest {
         server.close();
     }
 
+    private ModelKeyGuard newKeyGuard(Map<String, String> env) {
+        return new ModelKeyGuard(config.resolve("models_config.json"), env, MAPPER);
+    }
+
+    /**
+     * 工作目录必须指向放着最小 models_config.json 的 {@code config}，不能用 {@code Path.of(".")}：
+     * 后者会让 {@code ConfigurationMerger} 向上探测到仓库真实的 models_config.json，里面没有 {@code gpt}
+     * 这个键，job 会在 merge 阶段就 FAILED，所有需要任务真跑起来的断言全塌。
+     */
+    private JobService newJobService(io.github.ecommercebench.app.job.RunLauncher launcher) {
+        return new JobService(
+                launcher,
+                newKeyGuard(Map.of("OPENAI_API_KEY", "sk-test")),
+                new CliRunOptions(),
+                Map.of(),
+                config,
+                MAPPER);
+    }
+
     private HttpResponse<String> get(String path) throws Exception {
         return client.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path)).build(),
                 HttpResponse.BodyHandlers.ofString());
     }
+
+    private HttpResponse<String> post(String path, String body, String origin) throws Exception {
+        HttpRequest.Builder builder =
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path))
+                        .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (origin != null) {
+            builder.header("Origin", origin);
+        }
+        return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> send(String method, String path) throws Exception {
+        HttpRequest.Builder builder =
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path));
+        if ("DELETE".equals(method)) {
+            builder.DELETE();
+        } else if ("POST".equals(method)) {
+            builder.POST(HttpRequest.BodyPublishers.noBody());
+        } else if ("PUT".equals(method)) {
+            builder.PUT(HttpRequest.BodyPublishers.noBody());
+        }
+        return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    /* ------------------------------------------------------------ 既有只读契约 */
 
     @Test
     void servesIndexPage() throws Exception {
@@ -120,12 +196,259 @@ class DashboardServerTest {
 
     @Test
     void rejectsNonGetRequest() throws Exception {
-        HttpResponse<String> response = client.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + "/api/sessions"))
-                        .POST(HttpRequest.BodyPublishers.noBody())
-                        .build(),
-                HttpResponse.BodyHandlers.ofString());
+        assertThat(send("POST", "/api/sessions").statusCode()).isEqualTo(405);
+    }
+
+    /* ------------------------------------------------------------ 方法分发 */
+
+    @Test
+    void deleteOnReadOnlyEndpointIsMethodNotAllowed() throws Exception {
+        HttpResponse<String> response = send("DELETE", "/api/compare");
 
         assertThat(response.statusCode()).isEqualTo(405);
+        assertThat(response.body()).contains("error");
+    }
+
+    @Test
+    void putOnSessionArtifactIsMethodNotAllowed() throws Exception {
+        assertThat(send("PUT", "/api/sessions/2026_qwen3.7-plus/analysis").statusCode()).isEqualTo(405);
+    }
+
+    @Test
+    void postToUnknownEndpointIsNotFoundNotMethodNotAllowed() throws Exception {
+        assertThat(send("POST", "/api/nope").statusCode()).isEqualTo(404);
+    }
+
+    /* ------------------------------------------------------------ /api/models */
+
+    @Test
+    void modelsEndpointReportsKeyReadiness() throws Exception {
+        HttpResponse<String> response = get("/api/models");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        JsonNode node = MAPPER.readTree(response.body());
+        assertThat(node.get("models")).hasSize(1);
+        assertThat(node.get("models").get(0).get("key").asText()).isEqualTo("gpt");
+        assertThat(node.get("models").get(0).get("keyReady").asBoolean()).isTrue();
+        assertThat(node.get("npc").get("modelName").asText()).isEqualTo("gpt-4o-mini");
+    }
+
+    @Test
+    void modelsEndpointFlagsMissingKey() throws Exception {
+        ModelCatalogService noKeys = new ModelCatalogService(newKeyGuard(Map.of()), MAPPER);
+
+        JsonNode node = noKeys.node();
+
+        assertThat(node.get("models").get(0).get("keyReady").asBoolean()).isFalse();
+        assertThat(node.get("models").get(0).get("missingEnv").asText()).isEqualTo("OPENAI_API_KEY");
+        assertThat(node.get("npc").get("missingEnv").asText()).isEqualTo("OPENAI_API_KEY");
+    }
+
+    @Test
+    void modelsEndpointRejectsPost() throws Exception {
+        assertThat(send("POST", "/api/models").statusCode()).isEqualTo(405);
+    }
+
+    /* ------------------------------------------------------------ POST /api/jobs */
+
+    @Test
+    void submitsAJobAndReturnsAccepted() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "{\"model\":\"gpt\",\"maxDays\":2}", null);
+
+        assertThat(response.statusCode()).isEqualTo(202);
+        assertThat(MAPPER.readTree(response.body()).get("id").asText()).isNotEmpty();
+        assertThat(response.body()).contains("\"state\"");
+    }
+
+    @Test
+    void rejectsMalformedJsonWithoutEchoingTheBody() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "not-json", null);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.body()).doesNotContain("not-json");
+    }
+
+    @Test
+    void rejectsEmptyBody() throws Exception {
+        assertThat(post("/api/jobs", "", null).statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void rejectsMissingModelWithBadRequest() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "{\"maxDays\":2}", null);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.body()).contains("model");
+    }
+
+    @Test
+    void rejectsUnknownModelKeyWithBadRequest() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "{\"model\":\"nope\"}", null);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.body()).contains("nope");
+    }
+
+    @Test
+    void rejectsNonPositiveNumberWithBadRequest() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "{\"model\":\"gpt\",\"maxDays\":0}", null);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.body()).contains("maxDays");
+    }
+
+    @Test
+    void rejectsForeignOriginWithForbidden() throws Exception {
+        HttpResponse<String> response = post("/api/jobs", "{\"model\":\"gpt\"}", "http://evil.example");
+
+        assertThat(response.statusCode()).isEqualTo(403);
+    }
+
+    @Test
+    void allowsSameOriginOnLoopbackAndLocalhost() throws Exception {
+        int port = server.port();
+
+        assertThat(post("/api/jobs", "{\"model\":\"gpt\"}", "http://127.0.0.1:" + port).statusCode())
+                .isEqualTo(202);
+        assertThat(post("/api/jobs", "{\"model\":\"gpt\"}", "http://localhost:" + port).statusCode())
+                .isEqualTo(202);
+    }
+
+    @Test
+    void rejectsOversizedBodyWithPayloadTooLarge() throws Exception {
+        String huge = "{\"model\":\"gpt\",\"pad\":\"" + "x".repeat(70_000) + "\"}";
+
+        assertThat(post("/api/jobs", huge, null).statusCode()).isEqualTo(413);
+    }
+
+    @Test
+    void rejectsQueueBeyondLimitWithConflict() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        JobService blocking =
+                newJobService(
+                        (options, onSession) -> {
+                            try {
+                                release.await(20, TimeUnit.SECONDS);
+                            } catch (InterruptedException exception) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return List.of();
+                        });
+        try (DashboardServer target = new DashboardServer(log, "127.0.0.1", 0, Map.of(), models, blocking)) {
+            target.start();
+            for (int i = 0; i < JobService.MAX_QUEUED; i++) {
+                assertThat(postTo(target, "{\"model\":\"gpt\"}").statusCode()).isEqualTo(202);
+            }
+
+            assertThat(postTo(target, "{\"model\":\"gpt\"}").statusCode()).isEqualTo(409);
+            release.countDown();
+        }
+    }
+
+    private HttpResponse<String> postTo(DashboardServer target, String body) throws Exception {
+        return client.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + target.port() + "/api/jobs"))
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    /* ------------------------------------------------------------ GET / DELETE /api/jobs */
+
+    @Test
+    void listsSubmittedJobs() throws Exception {
+        post("/api/jobs", "{\"model\":\"gpt\"}", null);
+        jobService.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        HttpResponse<String> response = get("/api/jobs");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(MAPPER.readTree(response.body()).get("jobs")).hasSize(1);
+    }
+
+    @Test
+    void jobViewCarriesProgressRequestAndOutcomes() throws Exception {
+        String id = MAPPER.readTree(post("/api/jobs", "{\"model\":\"gpt\",\"maxDays\":9}", null).body())
+                .get("id")
+                .asText();
+        jobService.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        JsonNode view = MAPPER.readTree(send("GET", "/api/jobs/" + id).body());
+
+        assertThat(view.get("id").asText()).isEqualTo(id);
+        assertThat(view.get("state").asText()).isEqualTo("SUCCEEDED");
+        assertThat(view.get("model").asText()).isEqualTo("gpt");
+        assertThat(view.get("request").get("maxDays").asInt()).isEqualTo(9);
+        assertThat(view.get("progress").get("maxDays").asInt()).isEqualTo(9);
+        assertThat(view.get("progress").get("days").asInt()).isZero();
+        assertThat(view.get("sessionName").isNull()).isTrue();
+        assertThat(view.get("outcomes")).hasSize(1);
+        assertThat(view.get("error").isNull()).isTrue();
+    }
+
+    @Test
+    void unknownJobIdIsNotFound() throws Exception {
+        assertThat(send("GET", "/api/jobs/absent").statusCode()).isEqualTo(404);
+        assertThat(send("DELETE", "/api/jobs/absent").statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void deleteFinishedJobIsConflict() throws Exception {
+        String id = MAPPER.readTree(post("/api/jobs", "{\"model\":\"gpt\"}", null).body())
+                .get("id")
+                .asText();
+        jobService.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        assertThat(send("DELETE", "/api/jobs/" + id).statusCode()).isEqualTo(409);
+    }
+
+    @Test
+    void deleteRunningJobCancelsIt() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        JobService blocking =
+                newJobService(
+                        (options, onSession) -> {
+                            started.countDown();
+                            try {
+                                release.await(20, TimeUnit.SECONDS);
+                            } catch (InterruptedException exception) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return List.of();
+                        });
+        try (DashboardServer target = new DashboardServer(log, "127.0.0.1", 0, Map.of(), models, blocking)) {
+            target.start();
+            String id = MAPPER.readTree(postTo(target, "{\"model\":\"gpt\"}").body()).get("id").asText();
+            assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+
+            HttpResponse<String> response =
+                    client.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + target.port() + "/api/jobs/" + id))
+                                    .DELETE()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).contains("\"state\":\"CANCELLED\"");
+            release.countDown();
+        }
+    }
+
+    @Test
+    void malformedJobIdIsBadRequest() throws Exception {
+        assertThat(send("GET", "/api/jobs/a/b").statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void postToSingleJobEndpointIsMethodNotAllowed() throws Exception {
+        assertThat(send("POST", "/api/jobs/any").statusCode()).isEqualTo(405);
+    }
+
+    @Test
+    void emptyJobListIsReturnedBeforeAnySubmission() throws Exception {
+        JsonNode node = MAPPER.readTree(get("/api/jobs").body());
+
+        assertThat(node.get("jobs")).isEmpty();
     }
 }

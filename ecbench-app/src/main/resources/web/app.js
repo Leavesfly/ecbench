@@ -65,7 +65,7 @@ const AXIS_ZH = [
   '主评分', '谈判质量', '欺诈规避', '现金流与偿付', '运营效率', '运营执行', '学习（AnchorRatio）',
 ];
 
-const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map() };
+const state = { sessions: [], selected: new Set(), drilled: null, balance: new Map(), jobs: [] };
 
 /* 对比请求的代次：每次 loadCompare 递增，响应回来时若代次已旧则丢弃。
    否则「全选 → 立即清空」这类连续操作下，较慢的旧响应会覆盖较新的空态渲染。 */
@@ -77,6 +77,24 @@ async function api(path) {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
+}
+
+/* 写侧请求助手：与只读的 api() 分开，因为提交失败时必须拿到服务端的 error 文案，
+   而 api() 只抛 `${status} ${statusText}`，会把「缺 DASHSCOPE_API_KEY」这类具体原因丢掉。 */
+async function apiSend(method, path, body) {
+  const init = { method, headers: {} };
+  if (body !== undefined) {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, init);
+  let payload = null;
+  try { payload = await res.json(); } catch (ignored) { payload = null; }
+  if (!res.ok) {
+    const detail = payload && payload.error ? payload.error : `${res.status} ${res.statusText}`;
+    throw new Error(detail);
+  }
+  return payload;
 }
 
 function esc(text) {
@@ -101,25 +119,266 @@ const setStatus = (msg, tone) => {
 };
 const shortName = (name) => (name.length > 26 ? '…' + name.slice(-25) : name);
 
+/* ------------------------------------------------------------ run form */
+
+function showRunError(text) {
+  const box = $('run-error');
+  if (!text) { box.hidden = true; box.textContent = ''; return; }
+  box.hidden = false;
+  box.textContent = text;
+}
+
+function fillModelSelect(catalog) {
+  const select = $('run-model');
+  select.innerHTML = '';
+  const ready = catalog.models.filter((m) => m.keyReady);
+  if (!ready.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '无可用模型（密钥缺失）';
+    select.append(option);
+    select.disabled = true;
+    showRunError('未检测到任何可用的 LLM 密钥。请在启动服务前 export 对应变量，或在仓库根放置 .env。');
+    return;
+  }
+  catalog.models.forEach((model) => {
+    const option = document.createElement('option');
+    option.value = model.key;
+    option.textContent = model.keyReady ? model.key : `${model.key}（缺 ${model.missingEnv}）`;
+    option.disabled = !model.keyReady;
+    select.append(option);
+  });
+  select.value = ready[0].key;
+  select.disabled = false;
+
+  /* NPC 模型独立告警：即便主模型就绪，缺 OPENAI_API_KEY 一样跑不起来。 */
+  const warning = $('npc-warning');
+  if (catalog.npc && !catalog.npc.keyReady) {
+    warning.hidden = false;
+    warning.textContent = `供应商模型 ${catalog.npc.modelName} 缺 ${catalog.npc.missingEnv}，任何运行都会失败。`;
+  } else {
+    warning.hidden = true;
+    warning.textContent = '';
+  }
+}
+
+/* 收集表单：留空的数字字段不发送，让服务端套用与 CLI 同源的缺省值。 */
+function collectRunRequest() {
+  const payload = { model: $('run-model').value };
+  const numeric = [['run-days', 'maxDays'], ['run-turns', 'maxTurns'], ['run-runs', 'runs'], ['run-seed', 'seed']];
+  numeric.forEach(([id, field]) => {
+    const raw = $(id).value.trim();
+    if (raw !== '') payload[field] = Number(raw);
+  });
+  return payload;
+}
+
+async function initRunForm() {
+  try {
+    fillModelSelect(await api('/api/models'));
+  } catch (error) {
+    showRunError('无法读取模型列表：' + error.message);
+    $('run-model').disabled = true;
+    return;
+  }
+  $('run-form').onsubmit = async (event) => {
+    event.preventDefault();
+    showRunError('');
+    const button = $('run-submit');
+    button.disabled = true;
+    button.textContent = '提交中…';
+    try {
+      await apiSend('POST', '/api/jobs', collectRunRequest());
+      await refreshJobs();
+    } catch (error) {
+      showRunError(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = '提交运行';
+    }
+  };
+}
+
+/* --------------------------------------------------------------- jobs */
+
+const STATE_ZH = {
+  QUEUED: '排队中', RUNNING: '运行中', SUCCEEDED: '已完成', FAILED: '失败', CANCELLED: '已取消',
+  /* 派生态：编排正常结束但 run 未跑满营业日（破产 / 轮数用尽 / LLM 错误等折叠为 env_terminated）。
+     不单独标出来会把「假密钥 401、day 0 就终止」显示成绿色的已完成，误导用户以为跑成了。 */
+  TERMINATED: '已结束·未跑满',
+};
+
+const POLL_MS = 2500;
+
+let jobGeneration = 0;
+let jobTimer = null;
+const finishedSeen = new Set();
+
+async function refreshJobs() {
+  const generation = ++jobGeneration;
+  let payload;
+  try {
+    payload = await api('/api/jobs');
+  } catch (error) {
+    $('jobs').innerHTML = `<p class="hint">读取任务失败：${esc(error.message)}</p>`;
+    return;
+  }
+  if (generation !== jobGeneration) return;   // 丢弃陈旧响应，与 loadCompare 同构
+  state.jobs = payload.jobs || [];
+  renderJobs();
+  const grew = notifyNewlyFinished();
+  scheduleJobPolling();
+  if (grew) reloadSessions();
+}
+
+/* 记录新完成的会话；返回是否有新完成项（有才重扫会话列表）。 */
+function notifyNewlyFinished() {
+  const fresh = state.jobs.filter((job) => job.state === 'SUCCEEDED' && !finishedSeen.has(job.id));
+  fresh.forEach((job) => finishedSeen.add(job.id));
+  return fresh.length > 0;
+}
+
+async function reloadSessions() {
+  try {
+    state.sessions = await api('/api/sessions');
+  } catch (ignored) {
+    return;
+  }
+  renderSessions();
+}
+
+/* 仅在存在非终态 job 时轮询；全部终态后停掉，避免服务开着就永久空转。 */
+function scheduleJobPolling() {
+  const active = state.jobs.some((job) => job.state === 'QUEUED' || job.state === 'RUNNING');
+  if (active && jobTimer === null) {
+    jobTimer = setTimeout(() => { jobTimer = null; refreshJobs(); }, POLL_MS);
+  }
+  if (!active && jobTimer !== null) {
+    clearTimeout(jobTimer);
+    jobTimer = null;
+  }
+}
+
+function renderJobs() {
+  const box = $('jobs');
+  box.innerHTML = '';
+  if (!state.jobs.length) {
+    box.innerHTML = '<p class="hint">暂无任务。用左侧「新建运行」提交第一个。</p>';
+    return;
+  }
+  const table = document.createElement('table');
+  table.innerHTML =
+    '<thead><tr><th>模型</th><th>状态</th><th>进度</th><th>会话</th><th>提交时间</th>'
+    + '<th></th><th>详情</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  state.jobs.forEach((job) => tbody.append(jobRow(job)));
+  table.append(tbody);
+  box.append(table);
+}
+
+function jobRow(job) {
+  const row = document.createElement('tr');
+  row.append(textCell(job.model));
+  row.append(badgeCell(effectiveState(job)));
+  row.append(progressCell(job.progress));
+  row.append(sessionCell(job));
+  row.append(textCell(String(job.submittedAt || '').replace('T', ' ').slice(0, 19)));
+
+  const action = document.createElement('td');
+  if (job.state === 'QUEUED' || job.state === 'RUNNING') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '取消';
+    button.title = '尽力而为：可能需等到下一次模型调用才真正停下';
+    button.onclick = async () => {
+      button.disabled = true;
+      try {
+        await apiSend('DELETE', `/api/jobs/${encodeURIComponent(job.id)}`);
+      } catch (error) {
+        showRunError(error.message);
+      }
+      await refreshJobs();
+    };
+    action.append(button);
+  }
+  row.append(action);
+  row.append(textCell(job.state === 'FAILED' ? (job.error || '') : outcomeText(job)));
+  return row;
+}
+
+function outcomeText(job) {
+  if (!job.outcomes || !job.outcomes.length) return '';
+  return job.outcomes
+    .map((o) => `run${o.index}: ${o.succeeded ? `${o.canonicalReason}（day ${o.finalDay}）` : '失败'}`)
+    .join(' · ');
+}
+
+function textCell(text) {
+  const td = document.createElement('td');
+  td.textContent = text ?? '';
+  return td;
+}
+
+function badgeCell(jobState) {
+  const td = document.createElement('td');
+  const span = document.createElement('span');
+  span.className = `badge badge-${String(jobState).toLowerCase()}`;
+  span.textContent = STATE_ZH[jobState] || jobState;
+  td.append(span);
+  return td;
+}
+
+/* 展示用状态：编排 SUCCEEDED 但所有 run 都不是 env_completed 时，降级为 TERMINATED。 */
+function effectiveState(job) {
+  if (job.state !== 'SUCCEEDED') return job.state;
+  const outcomes = job.outcomes || [];
+  const terminated = outcomes.length
+    && outcomes.every((o) => o.canonicalReason && o.canonicalReason !== 'env_completed');
+  return terminated ? 'TERMINATED' : job.state;
+}
+
+function progressCell(progress) {
+  const td = document.createElement('td');
+  if (!progress || !progress.maxDays) { td.textContent = '—'; return td; }
+  const ratio = Math.max(0, Math.min(1, progress.days / progress.maxDays));
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const fill = document.createElement('i');
+  fill.style.width = `${(ratio * 100).toFixed(1)}%`;
+  bar.append(fill);
+  const label = document.createElement('span');
+  label.className = 'bar-label';
+  label.textContent = `${progress.days}/${progress.maxDays} 天 · run ${progress.runsDone}/${progress.runsTotal}`;
+  td.append(bar, label);
+  return td;
+}
+
+/* 会话名可点击：跳到会话列表并选中，衔接既有下钻面板。 */
+function sessionCell(job) {
+  const td = document.createElement('td');
+  if (!job.sessionName) { td.textContent = '—'; return td; }
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'link';
+  link.textContent = shortName(job.sessionName);
+  link.title = job.sessionName;
+  link.onclick = () => {
+    state.selected.clear();
+    state.selected.add(job.sessionName);
+    renderSessions();
+    loadCompare();
+    $('session-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  td.append(link);
+  return td;
+}
+
 /* ---------------------------------------------------------------- boot */
 
 async function boot() {
-  try {
-    state.sessions = await api('/api/sessions');
-  } catch (error) {
-    setStatus('无法读取会话列表：' + error.message, 'bad');
-    $('session-list').innerHTML = '<p class="hint">加载失败</p>';
-    return;
-  }
-  if (!state.sessions.length) {
-    setStatus('日志目录下没有会话', 'bad');
-    $('session-list').innerHTML = '<p class="hint">未发现会话。请用 --log-dir 指向含 run 产物的目录。</p>';
-    return;
-  }
-  // 默认选中信息最全的会话（run 最多，其次有余额产物）
-  const best = [...state.sessions].sort((a, b) => (b.runs - a.runs) || (b.hasBalance - a.hasBalance))[0];
-  state.selected.add(best.name);
-
+  /* 写侧面板与事件绑定必须先于「空会话早退」：新语义下用户很可能先开服务、
+     再在页面上跑第一个 run，此时 log/ 为空，旧写法会在早退处直接 return 而让表单永不出现。 */
+  await initRunForm();
   $('select-all').onclick = () => {
     state.sessions.forEach((s) => state.selected.add(s.name));
     renderSessions();
@@ -131,9 +390,27 @@ async function boot() {
     loadCompare();
   };
   $('metric-filter').oninput = () => filterMetricRows();
+  observeReveals();
+  refreshJobs();
+
+  try {
+    state.sessions = await api('/api/sessions');
+  } catch (error) {
+    setStatus('无法读取会话列表：' + error.message, 'bad');
+    $('session-list').innerHTML = '<p class="hint">加载失败</p>';
+    return;
+  }
+  if (!state.sessions.length) {
+    setStatus('日志目录下没有会话');
+    $('session-list').innerHTML =
+      '<p class="hint">未发现会话。在上方「新建运行」提交第一个任务，或用 --log-dir 指向含 run 产物的目录。</p>';
+    return;
+  }
+  // 默认选中信息最全的会话（run 最多，其次有余额产物）
+  const best = [...state.sessions].sort((a, b) => (b.runs - a.runs) || (b.hasBalance - a.hasBalance))[0];
+  state.selected.add(best.name);
 
   renderSessions();
-  observeReveals();
   await loadCompare();
 }
 

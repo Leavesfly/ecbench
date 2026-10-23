@@ -110,7 +110,8 @@ public final class SimulationEngine {
     }
 
     /**
-     * 开设一间新店：校验未超店铺上限、类型合法、同类型未重复开店且银行余额足以支付开店费后， 扣除开店费并登记新店；任一条件不满足则返回带原因的失败结果且不扣款。
+     * 开设一间新店：校验未超店铺上限、类型合法、同类型未重复开店且银行余额足以支付开店费后，
+     * 扣除开店费并登记新店；任一条件不满足则返回带原因的失败结果且不扣款。
      */
     public OpenStoreResult openStore(String storeType, String storeName) {
         if (state.openStoreCount() >= state.maxStores()) {
@@ -204,7 +205,9 @@ public final class SimulationEngine {
                 null);
     }
 
-    /** 按店铺类型与类目（均可空）过滤商品目录，返回可供选品的只读视图。 */
+    /**
+     * 按店铺类型与类目（均可空）过滤商品目录，返回可供选品的只读视图。
+     */
     public List<ProductView> listProducts(String storeType, String category) {
         Predicate<Product> filter = product -> true;
         if (storeType != null && !storeType.isBlank()) {
@@ -262,7 +265,9 @@ public final class SimulationEngine {
         return new PublishResult(storeId, results);
     }
 
-    /** 批量修改已上架商品的零售价；非正价格或未在店铺发布的商品逐项返回失败，成功项记录新旧价。 */
+    /**
+     * 批量修改已上架商品的零售价；非正价格或未在店铺发布的商品逐项返回失败，成功项记录新旧价。
+     */
     public SetPricesResult setPrices(String storeId, List<PriceItem> prices) {
         StoreState store = requireOpenStore(storeId);
         List<ItemOperationResult> results = new ArrayList<>();
@@ -280,7 +285,9 @@ public final class SimulationEngine {
         return new SetPricesResult(storeId, results);
     }
 
-    /** 将店铺内滞销库存退回仓库：校验店铺现货充足后扣减店铺库存并释放对应的仓库占用。 */
+    /**
+     * 将店铺内滞销库存退回仓库：校验店铺现货充足后扣减店铺库存并释放对应的仓库占用。
+     */
     public ReturnResult returnToWarehouse(String storeId, List<QtyItem> items) {
         StoreState store = requireOpenStore(storeId);
         List<ItemOperationResult> results = new ArrayList<>();
@@ -299,7 +306,9 @@ public final class SimulationEngine {
         return new ReturnResult(storeId, results);
     }
 
-    /** 不区分供应商的采购到货入口， supplierId 退化为 "unknown"。 */
+    /**
+     * 不区分供应商的采购到货入口， supplierId 退化为 "unknown"。
+     */
     public void receivePurchaseOrder(
             String productId, int quantity, Money unitPrice, boolean defective, int deliveryDelayDays) {
         receivePurchaseOrder("unknown", productId, quantity, unitPrice, defective, deliveryDelayDays);
@@ -341,7 +350,9 @@ public final class SimulationEngine {
                                 defective));
     }
 
-    /** 盘点仓库：按 SKU 汇总已分配量与物理现货量，并回填商品标题、类目、尺寸与最新单价。 */
+    /**
+     * 盘点仓库：按 SKU 汇总已分配量与物理现货量，并回填商品标题、类目、尺寸与最新单价。
+     */
     public List<WarehouseRow> checkWarehouse() {
         Map<String, WarehouseRow> rows = new LinkedHashMap<>();
         for (WarehouseLot lot : state.warehouse().allLots()) {
@@ -361,7 +372,8 @@ public final class SimulationEngine {
     }
 
     /**
-     * 查看账户全貌：银行/钱包/待结算余额、未发货预期收入、总资产，以及按结算日聚合的托管入账时间表。 */
+     * 查看账户全貌：银行/钱包/待结算余额、未发货预期收入、总资产，以及按结算日聚合的托管入账时间表。
+     */
     public BalanceView checkBalance() {
         Map<LocalDate, Money> upcoming = new LinkedHashMap<>();
         state.accounts().escrowBatches().stream()
@@ -384,7 +396,9 @@ public final class SimulationEngine {
                 state.currentDate());
     }
 
-    /** 从银行提现到钱包；余额不足等非法请求会被 accounts().withdraw 抛出的异常转为失败结果。 */
+    /**
+     * 从银行提现到钱包；余额不足等非法请求会被 accounts().withdraw 抛出的异常转为失败结果。
+     */
     public WithdrawResult withdraw(Money requested) {
         try {
             Money withdrawn = state.accounts().withdraw(requested);
@@ -396,7 +410,9 @@ public final class SimulationEngine {
         }
     }
 
-    /** 返回指定店铺的实时状态快照（商品、价格、累计营收/运费/退款）；店铺不存在或已关闭时抛业务异常。 */
+    /**
+     * 返回指定店铺的实时状态快照（商品、价格、累计营收/运费/退款）；店铺不存在或已关闭时抛业务异常。
+     */
     public StoreStatus storeStatus(String storeId) {
         StoreState store = requireOpenStore(storeId);
         return new StoreStatus(
@@ -408,7 +424,9 @@ public final class SimulationEngine {
                 store.totalRefunds());
     }
 
-    /** 列出当前所有店铺（含已关闭）的概要信息。 */
+    /**
+     * 列出当前所有店铺（含已关闭）的概要信息。
+     */
     public List<StoreSummary> listStores() {
         return state.stores().values().stream().map(this::summary).toList();
     }
@@ -467,7 +485,8 @@ public final class SimulationEngine {
     }
 
     /**
-     * 检索供应商：按类目、店铺类型允许类目、商品名关键字（通配到其类目）三重过滤，命中集经确定性洗乱后返回。 */
+     * 检索供应商：按类目、店铺类型允许类目、商品名关键字（通配到其类目）三重过滤，命中集经确定性洗乱后返回。
+     */
     public List<SupplierView> supplierSearch(String productName, String category, String storeType) {
         Set<String> productCategories =
                 productName == null || productName.isBlank()
@@ -492,7 +511,7 @@ public final class SimulationEngine {
                                 supplier ->
                                         storeType == null
                                                 || supplier.categoriesServed().stream()
-                                                        .anyMatch(storeCategories::contains))
+                                                .anyMatch(storeCategories::contains))
                         .filter(
                                 supplier ->
                                         productName == null
@@ -736,7 +755,8 @@ public final class SimulationEngine {
     }
 
     /**
-     * 推进到新的一天：先校验传入日期与当前状态一致且未终止，然后依次执行日级流水线各处理器， 追加市场事件通知，并在达到 maxDays 时终止整个 episode。
+     * 推进到新的一天：先校验传入日期与当前状态一致且未终止，然后依次执行日级流水线各处理器，
+     * 追加市场事件通知，并在达到 maxDays 时终止整个 episode。
      */
     public DailyResult advanceToNextDay(LocalDate currentDay) {
         if (!state.currentDate().equals(currentDay)) {

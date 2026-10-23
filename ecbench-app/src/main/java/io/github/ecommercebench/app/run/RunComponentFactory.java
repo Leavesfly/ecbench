@@ -60,6 +60,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 为每个 run 装配一整套隔离组件的工厂。
@@ -83,11 +84,26 @@ public final class RunComponentFactory {
     private TokenCounter tokenCounter;
     private RunDirectory runDirectory;
     private List<RunJob> fileJobs;
+    private final Consumer<Path> onSessionCreated;
 
-    /** 注入共享 JSON mapper 与 LLM 客户端提供者；各只读单例在首次使用时惰性构建。 */
+    /** 注入共享 JSON mapper 与 LLM 客户端提供者；会话目录回调为 no-op。 */
     public RunComponentFactory(ObjectMapper objectMapper, LlmClientProvider llmClientProvider) {
+        this(objectMapper, llmClientProvider, ignored -> {});
+    }
+
+    /**
+     * 注入共享 JSON mapper、LLM 客户端提供者与会话目录回调；各只读单例在首次使用时惰性构建。
+     *
+     * <p>回调在 {@link #sharedRunDirectory} 首次创建 {@code {timestamp}_{model}} 会话目录后触发一次，供 Web
+     * 触发运行的任务把会话名回填给前端；CLI 路径用两参构造，回调为 no-op。
+     */
+    public RunComponentFactory(
+            ObjectMapper objectMapper,
+            LlmClientProvider llmClientProvider,
+            Consumer<Path> onSessionCreated) {
         this.objectMapper = objectMapper;
         this.llmClientProvider = llmClientProvider;
+        this.onSessionCreated = onSessionCreated;
     }
 
     /**
@@ -224,16 +240,21 @@ public final class RunComponentFactory {
         return tokenCounter;
     }
 
-    /** 惰性创建并共享本次运行的产物目录（缺省落在 ./log，含时间戳与模型名）。 */
-    private synchronized RunDirectory sharedRunDirectory(BenchmarkOptions options) {
+    /**
+     * 惰性创建并共享本次运行的产物目录（缺省落在 ./log，含时间戳与模型名）；创建后触发一次会话回调。
+     *
+     * <p>包级可见以便测试直接验证回调，无需装配完整的 catalog / tokenizer / LLM 依赖。
+     */
+    synchronized RunDirectory sharedRunDirectory(BenchmarkOptions options) {
         if (runDirectory == null) {
             Path logDir =
                     options.runConfig().logDir() != null
                             ? options.runConfig().logDir()
                             : Path.of(System.getProperty("user.dir")).resolve("log");
             runDirectory =
-                    RunDirectory.create(
+                    RunDirectory.createUnique(
                             logDir, TIMESTAMP.format(LocalDateTime.now()), options.runConfig().modelKey());
+            onSessionCreated.accept(runDirectory.sessionDir());
         }
         return runDirectory;
     }

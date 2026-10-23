@@ -34,6 +34,17 @@ public final class ProviderResolver {
     }
 
     /**
+     * 返回某 provider 预设的 API Key 环境变量名；未知 provider 返回 null。
+     *
+     * <p>暴露既有 {@code PRESETS} 映射，供上层判断「该模型的密钥是否已就绪」时复用同一份表，避免各处另抄一份
+     * provider→变量名对照而漂移。纯读取，不影响 {@link #resolve} 的任何行为。
+     */
+    public String keyEnvironmentFor(String provider) {
+        Preset preset = PRESETS.get(provider);
+        return preset == null ? null : preset.keyEnvironment();
+    }
+
+    /**
      * 将用户模型的 ModelConfig 解析为可直接请求的 ResolvedProvider。
      *
      * <p>依次推断 provider、根据预设补全 baseUrl 与 apiStyle、解析 API Key

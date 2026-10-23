@@ -1,5 +1,7 @@
 package io.github.ecommercebench.app.cli;
 
+import io.github.ecommercebench.app.config.RunOptions;
+
 import picocli.CommandLine.Option;
 
 /**
@@ -9,8 +11,11 @@ import picocli.CommandLine.Option;
  * --max-turns}、{@code --max-days}、{@code --initial-balance}、{@code --daily-fee}、{@code
  * --max-token-capacity}、 {@code --tokenizer-path}、{@code --log-dir}、{@code --job-file}、{@code
  * --runs}；另新增两个可选参数 {@code --seed}（确定性随机种子）与 {@code --data-dir}（数据目录覆盖）， 均不破坏原 CLI 兼容性。
+ *
+ * <p>实现 {@link RunOptions}：13 个访问器的名称与签名与该契约逐一一致，因此本类无需新增或改名任何方法，
+ * 即可与 Web 提交路径的 {@code JobRequest} 一同交给 {@code ConfigurationMerger}。
  */
-public final class CliRunOptions {
+public final class CliRunOptions implements RunOptions {
 
     @Option(names = "--model", description = "models_config.json 中的模型键（运行基准时必填）")
     private String model;

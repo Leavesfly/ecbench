@@ -13,10 +13,15 @@ replay_pid*
 # ecbench-app/src/main/java/io/github/ecommercebench/app/log/。
 /log/
 
+# ===== 本地密钥 =====
+# 服务启动时读取的 LLM 密钥文件（真实环境变量优先，本文件只填补缺失项），绝不入库。
+.env
+
 # ===== IDE / 操作系统 =====
 .idea/
 *.iml
 .vscode/
+.superpowers/
 .qoder/
 .DS_Store
 Thumbs.db

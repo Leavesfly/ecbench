@@ -5,6 +5,7 @@ import java.util.SplittableRandom;
 /** 在 Java 实现中提供固定且可重复的伪随机数序列。 */
 public final class DeterministicRandom {
 
+  /** 被包装的 JDK 可分裂随机源，由固定 seed 初始化以保障可复现。 */
   private final SplittableRandom delegate;
 
   /** 以固定 seed 构造；同一 seed 总是产生完全相同的调用序列，是仿真可复现的基石。 */

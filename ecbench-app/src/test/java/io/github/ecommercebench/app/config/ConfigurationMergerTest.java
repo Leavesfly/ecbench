@@ -108,4 +108,79 @@ class ConfigurationMergerTest {
 
         assertThat(options.effort()).isEqualTo("low");
     }
+
+    /** 证明 merge 接受任意 RunOptions 实现，而不只是 Picocli 注入的 CliRunOptions（Web 提交路径的前提）。 */
+    @Test
+    void acceptsAnyRunOptionsImplementation() throws Exception {
+        Path wd = workdirWithConfig();
+
+        BenchmarkOptions options = new ConfigurationMerger().merge(new StubRunOptions("gpt"), Map.of(), wd);
+
+        assertThat(options.runConfig().modelKey()).isEqualTo("gpt");
+        assertThat(options.runConfig().maxDays()).isEqualTo(365);
+        assertThat(options.runConfig().seed()).isEqualTo(42L);
+    }
+
+    /** 模拟 Web 提交路径的最小 RunOptions：只给 model，其余取 CLI 同值默认。 */
+    private record StubRunOptions(String model) implements RunOptions {
+        @Override
+        public int maxTokens() {
+            return 16384;
+        }
+
+        @Override
+        public int maxTurns() {
+            return 4000;
+        }
+
+        @Override
+        public int maxDays() {
+            return 365;
+        }
+
+        @Override
+        public double initialBalance() {
+            return 100000.0;
+        }
+
+        @Override
+        public double dailyFee() {
+            return 50.0;
+        }
+
+        @Override
+        public int maxTokenCapacity() {
+            return 128000;
+        }
+
+        @Override
+        public String tokenizerPath() {
+            return null;
+        }
+
+        @Override
+        public String logDir() {
+            return null;
+        }
+
+        @Override
+        public String jobFile() {
+            return null;
+        }
+
+        @Override
+        public int runs() {
+            return 1;
+        }
+
+        @Override
+        public Long seed() {
+            return null;
+        }
+
+        @Override
+        public String dataDir() {
+            return null;
+        }
+    }
 }

@@ -10,6 +10,8 @@ import java.util.Objects;
  * 金额值对象。
  *
  * <p>所有金额在进入领域模型时统一保留两位小数并采用四舍五入。该类型允许负数，用于表达银行账户透支； 是否破产由仿真层根据连续负余额天数判断。
+ *
+ * @param amount 已完成两位小数规整的金额数值，同时作为 JSON 序列化值
  */
 public record Money(@JsonValue BigDecimal amount) implements Comparable<Money> {
 

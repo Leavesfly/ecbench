@@ -18,6 +18,27 @@
   </div>
 
   <div class="rail-block">
+    <h2 class="micro">新建运行</h2>
+    <p id="npc-warning" class="warn" hidden></p>
+    <form id="run-form" class="run-form">
+      <label class="field"><span>模型</span>
+        <select id="run-model" required><option value="">读取模型列表中…</option></select>
+      </label>
+      <div class="field-row">
+        <label class="field"><span>天数</span><input id="run-days" type="number" min="1" step="1" placeholder="365" /></label>
+        <label class="field"><span>轮数</span><input id="run-turns" type="number" min="1" step="1" placeholder="4000" /></label>
+      </div>
+      <div class="field-row">
+        <label class="field"><span>并行 run</span><input id="run-runs" type="number" min="1" step="1" placeholder="1" /></label>
+        <label class="field"><span>种子</span><input id="run-seed" type="number" step="1" placeholder="42" /></label>
+      </div>
+      <button id="run-submit" type="submit">提交运行</button>
+      <p id="run-error" class="error" hidden></p>
+      <p class="note">密钥取自服务进程的环境变量与仓库根 <code>.env</code>，不经浏览器传输。</p>
+    </form>
+  </div>
+
+  <div class="rail-block">
     <h2 class="micro">会话</h2>
     <div id="session-list" class="session-list"><p class="hint">加载中…</p></div>
     <div class="rail-actions">
@@ -38,6 +59,16 @@
 </aside>
 
 <main class="stage">
+
+  <section class="grid" id="jobs-section">
+    <article class="card span-12 reveal">
+      <header class="card-head">
+        <h2>任务队列</h2>
+        <span class="micro">单任务串行 · 状态仅存内存，服务重启后清空</span>
+      </header>
+      <div id="jobs" class="table-wrap"><p class="hint">暂无任务</p></div>
+    </article>
+  </section>
 
   <section class="kpis" id="kpis">
     <article class="kpi reveal"><span class="micro">最佳主评分（年末总资产倍数）</span><strong id="kpi-score">—</strong><em id="kpi-score-who"></em></article>
