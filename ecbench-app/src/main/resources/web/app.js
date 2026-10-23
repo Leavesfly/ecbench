@@ -173,6 +173,30 @@ function collectRunRequest() {
   return payload;
 }
 
+/** 上传预算：64 KB 是整个请求体的上限，要与其余 9 个字段共享，故留 4 KB 余量。 */
+const MAX_JOB_FILE_BYTES = 60 * 1024;
+
+/**
+ * 读取用户选中的 job JSONL 文本；未选文件返回 null。
+ * 超预算直接 reject、不发请求——服务端会 413，但客户端提前拦能给出更具体的中文提示。
+ */
+function readJobFile() {
+  const input = $('run-jobfile');
+  if (!input.files || !input.files.length) return Promise.resolve(null);
+  const file = input.files[0];
+  if (file.size > MAX_JOB_FILE_BYTES) {
+    return Promise.reject(new Error(
+      `job 文件 ${file.size} 字节超过上限 ${MAX_JOB_FILE_BYTES} 字节；`
+      + '服务端只使用第一行，可只保留首个 job 后重试'));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('读取 job 文件失败'));
+    reader.readAsText(file);
+  });
+}
+
 async function initRunForm() {
   try {
     fillModelSelect(await api('/api/models'));
@@ -188,7 +212,10 @@ async function initRunForm() {
     button.disabled = true;
     button.textContent = '提交中…';
     try {
-      await apiSend('POST', '/api/jobs', collectRunRequest());
+      const payload = collectRunRequest();
+      const jobFileContent = await readJobFile();
+      if (jobFileContent !== null) payload.jobFileContent = jobFileContent;
+      await apiSend('POST', '/api/jobs', payload);
       await refreshJobs();
     } catch (error) {
       showRunError(error.message);
@@ -392,6 +419,8 @@ async function boot() {
   $('metric-filter').oninput = () => filterMetricRows();
   observeReveals();
   refreshJobs();
+  // 首屏还没有任何勾选，也要先把 5 个导出链接置成可用（缺省 = 后端取前 12 个会话）
+  refreshExportLinks();
 
   try {
     state.sessions = await api('/api/sessions');
@@ -439,6 +468,34 @@ function renderSessions() {
     label.append(checkbox, name, meta);
     box.append(label);
   });
+  // 所有勾选变化（复选框 onchange、全选、清空）都汇聚到本函数，故挂在这里即可覆盖全部路径
+  refreshExportLinks();
+}
+
+/* ------------------------------------------------------------ exports */
+
+/** 导出端点与对应链接元素 id；kind 与后端 /api/export/{kind} 逐字对应。 */
+const EXPORT_LINKS = [
+  ['export-balance', 'balance.png'],
+  ['export-radar', 'radar.png'],
+  ['export-ranking-csv', 'ranking.csv'],
+  ['export-ranking-json', 'ranking.json'],
+  ['export-matrix', 'matrix.csv'],
+];
+
+/**
+ * 重算 5 个下载链接的 href：带上当前勾选的会话；无勾选时留空 sessions，
+ * 由后端按缺省语义取前 12 个会话（与 /api/compare 一致）。
+ * 用 <a download> 而非 fetch，因此不涉及跨域、blob 与内存回收。
+ */
+function refreshExportLinks() {
+  const chosen = [...state.selected];
+  const query = chosen.length
+    ? '?' + chosen.map((n) => 'sessions=' + encodeURIComponent(n)).join('&')
+    : '';
+  EXPORT_LINKS.forEach(([id, kind]) => {
+    $(id).href = '/api/export/' + kind + query;
+  });
 }
 
 /* ------------------------------------------------------------ compare */
@@ -460,6 +517,7 @@ async function loadCompare() {
     state.drilled = null;
     $('run-picker').innerHTML = '<p class="hint">选择会话后出现</p>';
     renderKpis(null);
+    refreshExportLinks();
     return;
   }
   const query = chosen.map((n) => 'sessions=' + encodeURIComponent(n)).join('&');

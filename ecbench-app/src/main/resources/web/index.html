@@ -32,6 +32,10 @@
         <label class="field"><span>并行 run</span><input id="run-runs" type="number" min="1" step="1" placeholder="1" /></label>
         <label class="field"><span>种子</span><input id="run-seed" type="number" step="1" placeholder="42" /></label>
       </div>
+      <label class="field"><span>job JSONL（可选）</span>
+        <input id="run-jobfile" type="file" accept=".jsonl,application/json,text/plain" />
+      </label>
+      <p class="note">上限约 60 KB；服务端<b>只使用文件第一行</b>，多 run 文件可只保留首个 job。</p>
       <button id="run-submit" type="submit">提交运行</button>
       <p id="run-error" class="error" hidden></p>
       <p class="note">密钥取自服务进程的环境变量与仓库根 <code>.env</code>，不经浏览器传输。</p>
@@ -130,6 +134,21 @@
         <input id="metric-filter" class="filter" type="search" placeholder="过滤指标或维度…" aria-label="过滤指标或维度" />
       </header>
       <div id="metric-table" class="table-wrap tall"><p class="hint">—</p></div>
+    </article>
+
+    <article class="card span-12 reveal">
+      <header class="card-head">
+        <h2>导出</h2>
+        <span class="micro">下载当前勾选会话的产物 · 未勾选时取前 12 个会话</span>
+      </header>
+      <div id="exports" class="exports">
+        <a id="export-balance" href="/api/export/balance.png" download>余额曲线 PNG</a>
+        <a id="export-radar" href="/api/export/radar.png" download>七轴雷达 PNG</a>
+        <a id="export-ranking-csv" href="/api/export/ranking.csv" download>排名 CSV</a>
+        <a id="export-ranking-json" href="/api/export/ranking.json" download>排名 JSON</a>
+        <a id="export-matrix" href="/api/export/matrix.csv" download>指标矩阵 CSV</a>
+      </div>
+      <p class="note">PNG 由服务端用与 <code>evaluate plot</code> / <code>evaluate profile</code> 相同的 XChart 渲染，余额图含该会话的<b>全部 run</b>（不是只有 run_0）。</p>
     </article>
   </section>
 

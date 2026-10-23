@@ -553,3 +553,34 @@ details.block[open] > summary { border-bottom: 1px solid var(--line-soft); color
   word-break: break-all;
 }
 .badge-terminated { color: var(--amber); background: rgba(176, 118, 26, .16); border-color: var(--amber); }
+
+/* ------------------------------------------------------------- exports */
+
+/* min-width:0 必需：全局 tbody td 带 nowrap，而本项目曾出现过「缺 min-width:0 叠加
+   white-space:nowrap 逐属性泄漏导致卡片必然溢出」的缺陷（参见 .dimension）。 */
+.exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 沿用 #jobs button 的小药丸样式，不引入新色值。 */
+.exports a {
+  padding: 5px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .16s, border-color .16s, background .16s;
+}
+
+.exports a:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(176, 118, 26, .10);
+}
