@@ -215,12 +215,19 @@ class DashboardServerTest {
 
     @Test
     void exportErrorMappingMatchesReadOnlyEndpoints() throws Exception {
-        widenBalanceCsv();
-
         assertThat(get("/api/export/matrix.csv?sessions=bad%20name").statusCode()).isEqualTo(400);
         assertThat(get("/api/export/matrix.csv?sessions=2026_absent").statusCode()).isEqualTo(404);
         assertThat(get("/api/export/nope.csv").statusCode()).isEqualTo(404);
         assertThat(send("POST", "/api/export/matrix.csv").statusCode()).isEqualTo(405);
+
+        // 服务端磁盘上的余额 CSV 内容损坏不是调用方的错，与只读端点同口径报 404 而非 400。
+        Files.writeString(
+                log.resolve("2026_qwen3.7-plus/balance/run_0_daily_balance.csv"),
+                "date,bank_balance,platform_wallet,total_balance,open_stores,warehouse_items,"
+                        + "storage_charged\n"
+                        + "2026-01-01,not-a-number,0.00,100000.00,0,0,0.00\n");
+        assertThat(get("/api/export/balance.png?sessions=2026_qwen3.7-plus").statusCode())
+                .isEqualTo(404);
     }
 
     @Test

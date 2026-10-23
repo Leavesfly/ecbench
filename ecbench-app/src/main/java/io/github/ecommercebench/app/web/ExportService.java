@@ -67,7 +67,7 @@ public final class ExportService {
     /**
      * 余额曲线 PNG：所有给定会话的所有已落盘 run 叠加成一张，与 {@code evaluate plot --overlay} 同口径。
      *
-     * @throws ArtifactNotFoundException 过滤后没有任何真实存在的余额 CSV
+     * @throws ArtifactNotFoundException 过滤后没有任何真实存在的余额 CSV，或已落盘的 CSV 内容不可解析
      */
     public Export balancePng(List<String> sessions, String title) {
         List<Path> dirs = resolveAll(sessions);
@@ -86,7 +86,16 @@ public final class ExportService {
         if (csvFiles.isEmpty()) {
             throw new ArtifactNotFoundException("没有可绘制的余额 CSV");
         }
-        return new Export(PNG, "balance.png", balancePlotter.png(csvFiles, labels, title));
+        byte[] body;
+        try {
+            body = balancePlotter.png(csvFiles, labels, title);
+        } catch (IllegalArgumentException exception) {
+            // 转译范围仅限绘图与读 CSV：会话名解析已在上面完成，其 IllegalArgumentException 不该落到这里。
+            // 这一支实际接住的是 BalanceCsvReader 对坏行抛的「余额 CSV 解析失败」——那是服务端磁盘上的
+            // 数据损坏，不是调用方的请求非法，故与 radarPng 同口径报 404 而非 400。
+            throw new ArtifactNotFoundException(String.valueOf(exception.getMessage()));
+        }
+        return new Export(PNG, "balance.png", body);
     }
 
     /**

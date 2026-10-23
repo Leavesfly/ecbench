@@ -67,13 +67,35 @@ class ExportServiceTest {
         assertThat(body[3] & 0xFF).isEqualTo(0x47);
     }
 
+    /**
+     * 图例标签渲染进像素、从 {@code byte[]} 不可观测，故本用例只锁可观测的部分：MIME、文件名与 PNG 魔数。
+     *
+     * <p>标签的配对正确性靠结构保证：{@code csvFiles.add} 与 {@code labels.add} 在同一循环体内成对执行。
+     */
     @Test
-    void balancePngUsesSessionQualifiedSeriesLabelsAndFixedFilename() {
+    void balancePngHasFixedFilenameAndPngMagic() {
         Export export = exports.balancePng(List.of("2026_a", "2026_b"), "t");
 
         assertThat(export.contentType()).isEqualTo("image/png");
         assertThat(export.filename()).isEqualTo("balance.png");
         assertPngMagic(export.body());
+    }
+
+    /**
+     * 已落盘但内容损坏的余额 CSV 是服务端数据问题，不是调用方的请求非法：必须报 404 而非 400。
+     *
+     * <p>{@code BalanceCsvReader} 对坏行抛 {@code IllegalArgumentException}，若不在 {@code balancePng}
+     * 里做窄转译，它会一路冒泡到 ApiRouter 的 IAE→400 分支，语义正好反了。
+     */
+    @Test
+    void corruptBalanceCsvIsNotFoundAndNotBadRequest() throws Exception {
+        Files.writeString(
+                log.resolve("2026_a/balance/run_0_daily_balance.csv"),
+                BALANCE_HEADER + "2026-01-01,not-a-number,0,1000.00,0,0,0\n");
+
+        assertThatThrownBy(() -> exports.balancePng(List.of("2026_a"), null))
+                .isInstanceOf(ArtifactNotFoundException.class)
+                .hasMessageContaining("余额 CSV 解析失败");
     }
 
     @Test
