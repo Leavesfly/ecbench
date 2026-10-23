@@ -43,12 +43,29 @@ public final class CompareService {
         this.dimensions = dimensions;
     }
 
+    /** {@link #compare} 与导出端点共用的计算结果：聚合报告 + 归一化画像。 */
+    public record Compared(ComparisonReport report, NormalizedProfile profile) {
+    }
+
+    /**
+     * 从会话目录算出聚合报告与七轴归一化画像。
+     *
+     * <p>抽成公开方法，使导出端点（雷达 PNG、排名 CSV/JSON、指标矩阵 CSV）与 {@code /api/compare} 的
+     * {@code radar}/{@code ranking} 段共用同一条计算链，避免两处口径漂移。同时返回两者是为了让调用方
+     * 只算一次——{@code compare} 与矩阵导出都要 report，雷达与排名都要 profile。
+     */
+    public Compared compareAll(List<Path> sessionDirs) {
+        ComparisonReport report = new RunComparator().compare(sessionDirs);
+        return new Compared(report, new CrossModelProfiler().profile(report));
+    }
+
     /**
      * 对给定会话目录依次输出聚合指标、归一化雷达、排名，以及论文 §4.3 的维度视图四段；空输入返回同形的空结构。
      */
     public JsonNode compare(List<Path> sessionDirs) {
-        ComparisonReport report = new RunComparator().compare(sessionDirs);
-        NormalizedProfile profile = new CrossModelProfiler().profile(report);
+        Compared compared = compareAll(sessionDirs);
+        ComparisonReport report = compared.report();
+        NormalizedProfile profile = compared.profile();
         ObjectNode root = mapper.createObjectNode();
         root.set("sessions", sessionsNode(report));
         root.set("radar", radarNode(profile));

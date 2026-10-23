@@ -42,6 +42,23 @@ class CompareServiceTest {
     }
 
     @Test
+    void compareAllExposesReportAndProfileFromTheSamePipeline(@TempDir Path log) throws Exception {
+        Path a = log.resolve("2026_a-model");
+        Path b = log.resolve("2026_b-model");
+        session(a, 90000);
+        session(b, 120000);
+
+        CompareService.Compared compared = service.compareAll(List.of(a, b));
+
+        assertThat(compared.report().sessions()).hasSize(2);
+        assertThat(compared.report().sessions().get(0).name()).isEqualTo("2026_a-model");
+        assertThat(compared.profile().models()).hasSize(2);
+        // compare() 与 compareAll() 同源：radar 段的 series 数与 profile 的模型数一致
+        assertThat(service.compare(List.of(a, b)).path("radar").path("series"))
+                .hasSize(compared.profile().models().size());
+    }
+
+    @Test
     void metricCellCarriesMeanAndFallback(@TempDir Path log) throws Exception {
         Path a = log.resolve("2026_a-model");
         session(a, 90000);

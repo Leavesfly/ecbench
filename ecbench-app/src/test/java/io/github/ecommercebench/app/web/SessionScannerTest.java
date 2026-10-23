@@ -40,6 +40,19 @@ class SessionScannerTest {
     }
 
     @Test
+    void runIndexesReturnsAscendingIndexesAndEmptyWhenMetricsMissing(@TempDir Path log)
+            throws Exception {
+        Path session = log.resolve("2026_x");
+        writeAnalysis(session, 1);
+        writeAnalysis(session, 0);
+        Files.writeString(session.resolve("metrics/not_a_run.json"), "{}");
+        SessionScanner scanner = new SessionScanner(log);
+
+        assertThat(scanner.runIndexes(session)).containsExactly(0, 1);
+        assertThat(scanner.runIndexes(log.resolve("2026_absent"))).isEmpty();
+    }
+
+    @Test
     void ignoresHiddenDirectoriesAndMissingLogDir(@TempDir Path log) throws Exception {
         Files.createDirectories(log.resolve(".hidden/metrics"));
         writeAnalysis(log.resolve(".hidden"), 0);

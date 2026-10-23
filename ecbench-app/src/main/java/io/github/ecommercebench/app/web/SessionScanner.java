@@ -77,8 +77,14 @@ public final class SessionScanner {
         return new SessionInfo(name, modelKey(name), runs.size(), hasBalance);
     }
 
-    /** 从 {@code metrics/} 子目录收集 run 序号并升序返回。 */
-    private List<Integer> runIndexes(Path dir) {
+    /**
+     * 从 {@code metrics/} 子目录收集 run 序号并升序返回；目录缺失时返回空列表。
+     *
+     * <p>公开供导出端点枚举全部 run。<b>注意</b>：序号来源是 {@code metrics/}，而余额 CSV 在
+     * {@code balance/} 下，两者可能不同步（例如某个 run 中途失败），因此调用方仍须逐个
+     * {@code Files.isRegularFile} 过滤，不能只信序号列表或 {@code SessionInfo.runCount()}。
+     */
+    public List<Integer> runIndexes(Path dir) {
         Path metrics = dir.resolve("metrics");
         if (!Files.isDirectory(metrics)) {
             return List.of();
