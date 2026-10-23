@@ -48,30 +48,7 @@ public final class RadarPlotter {
     }
 
     public Path plot(NormalizedProfile profile, RadarOptions options) {
-        if (profile.models().isEmpty()) {
-            throw new IllegalArgumentException("没有可绘制的模型画像");
-        }
-        ProfileAxis[] axes = ProfileAxis.values();
-        String[] labels = new String[axes.length];
-        for (int i = 0; i < axes.length; i++) {
-            labels[i] = axes[i].label();
-        }
-
-        RadarChart chart =
-                new RadarChartBuilder()
-                        .width(900)
-                        .height(900)
-                        .title(options.title() != null ? options.title() : "model capability profile")
-                        .build();
-        chart.setRadiiLabels(labels);
-
-        for (ModelProfile model : profile.models()) {
-            chart.addSeries(model.name(), toValues(model.normalizedValues()));
-        }
-        RadarSeries median = chart.addSeries("median", toValues(profile.medianNormalized()));
-        median.setLineStyle(DASHED);
-        median.setLineColor(Color.DARK_GRAY);
-
+        RadarChart chart = buildChart(profile, options.title());
         try {
             Path parent = options.output().toAbsolutePath().getParent();
             if (parent != null) {
@@ -88,6 +65,53 @@ public final class RadarPlotter {
         } catch (IOException exception) {
             throw new UncheckedIOException("无法写出雷达图: " + options.output(), exception);
         }
+    }
+
+    /**
+     * 把七轴画像直接渲染为 PNG 字节，<b>不落盘</b>；供 HTTP 下载端点使用。
+     *
+     * @param title 图标题，{@code null} 时用 {@code "model capability profile"}
+     * @throws IllegalArgumentException 没有可绘制的模型画像
+     */
+    public byte[] png(NormalizedProfile profile, String title) {
+        RadarChart chart = buildChart(profile, title);
+        try {
+            return BitmapEncoder.getBitmapBytes(chart, BitmapFormat.PNG);
+        } catch (IOException exception) {
+            throw new UncheckedIOException("无法编码雷达图 PNG", exception);
+        }
+    }
+
+    /**
+     * 构建 RadarChart：每模型一条多边形（NaN 归一化值回退 0），另叠加一条中位数虚线多边形。
+     *
+     * @throws IllegalArgumentException 没有可绘制的模型画像
+     */
+    private RadarChart buildChart(NormalizedProfile profile, String title) {
+        if (profile.models().isEmpty()) {
+            throw new IllegalArgumentException("没有可绘制的模型画像");
+        }
+        ProfileAxis[] axes = ProfileAxis.values();
+        String[] labels = new String[axes.length];
+        for (int i = 0; i < axes.length; i++) {
+            labels[i] = axes[i].label();
+        }
+
+        RadarChart chart =
+                new RadarChartBuilder()
+                        .width(900)
+                        .height(900)
+                        .title(title != null ? title : "model capability profile")
+                        .build();
+        chart.setRadiiLabels(labels);
+
+        for (ModelProfile model : profile.models()) {
+            chart.addSeries(model.name(), toValues(model.normalizedValues()));
+        }
+        RadarSeries median = chart.addSeries("median", toValues(profile.medianNormalized()));
+        median.setLineStyle(DASHED);
+        median.setLineColor(Color.DARK_GRAY);
+        return chart;
     }
 
     private static double[] toValues(List<Double> values) {

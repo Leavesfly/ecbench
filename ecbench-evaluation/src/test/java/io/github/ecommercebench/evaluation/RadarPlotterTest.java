@@ -61,4 +61,24 @@ class RadarPlotterTest {
                                 .plot(empty, new RadarPlotter.RadarOptions(tempDir.resolve("r.png"), "t")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void pngReturnsNonEmptyPngBytes() {
+        byte[] png = new RadarPlotter().png(twoModelProfile(), "profile");
+
+        assertThat(png.length).isGreaterThan(0);
+        assertThat(png[0] & 0xFF).isEqualTo(0x89);
+        assertThat(png[1] & 0xFF).isEqualTo(0x50);
+        assertThat(png[2] & 0xFF).isEqualTo(0x4E);
+        assertThat(png[3] & 0xFF).isEqualTo(0x47);
+    }
+
+    @Test
+    void pngRejectsEmptyProfile() {
+        NormalizedProfile empty = new NormalizedProfile(List.of(), filled(0, 0, 0, 0, 0, 0, 0));
+
+        assertThatThrownBy(() -> new RadarPlotter().png(empty, "t"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("没有可绘制的模型画像");
+    }
 }
