@@ -7,8 +7,9 @@ import io.github.ecommercebench.app.config.RunOptions;
  * 一次 Web 提交的运行参数，与 {@code CliRunOptions} 共享 {@link RunOptions} 契约。
  *
  * <p>13 个字段中<b>只有 9 个可由 HTTP 提交</b>（model / maxTokens / maxTurns / maxDays / initialBalance /
- * dailyFee / maxTokenCapacity / runs / seed）；4 个路径类字段（tokenizerPath / logDir / jobFile / dataDir）
- * 一律取自服务进程自身的启动配置，<b>不接受 body 输入</b>——否则本端点就成了任意路径写入入口。
+ * dailyFee / maxTokenCapacity / runs / seed）；3 个路径类字段（tokenizerPath / logDir / dataDir）一律取自
+ * 服务进程自身的启动配置，<b>不接受 body 输入</b>——否则本端点就成了任意路径写入入口。{@code jobFile}
+ * 同样不接受路径输入，但可经 {@code jobFileContent} 上传<b>内容</b>，由服务端写入自己生成的临时文件。
  *
  * <p>缺省值与 {@code CliRunOptions} 的 {@code @Option(defaultValue=…)} 逐字相同；{@code seed} 缺省为
  * {@code null} 而非 42，因为 42 由 {@code ConfigurationMerger.DEFAULT_SEED} 唯一持有，两处各写一份会静默分叉。
@@ -38,12 +39,24 @@ public record JobRequest(
     public static final int DEFAULT_RUNS = 1;
 
     /**
+     * 从 POST body 解析请求，{@code jobFile} 取服务进程自身的启动配置。
+     *
+     * @param body 请求体 JSON
+     * @param server 服务进程自身的启动参数，用于取 3 个路径类字段与缺省的 {@code jobFile}
+     */
+    public static JobRequest parse(JsonNode body, RunOptions server) {
+        return parse(body, server, server.jobFile());
+    }
+
+    /**
      * 从 POST body 解析请求：校验类型与取值范围，非法输入抛 {@code IllegalArgumentException}。
      *
      * @param body 请求体 JSON
-     * @param server 服务进程自身的启动参数，只用于取 4 个路径类字段
+     * @param server 服务进程自身的启动参数，用于取另外 3 个路径类字段
+     * @param jobFileOverride 生效的 job 文件路径。Web 上传 {@code jobFileContent} 时由服务端写入临时文件后
+     *     传入，<b>覆盖</b>服务进程启动配置里的 {@code --job-file}；未上传时调用方传 {@code server.jobFile()}
      */
-    public static JobRequest parse(JsonNode body, RunOptions server) {
+    public static JobRequest parse(JsonNode body, RunOptions server, String jobFileOverride) {
         if (body == null || !body.isObject()) {
             throw new IllegalArgumentException("请求体必须是 JSON 对象");
         }
@@ -63,7 +76,7 @@ public record JobRequest(
                 optionalLong(body, "seed"),
                 server.tokenizerPath(),
                 server.logDir(),
-                server.jobFile(),
+                jobFileOverride,
                 server.dataDir());
     }
 

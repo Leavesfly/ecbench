@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.ecommercebench.app.run.RunOutcome;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -128,5 +129,21 @@ class JobTest {
 
         assertThat(job.outcomes()).isEmpty();
         assertThat(job.state()).isEqualTo(JobState.SUCCEEDED);
+    }
+
+    /** 临时 job 文件字段未上传时必须为 null，否则清理逻辑会误删不相干的路径。 */
+    @Test
+    void tempJobFileIsNullByDefaultAndRoundTrips() {
+        Job job = newJob();
+
+        assertThat(job.tempJobFile()).isNull();
+
+        job.setTempJobFile(Path.of("/tmp/x.jsonl"));
+
+        assertThat(job.tempJobFile()).isEqualTo(Path.of("/tmp/x.jsonl"));
+
+        job.setTempJobFile(null);
+
+        assertThat(job.tempJobFile()).isNull();
     }
 }

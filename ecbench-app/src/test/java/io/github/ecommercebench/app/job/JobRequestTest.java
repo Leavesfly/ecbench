@@ -149,6 +149,32 @@ class JobRequestTest {
         assertThat(web.maxDays()).isEqualTo(JobRequest.DEFAULT_MAX_DAYS);
     }
 
+    @Test
+    void threeArgParseUsesTheJobFileOverride() throws Exception {
+        JobRequest request =
+                JobRequest.parse(body("{\"model\":\"gpt\"}"), SERVER, "/tmp/uploaded-123.jsonl");
+
+        assertThat(request.jobFile()).isEqualTo("/tmp/uploaded-123.jsonl");
+        // 其余三个路径类字段仍取服务进程配置，不受 override 影响
+        assertThat(request.logDir()).isEqualTo(SERVER.logDir());
+        assertThat(request.dataDir()).isEqualTo(SERVER.dataDir());
+        assertThat(request.tokenizerPath()).isEqualTo(SERVER.tokenizerPath());
+    }
+
+    /**
+     * 两参重载必须完全委派给三参版并传 {@code server.jobFile()}。
+     *
+     * <p>{@code JobRequest} 是 record，{@code equals} 比全部 13 个字段，故这一条锁的是「委派不丢任何字段」；
+     * 单独的 jobFile 取值已由 {@link #pathFieldsAlwaysComeFromServerNeverFromBody} 覆盖，不重复断言。
+     */
+    @Test
+    void twoArgParseDelegatesCompletelyToTheThreeArgOverload() throws Exception {
+        ObjectNode node = body("{\"model\":\"gpt\",\"runs\":2,\"seed\":7}");
+
+        assertThat(JobRequest.parse(node, SERVER))
+                .isEqualTo(JobRequest.parse(node, SERVER, SERVER.jobFile()));
+    }
+
     private static Set<String> accessorNames(Class<?> type) {
         return Arrays.stream(type.getDeclaredMethods())
                 .filter(method -> method.getParameterCount() == 0)

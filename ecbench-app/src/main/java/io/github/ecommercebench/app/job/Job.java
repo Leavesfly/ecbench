@@ -2,6 +2,7 @@ package io.github.ecommercebench.app.job;
 
 import io.github.ecommercebench.app.run.RunOutcome;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Future;
@@ -27,6 +28,7 @@ public final class Job {
     private volatile String error;
     private volatile List<RunOutcome> outcomes;
     private volatile Future<?> future;
+    private volatile Path tempJobFile;
 
     public Job(String id, JobRequest request) {
         this.id = id;
@@ -67,6 +69,16 @@ public final class Job {
 
     public Future<?> future() {
         return future;
+    }
+
+    /** 可空的临时 job 文件路径（服务端为上传内容生成），仅用于终态后清理。 */
+    public Path tempJobFile() {
+        return tempJobFile;
+    }
+
+    /** 登记服务端为上传内容生成的临时 job 文件；未上传时不调用，保持 null。 */
+    public void setTempJobFile(Path path) {
+        this.tempJobFile = path;
     }
 
     public synchronized JobState state() {
