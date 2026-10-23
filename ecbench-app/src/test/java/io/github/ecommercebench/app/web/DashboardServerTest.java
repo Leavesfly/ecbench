@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.ecommercebench.app.cli.CliRunOptions;
 import io.github.ecommercebench.app.job.JobService;
 import io.github.ecommercebench.app.job.ModelKeyGuard;
@@ -434,7 +435,44 @@ class DashboardServerTest {
     void rejectsOversizedBodyWithPayloadTooLarge() throws Exception {
         String huge = "{\"model\":\"gpt\",\"pad\":\"" + "x".repeat(70_000) + "\"}";
 
-        assertThat(post("/api/jobs", huge, null).statusCode()).isEqualTo(413);
+        HttpResponse<String> response = post("/api/jobs", huge, null);
+
+        assertThat(response.statusCode()).isEqualTo(413);
+        // 超限文案需自带自救提示：服务端只用 job JSONL 的第一行，故提交单个 job 就能装进上限
+        assertThat(response.body()).contains("65536").contains("只使用第一行");
+    }
+
+    @Test
+    void uploadsJobFileContentAndAcceptsTheJob() throws Exception {
+        String jobLine =
+                "{\"task\":\"agent_multiturn/long_horizon/ecommerce_bench\",\"idx\":0,"
+                        + "\"data_source\":\"ecommerce_bench\","
+                        + "\"agent_info\":{\"max_turn\":10,\"max_day\":2},"
+                        + "\"messages\":[{\"role\":\"system\",\"content\":\"SYS\"}]}";
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("model", "gpt");
+        body.put("maxDays", 2);
+        body.put("jobFileContent", jobLine);
+
+        HttpResponse<String> response =
+                post("/api/jobs", MAPPER.writeValueAsString(body), null);
+
+        assertThat(response.statusCode()).isEqualTo(202);
+        jobService.awaitQuiescence(10, TimeUnit.SECONDS);
+    }
+
+    /** 畸形内容必须在<b>提交期</b>就挡成 400，而不是等 run 执行期变成 job FAILED。 */
+    @Test
+    void malformedJobFileContentIsBadRequest() throws Exception {
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("model", "gpt");
+        body.put("jobFileContent", "not json at all");
+
+        HttpResponse<String> response =
+                post("/api/jobs", MAPPER.writeValueAsString(body), null);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.body()).contains("第 1 行");
     }
 
     @Test

@@ -10,11 +10,13 @@ import io.github.ecommercebench.app.run.RunOutcome;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,13 @@ class JobServiceTest {
                     """;
 
     @TempDir Path workingDir;
+
+    /** 最小合法 job JSONL 单行内容。 */
+    private static final String JOB_LINE =
+            "{\"task\":\"agent_multiturn/long_horizon/ecommerce_bench\",\"idx\":0,"
+                    + "\"data_source\":\"ecommerce_bench\","
+                    + "\"agent_info\":{\"max_turn\":10,\"max_day\":2,\"max_tool_response_chars\":4096},"
+                    + "\"messages\":[{\"role\":\"system\",\"content\":\"SYS\"}]}";
 
     private JobService service;
 
@@ -344,5 +353,160 @@ class JobServiceTest {
         JobService svc = serviceWith((options, onSession) -> List.of());
 
         assertThat(svc.logDir()).isEqualTo(workingDir.toAbsolutePath().normalize().resolve("log"));
+    }
+
+    /**
+     * 统计系统临时目录里本服务留下的 {@code ecbench-jobs-*} 文件数。
+     *
+     * <p>只能用于<b>基线差值</b>断言（提交前取一次、提交后再取一次，断言未增加），不能断言绝对为 0：
+     * 系统临时目录是全局共享的，同 JVM 内其它测试或残留文件会让绝对断言假失败。
+     */
+    private static long tempJobFileCount() throws Exception {
+        Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
+        try (Stream<Path> files = Files.list(tmp)) {
+            return files.filter(p -> p.getFileName().toString().startsWith("ecbench-jobs-")).count();
+        }
+    }
+
+    /**
+     * 有界轮询等待临时文件被删。
+     *
+     * <p>不能直接断言：{@code awaitQuiescence} 只看任务状态，而状态转终态发生在 {@code execute} 的
+     * {@code finally} 删除<b>之前</b>，两者无同步点；排队中被取消的任务更是要等前一个任务完全返回后
+     * 才会被单线程执行器拿到。超时未删则失败（而非无限等待）。
+     */
+    private static void awaitDeleted(Path path) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (Files.exists(path) && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+        assertThat(Files.exists(path)).isFalse();
+    }
+
+    @Test
+    void uploadedJobContentReachesTheLauncherAsAJobFileAndTempFileIsDeleted() throws Exception {
+        List<Path> seenJobFiles = new ArrayList<>();
+        JobService svc =
+                serviceWith(
+                        (options, onSession) -> {
+                            seenJobFiles.add(options.runConfig().jobFile());
+                            return List.of(new RunOutcome(0, null, null));
+                        });
+
+        Job job =
+                svc.submit(
+                        body(
+                                "{\"model\":\"gpt\",\"jobFileContent\":"
+                                        + MAPPER.writeValueAsString(JOB_LINE)
+                                        + "}"));
+        svc.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        assertThat(job.state()).isEqualTo(JobState.SUCCEEDED);
+        assertThat(seenJobFiles).hasSize(1);
+        Path temp = seenJobFiles.get(0);
+        assertThat(temp).isNotNull();
+        assertThat(temp.getFileName().toString()).startsWith("ecbench-jobs-");
+        // 上传的路径必须原样抵达 launcher：ConfigurationMerger 只做 toAbsolutePath().normalize()，
+        // 而 createTempFile 返回的已是绝对规范路径，故不应有任何变形
+        assertThat(job.tempJobFile()).isEqualTo(temp);
+        awaitDeleted(temp);
+    }
+
+    @Test
+    void malformedJobContentIsRejectedAtSubmitAndTempFileIsNotLeftBehind() throws Exception {
+        JobService svc = serviceWith((options, onSession) -> List.of());
+        long before = tempJobFileCount();
+
+        assertThatThrownBy(
+                        () ->
+                                svc.submit(
+                                        body(
+                                                "{\"model\":\"gpt\",\"jobFileContent\":"
+                                                        + "\"not json at all\"}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("第 1 行");
+
+        assertThat(svc.list()).isEmpty();
+        assertThat(tempJobFileCount()).isEqualTo(before);
+    }
+
+    @Test
+    void blankOrNonTextualJobContentIsRejected() throws Exception {
+        JobService svc = serviceWith((options, onSession) -> List.of());
+
+        assertThatThrownBy(
+                        () -> svc.submit(body("{\"model\":\"gpt\",\"jobFileContent\":\"   \"}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("不能为空");
+        assertThatThrownBy(
+                        () -> svc.submit(body("{\"model\":\"gpt\",\"jobFileContent\":123}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("必须是字符串");
+        assertThat(svc.list()).isEmpty();
+    }
+
+    /** 未上传时 jobFile 仍取服务进程配置（此处 CliRunOptions 缺省为 null），且不得登记临时文件。 */
+    @Test
+    void absentJobFileContentLeavesJobFileUntouched() throws Exception {
+        List<Path> seenJobFiles = new ArrayList<>();
+        JobService svc =
+                serviceWith(
+                        (options, onSession) -> {
+                            seenJobFiles.add(options.runConfig().jobFile());
+                            return List.of();
+                        });
+
+        Job job = svc.submit(body("{\"model\":\"gpt\"}"));
+        svc.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        assertThat(job.tempJobFile()).isNull();
+        assertThat(seenJobFiles).hasSize(1).first().isNull();
+    }
+
+    /**
+     * 排队期间被取消的 job，其上传临时文件必须在 {@code cancel()} 返回前就已删。
+     *
+     * <p>锁的是一个真实缺陷：{@code Future.cancel(true)} 对尚未启动的排队任务会把它从队列里摘掉，
+     * {@code execute} 根本不会运行，所以「早退分支清理」与「finally 清理」两条路都不可达。
+     * 故此处<b>不用</b>轮询，而是同步断言：一旦改成依赖异步清理，本用例就会失败。
+     */
+    @Test
+    void cancelledWhileQueuedStillDeletesTheUploadedTempFile() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        JobService svc =
+                serviceWith(
+                        (options, onSession) -> {
+                            started.countDown();
+                            try {
+                                release.await(20, TimeUnit.SECONDS);
+                            } catch (InterruptedException exception) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return List.of();
+                        });
+
+        svc.submit(
+                body(
+                        "{\"model\":\"gpt\",\"jobFileContent\":"
+                                + MAPPER.writeValueAsString(JOB_LINE)
+                                + "}"));
+        assertThat(started.await(10, TimeUnit.SECONDS)).isTrue();
+        Job queued =
+                svc.submit(
+                        body(
+                                "{\"model\":\"gpt\",\"jobFileContent\":"
+                                        + MAPPER.writeValueAsString(JOB_LINE)
+                                        + "}"));
+        Path queuedTemp = queued.tempJobFile();
+        assertThat(queuedTemp).isNotNull();
+        assertThat(Files.exists(queuedTemp)).isTrue();
+
+        assertThat(svc.cancel(queued.id())).isEqualTo(JobService.CancelOutcome.CANCELLED);
+        assertThat(Files.exists(queuedTemp)).isFalse();
+        release.countDown();
+        svc.awaitQuiescence(10, TimeUnit.SECONDS);
+
+        assertThat(queued.state()).isEqualTo(JobState.CANCELLED);
     }
 }

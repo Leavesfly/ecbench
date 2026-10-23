@@ -254,7 +254,12 @@ public final class ApiRouter implements HttpHandler {
                 total += read;
                 if (total > MAX_BODY_BYTES) {
                     drain(in);
-                    throw new ApiException(413, "请求体超过上限 " + MAX_BODY_BYTES + " 字节");
+                    throw new ApiException(
+                            413,
+                            "请求体超过上限 "
+                                    + MAX_BODY_BYTES
+                                    + " 字节；上传 job JSONL 时请注意服务端只使用第一行，"
+                                    + "可只提交首个 job 以缩小体积");
                 }
                 buffer.write(chunk, 0, read);
             }
