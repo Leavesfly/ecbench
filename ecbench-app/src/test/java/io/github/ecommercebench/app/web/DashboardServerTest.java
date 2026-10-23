@@ -125,6 +125,115 @@ class DashboardServerTest {
         return client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    /* -------------------------------------------------------------- 导出端点 */
+
+    /**
+     * 把 run_0 的余额 CSV 重写为三行数据，使 XChart 有足够点可绘。
+     *
+     * <p>只在本用例内改写，<b>不动 {@code @BeforeEach} 共享 fixture</b>：共享 fixture 只有一行数据，
+     * 而其它用例（如任务进度推导）对行数有断言，改它会造成无关回归。
+     */
+    private void widenBalanceCsv() throws Exception {
+        Files.writeString(
+                log.resolve("2026_qwen3.7-plus/balance/run_0_daily_balance.csv"),
+                "date,bank_balance,platform_wallet,total_balance,open_stores,warehouse_items,"
+                        + "storage_charged\n"
+                        + "2026-01-01,100000.00,0.00,100000.00,0,0,0.00\n"
+                        + "2026-01-02,99000.00,0.00,99000.00,1,0,0.00\n"
+                        + "2026-01-03,98000.00,0.00,98000.00,1,0,0.00\n");
+    }
+
+    /** 以字节读响应体，用于校验 PNG 魔数。 */
+    private HttpResponse<byte[]> getBytes(String path) throws Exception {
+        return client.send(
+                HttpRequest.newBuilder(
+                                URI.create("http://127.0.0.1:" + server.port() + path))
+                        .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+    }
+
+    /** PNG 魔数 89 50 4E 47；断言它即断言拿到的是服务端真实渲染的图而非空壳。 */
+    private static void assertPngMagic(byte[] body) {
+        assertThat(body.length).isGreaterThan(0);
+        assertThat(body[0] & 0xFF).isEqualTo(0x89);
+        assertThat(body[1] & 0xFF).isEqualTo(0x50);
+        assertThat(body[2] & 0xFF).isEqualTo(0x4E);
+        assertThat(body[3] & 0xFF).isEqualTo(0x47);
+    }
+
+    @Test
+    void exportsBalancePngWithAttachmentHeader() throws Exception {
+        widenBalanceCsv();
+
+        HttpResponse<byte[]> response =
+                getBytes("/api/export/balance.png?sessions=2026_qwen3.7-plus");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        // firstValue 返回 Optional<String>，而 AssertJ 的 OptionalAssert.contains 断言的是「恰好持有该值」
+        // 而非子串包含，故先 orElse("") 取出字符串再断言。
+        assertThat(response.headers().firstValue("Content-Type").orElse("")).contains("image/png");
+        assertThat(response.headers().firstValue("Content-Disposition").orElse(""))
+                .contains("attachment")
+                .contains("balance.png");
+        assertPngMagic(response.body());
+    }
+
+    @Test
+    void exportsRadarPng() throws Exception {
+        HttpResponse<byte[]> response =
+                getBytes("/api/export/radar.png?sessions=2026_qwen3.7-plus");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("Content-Disposition").orElse(""))
+                .contains("radar.png");
+        assertPngMagic(response.body());
+    }
+
+    @Test
+    void exportsRankingCsvAndJsonAndMatrixCsv() throws Exception {
+        HttpResponse<String> csv = get("/api/export/ranking.csv?sessions=2026_qwen3.7-plus");
+        HttpResponse<String> json = get("/api/export/ranking.json?sessions=2026_qwen3.7-plus");
+        HttpResponse<String> matrix = get("/api/export/matrix.csv?sessions=2026_qwen3.7-plus");
+
+        assertThat(csv.statusCode()).isEqualTo(200);
+        assertThat(csv.headers().firstValue("Content-Type").orElse("")).contains("text/csv");
+        assertThat(csv.body()).startsWith("rank,model,primary_raw");
+        assertThat(json.statusCode()).isEqualTo(200);
+        assertThat(json.headers().firstValue("Content-Type").orElse("")).contains("application/json");
+        assertThat(json.body()).contains("\"models\"");
+        assertThat(matrix.statusCode()).isEqualTo(200);
+        assertThat(matrix.body()).startsWith("session,metric,mean,std,n");
+    }
+
+    @Test
+    void exportDefaultsToDiscoveredSessionsWhenUnspecified() throws Exception {
+        widenBalanceCsv();
+
+        assertThat(get("/api/export/matrix.csv").statusCode()).isEqualTo(200);
+        assertThat(getBytes("/api/export/balance.png").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void exportErrorMappingMatchesReadOnlyEndpoints() throws Exception {
+        widenBalanceCsv();
+
+        assertThat(get("/api/export/matrix.csv?sessions=bad%20name").statusCode()).isEqualTo(400);
+        assertThat(get("/api/export/matrix.csv?sessions=2026_absent").statusCode()).isEqualTo(404);
+        assertThat(get("/api/export/nope.csv").statusCode()).isEqualTo(404);
+        assertThat(send("POST", "/api/export/matrix.csv").statusCode()).isEqualTo(405);
+    }
+
+    @Test
+    void balancePngWithoutAnyCsvIsNotFound() throws Exception {
+        Files.delete(log.resolve("2026_qwen3.7-plus/balance/run_0_daily_balance.csv"));
+
+        HttpResponse<String> response =
+                get("/api/export/balance.png?sessions=2026_qwen3.7-plus");
+
+        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(response.body()).contains("没有可绘制的余额 CSV");
+    }
+
     /* ------------------------------------------------------------ 既有只读契约 */
 
     @Test

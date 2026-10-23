@@ -46,12 +46,15 @@ public final class ApiRouter implements HttpHandler {
 
     private static final String JOB_PREFIX = "/api/jobs/";
 
+    private static final String EXPORT_PREFIX = "/api/export/";
+
     private final ObjectMapper mapper;
     private final SessionScanner scanner;
     private final CompareService compare;
     private final RunArtifactService artifacts;
     private final ModelCatalogService models;
     private final JobService jobs;
+    private final ExportService exports;
     private final IntSupplier portSupplier;
 
     public ApiRouter(
@@ -61,6 +64,7 @@ public final class ApiRouter implements HttpHandler {
             RunArtifactService artifacts,
             ModelCatalogService models,
             JobService jobs,
+            ExportService exports,
             IntSupplier portSupplier) {
         this.mapper = mapper;
         this.scanner = scanner;
@@ -68,6 +72,7 @@ public final class ApiRouter implements HttpHandler {
         this.artifacts = artifacts;
         this.models = models;
         this.jobs = jobs;
+        this.exports = exports;
         this.portSupplier = portSupplier;
     }
 
@@ -126,6 +131,11 @@ public final class ApiRouter implements HttpHandler {
             singleJob(exchange, method, path.substring(JOB_PREFIX.length()));
             return;
         }
+        if (path.startsWith(EXPORT_PREFIX)) {
+            requireGet(method, path);
+            export(exchange, path.substring(EXPORT_PREFIX.length()), query(exchange.getRequestURI()));
+            return;
+        }
         if (path.startsWith(PREFIX)) {
             requireGet(method, path);
             write(exchange, 200, runArtifact(path, query(exchange.getRequestURI())));
@@ -163,6 +173,42 @@ public final class ApiRouter implements HttpHandler {
             return;
         }
         requireGet(method, JOB_PREFIX + id);
+    }
+
+    /**
+     * 按 kind 分发到 {@link ExportService}，以附件形式写出；未知 kind → 404。
+     *
+     * <p>导出全为 GET、只读，故不做 Origin 校验（与其余 GET 端点一致）。下载文件名由
+     * {@code ExportService} 给固定 ASCII 常量，不含任何用户输入，因此无 {@code Content-Disposition} 头注入面。
+     */
+    private void export(HttpExchange exchange, String kind, Map<String, List<String>> query)
+            throws IOException {
+        List<String> sessions = autoSessions(query.get("sessions"));
+        String title = first(query.get("title"), null);
+        ExportService.Export result =
+                switch (kind) {
+                    case "balance.png" -> exports.balancePng(sessions, title);
+                    case "radar.png" -> exports.radarPng(sessions, title);
+                    case "ranking.csv" -> exports.rankingCsv(sessions);
+                    case "ranking.json" -> exports.rankingJson(sessions);
+                    case "matrix.csv" -> exports.matrixCsv(sessions);
+                    default -> throw new ArtifactNotFoundException("未知导出类型: " + kind);
+                };
+        HttpResponses.attachment(exchange, result.contentType(), result.filename(), result.body());
+    }
+
+    /**
+     * {@code sessions} 缺省时退化为扫描序前 {@link #MAX_AUTO_SESSIONS} 个会话。
+     *
+     * <p>与 {@code /api/compare} 共用同一份缺省语义，避免两处规则漂移。
+     */
+    private List<String> autoSessions(List<String> requested) {
+        if (requested != null && !requested.isEmpty()) {
+            return requested;
+        }
+        List<String> names = new ArrayList<>();
+        scanner.scan().stream().limit(MAX_AUTO_SESSIONS).forEach(info -> names.add(info.name()));
+        return names;
     }
 
     /** 已知路径但不支持该方法 → 405（未知路径由 route 的兜底分支给 404，不进这里）。 */
@@ -267,15 +313,9 @@ public final class ApiRouter implements HttpHandler {
     }
 
     private JsonNode compareNode(Map<String, List<String>> query) {
-        List<String> names = query.getOrDefault("sessions", List.of());
         List<Path> dirs = new ArrayList<>();
-        for (String name : names) {
+        for (String name : autoSessions(query.get("sessions"))) {
             dirs.add(scanner.sessionDir(name));
-        }
-        if (dirs.isEmpty()) {
-            scanner.scan().stream()
-                    .limit(MAX_AUTO_SESSIONS)
-                    .forEach(info -> dirs.add(scanner.sessionDir(info.name())));
         }
         return compare.compare(dirs);
     }

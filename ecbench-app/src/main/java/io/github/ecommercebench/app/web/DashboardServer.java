@@ -43,14 +43,19 @@ public final class DashboardServer implements AutoCloseable {
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.executor = Executors.newFixedThreadPool(WORKER_THREADS);
         this.jobs = jobs;
+        // scanner 与 compareService 提为局部变量，因为 ExportService 必须与 ApiRouter 共用同一实例：
+        // 否则导出端点的会话解析与 autoSessions 的扫描结果会来自不同 scanner。
+        SessionScanner scanner = new SessionScanner(logDir);
+        CompareService compareService = new CompareService(mapper);
         ApiRouter api =
                 new ApiRouter(
                         mapper,
-                        new SessionScanner(logDir),
-                        new CompareService(mapper),
+                        scanner,
+                        compareService,
                         new RunArtifactService(mapper, roster),
                         models,
                         jobs,
+                        new ExportService(mapper, scanner, compareService),
                         () -> httpServer.getAddress().getPort());
         this.httpServer.createContext("/api", api);
         this.httpServer.createContext("/", new StaticAssets());
