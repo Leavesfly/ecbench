@@ -8,6 +8,7 @@ import io.github.ecommercebench.agent.RunJob;
 import io.github.ecommercebench.domain.config.RunConfig;
 import io.github.ecommercebench.llm.model.ChatRole;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -62,5 +63,26 @@ class JobFileLoaderTest {
         assertThatThrownBy(() -> loader.load(JOBS.resolve("invalid.jsonl")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("2");
+    }
+
+    @Test
+    void parseLinesMatchesLoadForTheSameContent() throws Exception {
+        List<String> lines = Files.readAllLines(JOBS.resolve("multiple.jsonl"));
+
+        List<RunJob> fromLines = loader.parseLines(lines);
+        List<RunJob> fromFile = loader.load(JOBS.resolve("multiple.jsonl"));
+
+        assertThat(fromLines).hasSize(fromFile.size());
+        assertThat(fromLines.get(0).task()).isEqualTo(fromFile.get(0).task());
+        assertThat(fromLines.get(0).maxTurns()).isEqualTo(fromFile.get(0).maxTurns());
+    }
+
+    @Test
+    void parseLinesSkipsBlankLinesAndReportsOneBasedLineNumber() {
+        List<String> lines = List.of("", "{\"idx\":0}", "not json at all");
+
+        assertThatThrownBy(() -> loader.parseLines(lines))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("第 3 行");
     }
 }

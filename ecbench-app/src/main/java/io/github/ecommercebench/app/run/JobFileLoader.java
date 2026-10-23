@@ -48,6 +48,16 @@ public final class JobFileLoader {
         } catch (IOException exception) {
             throw new UncheckedIOException("无法读取 job 文件: " + file, exception);
         }
+        return parseLines(lines);
+    }
+
+    /**
+     * 解析已在内存中的 JSONL 行，规则与 {@link #load(Path)} 完全一致（跳过空行、坏行报 1 基行号）。
+     *
+     * <p>抽出供 Web 上传路径复用：HTTP 只收文件<b>内容</b>，服务端据此在提交期预校验，使畸形内容能直接
+     * 400，而不是等到 run 执行期由 {@code RunComponentFactory} 惰性加载时才 FAILED。
+     */
+    public List<RunJob> parseLines(List<String> lines) {
         List<RunJob> jobs = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
