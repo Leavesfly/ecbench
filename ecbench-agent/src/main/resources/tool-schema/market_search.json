@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "market_search",
-    "description": "Progressive market research, disclosed in 3 levels so you can scan broadly then drill in:\n1. Call with NO arguments -> overview of ALL store types: each store's tier, qualitative PROFIT-POTENTIAL rating (by tier), daily operating cost, seasonal sales index (Jan..Dec, baseline=100), advantage axis, its qualitative STRENGTHS, CHALLENGES and OPERATING TIPS (a non-numeric playbook of how to run it well), and the list of sub-categories it sells (names only).\n2. Call with store_type only -> that store's strengths/challenges/operating tips plus its sub-categories, each with a light card (reference-price range, product size).\n3. Call with category (a sub-category name) -> the DEEP metrics for that one sub-category: return-rate range, typical gross-margin range, typical monthly sales range, and per-unit shipping/storage cost.\nUse level 1 to compare store types before opening, level 2 to explore a promising store, and level 3 to judge whether you can run a specific sub-category well. The strengths/challenges/tips are qualitative guidance only (no exact numbers); exact wholesale costs are still found via supplier negotiation.",
+    "description": "渐进式市场调研，分 3 个层级披露，便于先广度扫描再逐层深入：\n1. 不带任何参数调用 -> 返回全部店铺类型概览：每个店铺的档位、定性盈利能力评级（按档位）、每日运营成本、12 个月销售指数（1 月..12 月，基准=100）、优势维度，以及定性的优势、挑战与运营建议（非数字化的经营要诀），还有它可售的子品类名称列表。\n2. 只传 store_type -> 返回该店铺的优势/挑战/运营建议，以及其子品类清单，每个子品类附轻量卡片（参考价区间、商品尺寸）。\n3. 传 category（子品类名称）-> 返回该子品类的深度指标：退货率区间、典型毛利率区间、典型月销量区间，以及单件运费/仓储成本。\n用第 1 级在开店前比较店铺类型，用第 2 级深入探查候选店铺，用第 3 级判断自己能否经营好某个子品类。优势/挑战/建议只是定性指引（不含精确数字）；精确的批发成本仍需通过与供应商谈判获得。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_type": {
           "type": "string",
-          "description": "Store type id (e.g. 'beauty'). With no category, returns the store's sub-categories."
+          "description": "店铺类型 id（例如 'beauty'）。不传 category 时返回该店铺的子品类。"
         },
         "category": {
           "type": "string",
-          "description": "A sub-category name (e.g. 'Skincare & Beauty'). Returns that sub-category's detailed return-rate / margin / sales metrics."
+          "description": "子品类名称（例如 'Skincare & Beauty'）。返回该子品类的退货率、毛利、销量等详细指标。"
         }
       },
       "required": []

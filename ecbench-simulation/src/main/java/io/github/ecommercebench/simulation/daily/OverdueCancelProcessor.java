@@ -44,7 +44,7 @@ public final class OverdueCancelProcessor implements DailyProcessor {
                             "fulfilment",
                             context.day(),
                             count
-                                    + " order(s) were CANCELLED because they were not shipped before the deadline."));
+                                    + " 笔订单因未在截止时间前发货而被取消。"));
         }
     }
 }

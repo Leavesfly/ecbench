@@ -241,11 +241,11 @@ class EcommerceBenchAgentTest {
         assertThat(job.initialMessages().get(0).role()).isEqualTo(ChatRole.SYSTEM);
         assertThat(job.initialMessages().get(1).role()).isEqualTo(ChatRole.USER);
         assertThat(job.initialMessages().get(1).content())
-                .isEqualTo("You are running an e-commerce business.");
+                .isEqualTo("你正在经营一家电商业务。");
         String system = job.initialMessages().get(0).content();
-        assertThat(system).contains("You are an assistant");
+        assertThat(system).contains("你是一个必须只用所提供的工具");
         assertThat(system).contains("Wang Wang");
-        assertThat(system).contains("365 days");
+        assertThat(system).contains("365 天");
         assertThat(system).contains("¥100000");
         assertThat(system).contains("128000 tokens");
         assertThat(job.toolSchemas()).isNotEmpty();

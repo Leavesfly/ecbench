@@ -16,8 +16,7 @@ public final class OpenStoreTool implements EcommerceTool {
 
     private static final String NAME = "open_store";
     private static final String REOPEN_NOTE =
-            "This store type was opened before. The setup fee was charged again and reputation must be "
-                    + "rebuilt from scratch — frequent open/close churn is costly.";
+            "该店铺类型此前已开过。开店费已再次扣除，声誉需从头重建——频繁开闭店铺代价高昂。";
 
     private final ToolDefinition definition = ToolSchemas.load(NAME);
 

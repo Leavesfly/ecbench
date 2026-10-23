@@ -62,7 +62,7 @@ class OperateMemoryToolTest {
                 tool.execute(
                         json("{\"action\":\"add\",\"title\":\"supplier\",\"content\":\"cheap\"}"), ctx());
         assertThat(added.get("success").asBoolean()).isTrue();
-        assertThat(added.get("message").asText()).isEqualTo("Memo 'supplier' added.");
+        assertThat(added.get("message").asText()).isEqualTo("已新增备忘录 'supplier'。");
         assertThat(added.get("total_memos").asInt()).isEqualTo(1);
 
         ObjectNode got = tool.execute(json("{\"action\":\"get\",\"title\":\"supplier\"}"), ctx());
@@ -73,7 +73,7 @@ class OperateMemoryToolTest {
                 tool.execute(
                         json("{\"action\":\"update\",\"title\":\"supplier\",\"content\":\"pricey\"}"), ctx());
         assertThat(updated.get("success").asBoolean()).isTrue();
-        assertThat(updated.get("message").asText()).isEqualTo("Memo 'supplier' updated.");
+        assertThat(updated.get("message").asText()).isEqualTo("已更新备忘录 'supplier'。");
 
         ObjectNode all = tool.execute(json("{\"action\":\"get\"}"), ctx());
         assertThat(all.get("memos").get("supplier").asText()).isEqualTo("pricey");
@@ -86,41 +86,41 @@ class OperateMemoryToolTest {
         ObjectNode deleted =
                 tool.execute(json("{\"action\":\"delete\",\"title\":\"supplier\"}"), ctx());
         assertThat(deleted.get("success").asBoolean()).isTrue();
-        assertThat(deleted.get("message").asText()).isEqualTo("Memo 'supplier' deleted.");
+        assertThat(deleted.get("message").asText()).isEqualTo("已删除备忘录 'supplier'。");
         assertThat(deleted.get("total_memos").asInt()).isEqualTo(0);
     }
 
     @Test
-    void errorPathsMatchPythonMessages() {
+    void errorPathsReturnStableMessages() {
         assertThat(tool.execute(json("{}"), ctx()).get("error").asText())
-                .contains("'action' is required");
+                .contains("'action' 必填");
 
         assertThat(
                 tool.execute(json("{\"action\":\"add\",\"title\":\"t\"}"), ctx()).get("error").asText())
-                .contains("Both 'title' and 'content' are required for add");
+                .contains("add 需要同时提供 'title' 与 'content'");
 
         assertThat(
                 tool.execute(
                                 json("{\"action\":\"update\",\"title\":\"nope\",\"content\":\"x\"}"), ctx())
                         .get("error")
                         .asText())
-                .contains("not found. Use 'add'");
+                .contains("未找到标题为 'nope' 的备忘录，请用 'add' 创建。");
 
         assertThat(tool.execute(json("{\"action\":\"delete\"}"), ctx()).get("error").asText())
-                .contains("'title' is required for delete");
+                .contains("delete 需要提供 'title'");
 
         assertThat(
                 tool.execute(json("{\"action\":\"delete\",\"title\":\"nope\"}"), ctx())
                         .get("error")
                         .asText())
-                .isEqualTo("Memo with title 'nope' not found.");
+                .isEqualTo("未找到标题为 'nope' 的备忘录。");
 
         ObjectNode getMissing = tool.execute(json("{\"action\":\"get\",\"title\":\"nope\"}"), ctx());
-        assertThat(getMissing.get("error").asText()).contains("not found");
+        assertThat(getMissing.get("error").asText()).contains("未找到");
         assertThat(getMissing.get("titles").isArray()).isTrue();
 
         assertThat(tool.execute(json("{\"action\":\"frobnicate\"}"), ctx()).get("error").asText())
-                .contains("Unknown action 'frobnicate'");
+                .contains("未知的 action 'frobnicate'");
     }
 
     @Test
@@ -131,13 +131,13 @@ class OperateMemoryToolTest {
                                 json("{\"action\":\"add\",\"title\":\"supplier\",\"content\":\"x\"}"), ctx())
                         .get("error")
                         .asText())
-                .contains("already exists");
+                .contains("已存在");
 
         for (int i = 1; i < 20; i++) {
             tool.execute(json("{\"action\":\"add\",\"title\":\"t" + i + "\",\"content\":\"c\"}"), ctx());
         }
         ObjectNode overflow =
                 tool.execute(json("{\"action\":\"add\",\"title\":\"t20\",\"content\":\"c\"}"), ctx());
-        assertThat(overflow.get("error").asText()).contains("Memo limit reached (20)");
+        assertThat(overflow.get("error").asText()).contains("备忘录数量已达上限（20）");
     }
 }

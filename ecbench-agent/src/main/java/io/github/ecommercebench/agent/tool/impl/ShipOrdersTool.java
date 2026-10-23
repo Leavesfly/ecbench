@@ -26,9 +26,8 @@ public final class ShipOrdersTool implements EcommerceTool {
 
     private static final String NAME = "ship_orders";
     private static final String LIST_NOTE =
-            "Ship with ship_orders (speed: fast/standard/slow). Faster ship costs more but reduces "
-                    + "returns; slow is cheap but raises returns. Unshipped orders cancel after the deadline "
-                    + "(lost sale + reputation hit).";
+            "用 ship_orders 发货（速度：fast/standard/slow）。越快运费越高但退货更少；"
+                    + "slow 便宜但退货更多。超过截止时间仍未发货的订单会被取消（损失销售 + 声誉受损）。";
 
     private final ToolDefinition definition = ToolSchemas.load(NAME);
 
@@ -81,7 +80,7 @@ public final class ShipOrdersTool implements EcommerceTool {
             speed = ShipSpeed.fromWireName(speedName);
         } catch (IllegalArgumentException e) {
             out.put("success", false);
-            out.put("error", "Invalid speed '" + speedName + "'. Choose: [fast, standard, slow].");
+            out.put("error", "无效的发货速度 '" + speedName + "'。请选择：[fast, standard, slow]。");
             return out;
         }
         List<Long> shipmentIds = null;

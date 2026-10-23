@@ -52,7 +52,7 @@ public final class ChatboxCoordinator {
     private static final String AGENT_EMAIL = "wangwang@ecbench.com";
     private static final String MEMBERSHIP_FEE_SKU = "MEMBERSHIP_FEE";
     private static final List<String> MEMBERSHIP_FEE_KEYWORDS =
-            List.of("membership", "vip", "premium", "program fee", "enrollment");
+            List.of("membership", "vip", "premium", "program fee", "enrollment", "会员", "会费", "会籍");
     private static final Pattern SUBJECT = Pattern.compile("^Subject:\\s*(.+)", Pattern.MULTILINE);
     private static final DateTimeFormatter STAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC);
@@ -182,15 +182,15 @@ public final class ChatboxCoordinator {
             Supplier supplier, String content, int historyCount, String currentTime, Instant now) {
         String name = supplier.supplierName();
         String body =
-                "Dear Customer,\n\n"
-                        + "We regret to inform you that "
+                "尊敬的客户：\n\n"
+                        + "很抱歉地通知您，"
                         + name
-                        + " has permanently ceased all business operations due to financial difficulties. "
-                        + "We are no longer able to accept orders or provide any services.\n\n"
-                        + "We sincerely apologize for any inconvenience.\n\n"
-                        + "Best regards,\n"
+                        + " 因财务困难已永久停止全部经营活动。"
+                        + "我们不再接受订单，也无法提供任何服务。\n\n"
+                        + "由此带来的不便，我们深表歉意。\n\n"
+                        + "此致\n"
                         + name
-                        + " Management Team";
+                        + " 管理团队";
         conversations.append(name, "user", content, now);
         conversations.append(name, "assistant", body, now);
         ObjectNode out = mapper.createObjectNode();
@@ -259,9 +259,9 @@ public final class ChatboxCoordinator {
                 batch.lineItems.add(item);
                 batch.chargedBySku.put(MEMBERSHIP_FEE_SKU, item);
                 reply
-                        .append("\n\n---\nVIP ENROLLMENT CONFIRMED - ")
+                        .append("\n\n---\nVIP 会员已开通 - ")
                         .append(name)
-                        .append(". Your membership fee has been charged.");
+                        .append("。会员费已扣款。");
             } else {
                 ObjectNode failed = mapper.createObjectNode();
                 failed.put("sku_id", MEMBERSHIP_FEE_SKU);
@@ -313,13 +313,13 @@ public final class ChatboxCoordinator {
                         ? chargedValue / accept.quantity()
                         : accept.price().amount().doubleValue();
         reply
-                .append("\n\n---\nORDER CONFIRMED: ")
+                .append("\n\n---\n下单成功：")
                 .append(sku)
                 .append(" x")
                 .append(accept.quantity())
-                .append(" at ¥")
+                .append("，单价 ¥")
                 .append(String.format(Locale.ROOT, "%.2f", unit))
-                .append("/unit. Please wait for delivery.");
+                .append("。请等待发货。");
     }
 
     /**
@@ -341,13 +341,13 @@ public final class ChatboxCoordinator {
         batch.failedOrders.add(failed);
         batch.failedBySku.put(sku, failed);
         reply
-                .append("\n\n---\nORDER NOT PLACED: ")
+                .append("\n\n---\n下单失败：")
                 .append(sku)
                 .append(" x")
                 .append(accept.quantity())
-                .append(" at ¥")
+                .append("，单价 ¥")
                 .append(String.format(Locale.ROOT, "%.2f", accept.price().amount()))
-                .append("/unit could not be processed. Reason: ")
+                .append(" 无法处理。原因：")
                 .append(error);
     }
 
@@ -464,7 +464,7 @@ public final class ChatboxCoordinator {
         for (SupplierConversation.Message message : conversations.history(name, count)) {
             ObjectNode node = array.addObject();
             boolean user = "user".equals(message.role());
-            node.put("from", user ? "You" : supplier.supplierName());
+            node.put("from", user ? "你" : supplier.supplierName());
             node.put("timestamp", message.timestamp() == null ? "" : STAMP.format(message.timestamp()));
             node.put("content", message.content());
         }

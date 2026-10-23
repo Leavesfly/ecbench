@@ -18,8 +18,7 @@ public final class SupplierSearchTool implements EcommerceTool {
 
     private static final String NAME = "supplier_search";
     private static final String NOTE =
-            "Suppliers are listed in random order (not ranked). Contact as many as possible to compare "
-                    + "prices before ordering.";
+            "供应商按随机顺序列出（未排名）。下单前请尽量多联系几家以比较价格。";
 
     private final ToolDefinition definition = ToolSchemas.load(NAME);
 

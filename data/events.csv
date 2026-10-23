@@ -1,51 +1,51 @@
 event_name,start_date,duration_days,demand_effects,supply_effects,news_content
-Winter Storm,01-15,4,"{""food_beverage"": 2.0, ""home_living"": 1.5, ""fashion"": 0.3, ""sports_outdoor"": 0.2}","{""delivery_delay_multiplier"": 2.5, ""affected_categories"": ""all""}","[BREAKING NEWS] Winter Storm Warning - Jan 15 to Jan 18
+Winter Storm,01-15,4,"{""food_beverage"": 2.0, ""home_living"": 1.5, ""fashion"": 0.3, ""sports_outdoor"": 0.2}","{""delivery_delay_multiplier"": 2.5, ""affected_categories"": ""all""}","[突发新闻] 强冬季风暴预警 - 1 月 15 日至 18 日
 
-A severe winter storm is expected to hit eastern China, bringing heavy snowfall and sub-zero temperatures. Provincial authorities have issued emergency advisories for affected regions. Residents are urged to prepare emergency supplies including food, warm clothing, and heating equipment.
+预计一场强冬季风暴将袭击中国东部，带来大雪与零下低温。省级主管部门已对受影响地区发布紧急提示。居民被要求备好应急物资，包括食品、保暖衣物与取暖设备。
 
-Major logistics providers have warned of significant delivery delays across all regions due to road closures and hazardous driving conditions. Industry analysts expect a temporary surge in demand for daily necessities and home heating products, while discretionary spending on fashion and outdoor activities is likely to decline sharply."
-Factory Fire in Guangdong,03-01,7,{},"{""delivery_delay_multiplier"": 4.0, ""affected_categories"": [""appliance_digital"", ""toys_entertainment""]}","[INDUSTRY ALERT] Major Factory Fire in Guangdong Province - Mar 1 to Mar 7
+多家主要物流服务商警告，受道路封闭与危险路况影响，所有地区的配送都会明显延迟。行业分析师预计，日用必需品与家用取暖产品的需求会短暂激增，而服饰与户外活动的非必需消费可能大幅下滑。"
+Factory Fire in Guangdong,03-01,7,{},"{""delivery_delay_multiplier"": 4.0, ""affected_categories"": [""appliance_digital"", ""toys_entertainment""]}","[行业快讯] 广东重大工厂火灾 - 3 月 1 日至 7 日
 
-A large-scale fire broke out at an industrial complex in Dongguan, Guangdong Province, one of China's key manufacturing hubs for electronics and consumer goods. The blaze has affected multiple production lines and warehouses.
+广东东莞的一个工业园区发生大规模火灾。东莞是中国电子与消费品制造的关键基地之一，大火已波及多条生产线与仓库。
 
-Supply chain analysts warn that shipments of electronic appliances, digital accessories, and toy products from the region may face extended delays of up to 4x normal lead times. Manufacturers are scrambling to reroute production to alternative facilities. Consumer demand patterns are not expected to change, but inventory availability may be severely impacted."
-Flu Outbreak,04-10,7,"{""daily_office"": 2.5, ""beauty"": 1.5, ""sports_outdoor"": 0.4, ""toys_entertainment"": 0.5}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": [""daily_office""]}","[HEALTH ADVISORY] Seasonal Flu Outbreak - Apr 10 to Apr 16
+供应链分析师警告，来自该地区的电子家电、数码配件与玩具产品的发货可能出现最长 4 倍于正常交期的延迟。制造商正忙于把产能转移到其他工厂。消费者需求结构预计不会改变，但库存可得性可能受到严重冲击。"
+Flu Outbreak,04-10,7,"{""daily_office"": 2.5, ""beauty"": 1.5, ""sports_outdoor"": 0.4, ""toys_entertainment"": 0.5}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": [""daily_office""]}","[健康提示] 季节性流感暴发 - 4 月 10 日至 16 日
 
-Health authorities have reported an early-onset influenza outbreak across several provinces. Hospitals are seeing a sharp increase in patient admissions, and public health officials are recommending preventive measures including face masks, hand sanitizers, and reduced outdoor gatherings.
+卫生部门报告多个省份出现提前到来的流感暴发。医院接诊量急剧上升，公共卫生官员建议采取预防措施，包括佩戴口罩、使用免洗洗手液以及减少户外聚集。
 
-Retailers report a significant spike in demand for medical supplies, hygiene products, and personal protective equipment. Meanwhile, outdoor recreation and entertainment-related spending has dropped as consumers stay home. Some logistics workers are also affected, causing minor delivery delays for health and hygiene product shipments."
-Logistics Hub Shutdown,05-20,5,{},"{""delivery_delay_multiplier"": 5.0, ""affected_categories"": ""all""}","[URGENT] Major Logistics Hub Shutdown - May 20 to May 24
+零售商反映，医疗用品、卫生用品与个人防护装备的需求明显激增。与此同时，随着消费者居家，户外休闲与娱乐相关支出下降。部分物流人员也受到影响，导致健康与卫生类商品的配送出现轻微延迟。"
+Logistics Hub Shutdown,05-20,5,{},"{""delivery_delay_multiplier"": 5.0, ""affected_categories"": ""all""}","[紧急] 主要物流枢纽停运 - 5 月 20 日至 24 日
 
-The central logistics distribution center in Zhengzhou has been temporarily shut down for emergency infrastructure repairs after a critical equipment failure. This hub handles approximately 30% of all inter-provincial parcel routing in central China.
+位于郑州的中央物流分拨中心因关键设备故障、需紧急抢修基础设施而临时停运。该枢纽承担华中地区约 30% 的跨省包裹转运。
 
-All major carriers — SF Express, ZTO, YTO, and STO — have issued service disruption notices. Delivery times across ALL product categories are expected to increase by 3-5x during the shutdown period. E-commerce platforms are advising merchants to communicate expected delays to customers proactively."
-Summer Heatwave,07-05,7,"{""appliance_digital"": 3.0, ""food_beverage"": 2.0, ""sports_outdoor"": 0.3, ""home_living"": 0.5}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": [""appliance_digital""]}","[WEATHER ALERT] Extreme Heatwave Advisory - Jul 5 to Jul 11
+顺丰、中通、圆通与申通等主要承运商均已发布服务中断通知。停运期间，所有商品品类的配送时效预计延长 3–5 倍。电商平台建议商家主动向买家说明预计延迟。"
+Summer Heatwave,07-05,7,"{""appliance_digital"": 3.0, ""food_beverage"": 2.0, ""sports_outdoor"": 0.3, ""home_living"": 0.5}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": [""appliance_digital""]}","[天气预警] 极端热浪提示 - 7 月 5 日至 11 日
 
-Meteorological authorities have issued a red alert for extreme heat across the Yangtze River Delta and Pearl River Delta regions, with temperatures expected to exceed 40°C for seven consecutive days.
+气象部门对长三角与珠三角地区发布极端高温红色预警，预计气温将连续七天超过 40°C。
 
-Consumer spending patterns are shifting dramatically: demand for cooling appliances (air conditioners, fans, portable coolers), cold beverages, and refrigeration products has surged. Outdoor activity and home renovation projects have seen sharp declines. Appliance manufacturers report strain on production capacity, leading to potential supply shortages and delayed deliveries for cooling equipment."
-Celebrity Product Recall,08-20,5,"{""beauty"": 0.4, ""fashion"": 0.6}",{},"[CONSUMER NEWS] Major Product Recall After Celebrity Endorsement Scandal - Aug 20 to Aug 24
+消费结构正在明显变化：降温家电（空调、风扇、便携冷风机）、冷饮与制冷产品的需求激增。户外活动与家装项目明显减少。家电厂商反映产能紧张，降温设备可能出现供应短缺与交付延迟。"
+Celebrity Product Recall,08-20,5,"{""beauty"": 0.4, ""fashion"": 0.6}",{},"[消费快讯] 明星代言丑闻引发大规模产品召回 - 8 月 20 日至 24 日
 
-A high-profile celebrity-endorsed beauty brand has been forced to recall multiple product lines after laboratory tests revealed undisclosed harmful ingredients. The scandal has triggered widespread consumer distrust across the beauty and fashion sectors.
+一个高知名度明星代言的美妆品牌在实验室检测发现未披露的有害成分后，被迫召回多条产品线。丑闻在美妆与服饰行业引发广泛的消费者不信任。
 
-Industry analysts report a significant drop in consumer confidence for cosmetics, skincare, and celebrity-associated fashion brands. Social media backlash has amplified the effect, with consumers postponing non-essential beauty and fashion purchases. No supply chain disruptions are expected — this is purely a demand-side impact driven by trust erosion."
-Typhoon Warning,09-15,3,"{""food_beverage"": 2.5, ""daily_office"": 2.0, ""fashion"": 0.2, ""shoes_bags"": 0.2}","{""delivery_delay_multiplier"": 3.0, ""affected_categories"": ""all""}","[BREAKING NEWS] Typhoon ""Hailong"" Warning - Sep 15 to Sep 17
+行业分析师称，消费者对彩妆、护肤以及明星关联服饰品牌的信心明显下降。社交媒体的反弹放大了影响，消费者推迟了非必需的美妆与服饰购买。预计不会出现供应链中断——这纯粹是由信任流失导致的需求侧冲击。"
+Typhoon Warning,09-15,3,"{""food_beverage"": 2.5, ""daily_office"": 2.0, ""fashion"": 0.2, ""shoes_bags"": 0.2}","{""delivery_delay_multiplier"": 3.0, ""affected_categories"": ""all""}","[突发新闻] 台风“海龙”预警 - 9 月 15 日至 17 日
 
-A severe typhoon warning has been issued for the eastern coastal regions of China, including Zhejiang and Fujian provinces. Meteorological authorities classify this as a Category 3 storm with sustained winds exceeding 150 km/h.
+中国东部沿海地区（包括浙江、福建）已发布强台风预警。气象部门将其定为 3 级风暴，持续风速超过 150 公里/小时。
 
-Residents are advised to stock up on essential supplies including food, drinking water, and emergency items. Local governments have issued shelter-in-place advisories. Major logistics carriers including SF Express and ZTO have announced service suspensions in coastal areas. Retail analysts note that outdoor recreation and non-essential shopping typically see sharp declines during severe weather events, while demand for daily necessities and emergency supplies tends to surge significantly."
-Economic Downturn News,10-05,7,"{""appliance_digital"": 0.5, ""fashion"": 0.6, ""shoes_bags"": 0.5, ""food_beverage"": 1.3, ""daily_office"": 1.2}",{},"[ECONOMIC NEWS] Consumer Confidence Index Drops Sharply - Oct 5 to Oct 11
+建议居民储备必需物资，包括食品、饮用水与应急用品。地方政府已发布就地避险提示。顺丰、中通等主要物流承运商宣布在沿海地区暂停服务。零售分析师指出，恶劣天气期间户外休闲与非必需购物通常大幅下滑，而日用必需品与应急物资的需求往往显著激增。"
+Economic Downturn News,10-05,7,"{""appliance_digital"": 0.5, ""fashion"": 0.6, ""shoes_bags"": 0.5, ""food_beverage"": 1.3, ""daily_office"": 1.2}",{},"[经济快讯] 消费者信心指数大幅下滑 - 10 月 5 日至 11 日
 
-The National Bureau of Statistics has released Q3 economic data showing a significant decline in consumer confidence. The Consumer Confidence Index fell to its lowest point in 18 months, driven by concerns over employment stability and property market softening.
+国家统计局发布的三季度经济数据显示消费者信心明显下降。受就业稳定性担忧与房地产市场走弱影响，消费者信心指数降至 18 个月来最低。
 
-Retail industry analysts are forecasting a shift in spending patterns: consumers are expected to cut back on discretionary purchases such as electronics, fashion, and luxury goods, while maintaining or slightly increasing spending on essentials like food, groceries, and household supplies. This sentiment shift may affect the upcoming Grand Autumn Carnival shopping festival preparations."
-Raw Material Shortage,11-20,7,{},"{""delivery_delay_multiplier"": 3.0, ""affected_categories"": [""appliance_digital"", ""home_living"", ""auto_hardware""], ""cost_increase"": 0.15}","[SUPPLY CHAIN ALERT] Global Raw Material Shortage - Nov 20 to Nov 26
+零售行业分析师预计支出结构将发生转变：消费者会削减电子、服饰与奢侈品等非必需支出，同时维持或小幅增加食品、日用杂货与家居用品等必需品支出。这种情绪转变可能影响即将到来的金秋狂欢购物节备货。"
+Raw Material Shortage,11-20,7,{},"{""delivery_delay_multiplier"": 3.0, ""affected_categories"": [""appliance_digital"", ""home_living"", ""auto_hardware""], ""cost_increase"": 0.15}","[供应链预警] 全球原材料短缺 - 11 月 20 日至 26 日
 
-International commodity markets are experiencing a significant supply crunch for key raw materials including copper, aluminum, and semiconductor components. The shortage is attributed to a combination of geopolitical tensions and production disruptions at major mining operations.
+国际大宗商品市场在铜、铝与半导体元件等关键原材料上出现明显供应紧张。短缺归因于地缘政治紧张与主要矿山生产中断的叠加。
 
-Manufacturers of electronic appliances, home furnishing products, and automotive components are reporting production slowdowns and increased input costs. Wholesale prices for affected categories may temporarily rise by 10-15%. Delivery times are expected to extend significantly for products in these sectors."
-Cold Wave,12-20,5,"{""fashion"": 2.0, ""home_living"": 2.5, ""food_beverage"": 0.4, ""sports_outdoor"": 0.3}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": ""all""}","[WEATHER ALERT] Extreme Cold Wave Approaching - Dec 20 to Dec 24
+电子家电、家居用品与汽车零部件制造商报告生产放缓、投入成本上升。受影响品类的批发价可能暂时上涨 10–15%。这些行业的产品交付时间预计明显延长。"
+Cold Wave,12-20,5,"{""fashion"": 2.0, ""home_living"": 2.5, ""food_beverage"": 0.4, ""sports_outdoor"": 0.3}","{""delivery_delay_multiplier"": 2.0, ""affected_categories"": ""all""}","[天气预警] 强寒潮来袭 - 12 月 20 日至 24 日
 
-The China Meteorological Administration has issued a cold wave blue alert for northern and central China. Temperatures are expected to plummet by 15-20°C within 48 hours, with some regions dropping below -25°C.
+中国气象局对华北与华中发布寒潮蓝色预警。预计气温将在 48 小时内骤降 15–20°C，部分地区降至 -25°C 以下。
 
-Retailers are reporting a surge in demand for winter clothing, thermal underwear, heating appliances, and home insulation products. Fresh food logistics are experiencing disruptions due to freezing conditions affecting cold chain operations. Overall delivery times are expected to double during the cold snap. Outdoor-related products and perishable food items are seeing reduced consumer interest."
+零售商报告冬装、保暖内衣、取暖电器与家居保温产品需求激增。受冰冻影响冷链作业，生鲜物流出现中断。寒潮期间整体配送时效预计翻倍。户外相关商品与易腐食品的消费者兴趣下降。"

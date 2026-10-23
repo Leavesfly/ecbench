@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "publish_to_store",
-    "description": "Publish (list) products on a store's online page with pricing. Products must be in the warehouse and their category must be allowed for the store type. Products remain physically in the warehouse (incurring storage fees) until they are sold and shipped.",
+    "description": "把商品连同定价发布（上架）到店铺页面。商品必须已在仓库中，且其品类必须是该店铺类型允许的品类。上架后商品仍实际存放在仓库中（持续产生仓储费），直到售出并发货。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_id": {
           "type": "string",
-          "description": "Target store ID."
+          "description": "目标店铺 ID。"
         },
         "plan": {
           "type": "array",
-          "description": "List of items: [{'product_id': '...', 'quantity': N, 'retail_price': P}, ...]",
+          "description": "上架条目列表：[{'product_id': '...', 'quantity': N, 'retail_price': P}, ...]",
           "items": {
             "type": "object",
             "properties": {

@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "open_store",
-    "description": "Open a new online store of a specified type.",
+    "description": "开设一个指定类型的新网店。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_type": {
           "type": "string",
-          "description": "Type of store to open (e.g. 'beauty', 'fashion', 'appliance_digital'). Use market_search to see available types."
+          "description": "要开设的店铺类型（例如 'beauty'、'fashion'、'appliance_digital'）。可用 market_search 查看可选类型。"
         },
         "store_name": {
           "type": "string",
-          "description": "A name for your store."
+          "description": "你的店铺名称。"
         }
       },
       "required": [

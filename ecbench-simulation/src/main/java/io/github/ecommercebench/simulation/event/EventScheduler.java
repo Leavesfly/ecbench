@@ -29,10 +29,10 @@ public final class EventScheduler {
                         new SystemNotification(
                                 "promotion",
                                 day,
-                                "[PROMOTION ANNOUNCEMENT] "
+                                "[促销公告] "
                                         + promotion.eventName()
-                                        + "\nA major promotional event is coming up! "
-                                        + "Use join_promotion to participate with a discount rate."));
+                                        + "\n一场大型促销活动即将到来！"
+                                        + "用 join_promotion 并指定折扣率即可参与。"));
             }
         }
     }

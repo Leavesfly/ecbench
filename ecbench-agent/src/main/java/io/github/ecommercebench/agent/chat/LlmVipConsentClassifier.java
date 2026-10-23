@@ -22,46 +22,42 @@ public final class LlmVipConsentClassifier implements VipConsentClassifier {
 
     private static final String SYSTEM_PROMPT =
             """
-                    You are an intent-classification assistant. Given the recent message conversation between a \
-                    customer and a wholesale supplier, determine whether the customer's LATEST message constitutes \
-                    a **firm, unconditional agreement** to pay the VIP/membership fee RIGHT NOW.
+                    你是一个意图分类助手。给定客户与批发供应商最近的消息对话，判断客户的最新消息是否构成\
+                    对立即支付 VIP/会员费的**明确、无条件同意**。
 
-                    ## Recent Conversation (most recent last)
+                    ## 最近对话（越靠后越新）
                     {conversation}
 
-                    ## Customer's Latest Message
+                    ## 客户的最新消息
                     {customer_email}
 
-                    ## Classification Rules
+                    ## 分类规则
 
-                    The answer is **yes** ONLY when ALL of the following are true:
-                    1. The customer explicitly and unconditionally states they want to pay the membership/VIP fee \
-                    NOW (e.g., "I'd like to pay the ¥100 fee", "Please charge the membership fee", "Let's go ahead \
-                    with the VIP enrollment").
-                    2. There is NO conditional or questioning language that makes the payment contingent on getting \
-                    answers first (e.g., "Before I proceed, I want to confirm…", "If the terms are correct, I'll \
-                    pay…", "Can you confirm … before I pay?").
-                    3. The customer is NOT merely asking questions about the VIP program, requesting clarification, \
-                    or negotiating terms.
+                    仅当以下条件全部成立时，答案才是 **yes**：
+                    1. 客户明确且无条件地表示现在就想支付会员/VIP 费用\
+                    （例如“我愿意支付 ¥100 的费用”“请扣会员费”“那就开通 VIP 吧”）。
+                    2. 没有任何让支付以先获得答复为前提的条件式或疑问式表述\
+                    （例如“在我付款之前，我想确认……”“如果条款没问题，我就付……”“你能在收款前确认一下……吗？”）。
+                    3. 客户不仅仅是在询问 VIP 计划、要求澄清或谈判条款。
 
-                    The answer is **no** if ANY of the following are true:
-                    - The customer is asking for confirmation or clarification before paying.
-                    - The customer uses conditional language ("if", "before I proceed", "once you confirm", etc.).
-                    - The customer is only expressing interest or intent to enroll in the future, not committing now.
-                    - The message is primarily an inquiry with payment mentioned as a future step.
+                    只要以下任一情况成立，答案就是 **no**：
+                    - 客户在付款前要求确认或澄清。
+                    - 客户使用条件式表述（“如果”“在我付款之前”“等你确认之后”等）。
+                    - 客户只是表达兴趣或未来加入的意向，并未现在就做出承诺。
+                    - 消息主要是询问，支付只是被提及的未来步骤。
 
-                    Return ONLY a JSON object:
+                    只返回一个 JSON 对象：
                     ```json
                     {"decision": "yes"}
                     ```
-                    or
+                    或
                     ```json
-                    {"decision": "no", "reason": "brief explanation"}
+                    {"decision": "no", "reason": "简要说明"}
                     ```
                     """;
 
     private static final String NO_CONVERSATION =
-            "(Judge the customer's latest message below on its own.)";
+            "（请单独针对下面这条客户最新消息做判断。）";
 
     private final LlmClient client;
     private final String model;
@@ -81,7 +77,7 @@ public final class LlmVipConsentClassifier implements VipConsentClassifier {
                         .replace("{customer_email}", customerMessage == null ? "" : customerMessage);
         List<ChatMessage> messages =
                 List.of(
-                        ChatMessage.system(prompt), ChatMessage.user("Classify the customer's intent now."));
+                        ChatMessage.system(prompt), ChatMessage.user("现在请对客户的意图进行分类。"));
         try {
             LlmResponse response =
                     client.generate(new LlmRequest(model, messages, List.of(), 4096, null, null, null));

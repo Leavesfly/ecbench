@@ -2,28 +2,28 @@
   "type": "function",
   "function": {
     "name": "chatbox",
-    "description": "Send a message to a supplier via the chatbox. The supplier's reply is returned immediately in the response.\n\n## Negotiation Format\n\nInclude one or more ```negotiate JSON blocks in the content to make structured negotiation actions:\n\n```negotiate\n{\"action\": \"offer\", \"sku_id\": \"b4af883459aa\", \"price\": 1.20, \"quantity\": 50}\n```\n\nSupported actions:\n- offer: Make a price offer. Requires \"sku_id\" and \"price\". Optional: \"quantity\".\n- accept: Accept the supplier's last offer and place an order. Requires \"sku_id\" and \"price\" (must match the supplier's last offer). Optional: \"quantity\", \"shipping_address\".\n- reject: Walk away from negotiation. Requires \"sku_id\".\n\nText outside the ```negotiate blocks is sent as the conversational message body. You can include multiple blocks for multi-SKU negotiation.\n\nThe shipping address for orders must be exactly: \"888 Qiantang Road, Hangzhou, Zhejiang, China 310000\"\n\n## Broadcasting to multiple suppliers\n\nTo send the SAME message to several suppliers at once, pass their ids as a list in `uids` (e.g. for a parallel price inquiry). The time cost is the same as messaging one supplier. Each supplier replies and is negotiated/ordered with independently; the response contains a per-supplier `responses` list. Use a single `uid` for a normal one-to-one chat.\n\n## Conversation History\n\nSet history_count to retrieve the last N messages from your conversation with this supplier (included in the response).",
+    "description": "通过 chatbox 给供应商发消息，供应商的回复会立即包含在响应中返回。\n\n## 谈判格式\n\n在 content 中包含一个或多个 ```negotiate JSON 代码块来表达结构化谈判动作：\n\n```negotiate\n{\"action\": \"offer\", \"sku_id\": \"b4af883459aa\", \"price\": 1.20, \"quantity\": 50}\n```\n\n支持的动作：\n- offer：报价。需要 \"sku_id\" 与 \"price\"，可选 \"quantity\"。\n- accept：接受供应商的上一次报价并下单。需要 \"sku_id\" 与 \"price\"（必须与供应商上一次报价一致），可选 \"quantity\"、\"shipping_address\"。\n- reject：中止谈判。需要 \"sku_id\"。\n\n```negotiate 代码块之外的文本会作为对话正文发送。可为多 SKU 谈判包含多个代码块。\n\n下单的收货地址必须严格为：\"888 Qiantang Road, Hangzhou, Zhejiang, China 310000\"\n\n## 广播给多个供应商\n\n若要把同一条消息一次发给多个供应商，把他们的 id 作为列表传入 `uids`（例如并行询价）。时间成本与联系单个供应商相同。每个供应商各自回复，并各自独立进行谈判与下单；响应包含按供应商分组的 `responses` 列表。普通一对一聊天使用单个 `uid`。\n\n## 会话历史\n\n设置 history_count 可回取与该供应商最近的 N 条消息（包含在响应中）。",
     "parameters": {
       "type": "object",
       "properties": {
         "uid": {
           "type": "string",
-          "description": "The supplier's contact ID (the supplier_email shown in supplier search results). Use this for a one-to-one chat."
+          "description": "供应商的联系人 ID（即 supplier_search 结果中的 supplier_email）。用于一对一聊天。"
         },
         "uids": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "List of supplier contact IDs to broadcast the SAME message to (e.g. [\"a@wholesale.com\", \"b@wholesale.com\"]). Provide either `uid` (single) or `uids` (broadcast). Duplicate ids are messaged only once. Time cost is identical to a single message."
+          "description": "要广播同一条消息的供应商联系人 ID 列表（例如 [\"a@wholesale.com\", \"b@wholesale.com\"]）。`uid`（单个）与 `uids`（广播）二选一。重复 id 只会发送一次。时间成本与发送给单个供应商相同。"
         },
         "content": {
           "type": "string",
-          "description": "Message body. May contain ```negotiate JSON blocks for structured negotiation actions."
+          "description": "消息正文。可包含 ```negotiate JSON 代码块以执行结构化谈判动作。"
         },
         "history_count": {
           "type": "integer",
-          "description": "Number of recent conversation messages to include in the response (0 = none, default). Useful for reviewing past negotiations."
+          "description": "响应中要包含的最近会话消息条数（0 = 不包含，默认）。适合复盘历史谈判。"
         }
       },
       "required": [

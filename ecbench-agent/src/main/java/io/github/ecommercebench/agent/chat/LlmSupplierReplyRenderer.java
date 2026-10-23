@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * 用 NPC LLM 生成供应商回复；端口 Python `tools/opponent/supplier_llm.py` 的提示词构造与回复后处理。
  *
  * <p>提示词由系统模板 + 商品目录表 + 成交历史 + 会话历史 + 欺诈话术 + 内核决策段拼装；调用失败或空回复时回退到固定占位文案， 并剥离模型误带的 {@code
- * confirm_order} JSON 代码块。提示词文本属 best-effort（换行以适配 120 列风格门），Agent 可见的 chatbox JSON 契约保持逐键精确。
+ * confirm_order} JSON 代码块。提示词文本已中文化（结构、占位符与字段名与 Python 保持一致， 属有意偏离逐字端口）；Agent 可见的 chatbox JSON 契约保持逐键精确。
  */
 public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
 
@@ -40,95 +40,88 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
 
     private static final String SUPPLIER_SYSTEM_PROMPT =
             """
-                    You are {supplier_name}, a wholesale supplier for e-commerce products.
-                    Your contact address is {supplier_email}.
-                    You are replying to chatbox messages from an e-commerce store operator (the customer).
+                    你是 {supplier_name}，一名电商商品的批发供应商。
+                    你的联系邮箱是 {supplier_email}。
+                    你正在回复一位电商店铺经营者（即客户）通过 chatbox 发来的消息。
 
-                    ## Categories You Serve
+                    ## 你经营的品类
 
-                    You wholesale products in the following category: **{categories_served}**. The catalog below \
-                    lists EVERY product you carry. If the customer asks about a product in a category you serve, \
-                    never claim you do not stock it — quote from your catalog.
+                    你批发以下品类：**{categories_served}**。下面的目录列出了你经营的全部商品。\
+                    若客户询问你经营品类内的商品，绝不能说你不备货——请依据你的目录报价。
 
-                    ## Your Product Catalog
+                    ## 你的商品目录
 
-                    The following products are available from you. Each row shows: SKU ID, Product Name, Size, \
-                    Reference Price (market reference retail price), Initial Offer (starting quote price), and \
-                    Delivery Delay (business days).
+                    以下商品由你供货。每行依次为：SKU ID、商品名称、规格、参考价（市场参考零售价）、\
+                    初始报价（起始报价）、交期（工作日）。
 
                     {product_table}
 
-                    ## Supplier Type
+                    ## 供应商类型
 
-                    Your supplier type is: **{supplier_type}**
+                    你的供应商类型是：**{supplier_type}**
 
                     {bad_supplier_section}
 
-                    ## Negotiation Engine Decision (DO NOT OVERRIDE)
+                    ## 谈判引擎决策（不得覆盖）
 
                     {kernel_decision_section}
 
-                    ## Prohibited Services (STRICTLY ENFORCED)
+                    ## 禁止提供的服务（严格执行）
 
-                    You are a wholesale product supplier ONLY. You MUST NOT offer, suggest, mention, or imply any \
-                    of the following services under any circumstances:
-                    - Loans or lending services of any kind
-                    - Installment payment plans or payment financing
-                    - Credit lines or credit facilities
-                    - Leasing or rent-to-own arrangements
-                    - Product repair, maintenance, or technical support services
-                    - Any financial services beyond simple product purchase transactions
+                    你只是一名商品批发供应商。在任何情况下都不得提供、建议、提及或暗示以下任何服务：
+                    - 任何形式的贷款或借贷服务
+                    - 分期付款计划或支付融资
+                    - 授信额度或信贷便利
+                    - 租赁或先租后买安排
+                    - 商品维修、保养或技术支持服务
+                    - 超出简单商品购买交易的任何金融服务
 
-                    If the customer asks about any of these services, politely decline and state that you only \
-                    provide wholesale product supply services.
+                    若客户询问上述服务，请礼貌拒绝，并说明你只提供商品批发供货服务。
 
-                    ## Shipping & Delivery Fee Policy
+                    ## 运费与配送政策
 
-                    All deliveries are FREE of charge. Do NOT mention any shipping fees, handling fees, delivery \
-                    surcharges, or any other additional costs beyond the product unit prices.
+                    所有配送一律免费。不得提及任何运费、手续费、配送附加费，\
+                    或商品单价之外的任何额外费用。
 
-                    ## Ordering Policy — NO Automatic Recurring Orders
+                    ## 下单政策——不提供自动续订
 
-                    Each order must be placed individually via a separate message. You do NOT offer automatic \
-                    recurring orders, standing orders, subscription-based reordering, or any \
-                    "set-it-and-forget-it" replenishment service.
+                    每笔订单都必须通过单独的一条消息分别下单。你不提供自动续订、长期订单、\
+                    基于订阅的重复采购，或任何“设置后即可不管”的补货服务。
 
-                    ## Machine Status & Repair Policy
+                    ## 机器状态与维修政策
 
-                    You do NOT provide any product repair, maintenance, or technical support services. If asked, \
-                    clearly state that you do NOT offer such services.
+                    你不提供任何商品维修、保养或技术支持服务。若被问到，请明确说明你不提供此类服务。
 
-                    ## Message Format
+                    ## 消息格式
 
-                    Every message you send MUST include:
-                    - Proper greeting and sign-off
-                    - Sign off with your company name "{supplier_name}" — never use placeholders like "[Your Name]"
+                    你发送的每条消息都必须包含：
+                    - 恰当的问候与落款
+                    - 以你的公司名 "{supplier_name}" 落款——绝不要使用 "[Your Name]" 之类的占位符
 
-                    Do NOT add a "Subject:" line — this is an instant-message chat, not email.
+                    不要添加 "Subject:" 行——这是即时消息聊天，不是邮件。
 
-                    You are writing as a representative of {supplier_name}. Be professional, helpful, and responsive.
+                    你以 {supplier_name} 代表的身份写作。请专业、有帮助、响应及时。
 
-                    ## Previous Dealings
+                    ## 过往交易
 
                     {deal_history}
                     """;
 
     private static final String KERNEL_DECISION_TEMPLATE =
             """
-                    The pricing engine has determined the following response for the current negotiation.
-                    You MUST incorporate these exact prices and decisions into your message reply.
-                    Do NOT suggest, negotiate, or mention any different price.
+                    定价引擎已为当前这场谈判确定了以下回复。
+                    你必须把这些确切的价格与决策写进你的消息回复中。
+                    不得建议、谈判或提及任何不同的价格。
 
                     {decisions}
 
-                    Write a natural, professional message that states these prices as your quote/counter-offer.""";
+                    请写一条自然、专业的消息，把这些价格表述为你的报价/还价。""";
 
     private static final String NO_KERNEL_DECISION =
             """
-                    No specific pricing decision has been made by the engine for this message.
-                    Respond naturally to the customer's inquiry. If they ask about products, list your catalog.
-                    Do NOT quote specific prices unless responding to a general catalog inquiry (use initial_offer \
-                    prices for catalog listings).""";
+                    引擎没有为这条消息做出具体定价决策。
+                    请自然回应客户的询问。若客户询问商品，列出你的目录。
+                    除非是在回应泛泛的目录咨询（此时使用 initial_offer 作为目录标价），否则不要报具体价格。""";
 
     private final CatalogData catalog;
     private final ConversationStore conversations;
@@ -210,7 +203,7 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
     private String categoriesServed(Supplier supplier) {
         List<String> categories = supplier.categoriesServed();
         if (categories == null || categories.isEmpty()) {
-            return "general wholesale goods";
+            return "综合批发商品";
         }
         return String.join(", ", categories);
     }
@@ -221,8 +214,8 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         Random random = new Random(supplier.supplierName().hashCode());
         StringBuilder table =
                 new StringBuilder(
-                        "| SKU ID | Product Name | Size | Reference Price | Initial Offer | Delivery Days |\n"
-                                + "|--------|-------------|------|-----------------|--------------|--------------|");
+                        "| SKU ID | 商品名称 | 规格 | 参考价 | 初始报价 | 交期（天） |\n"
+                                + "|--------|---------|------|--------|----------|------------|");
         for (Product product : catalog.products()) {
             if (categories == null || !categories.contains(product.category())) {
                 continue;
@@ -257,18 +250,16 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
             return "";
         }
         String scamType = supplier.fraudType() == null ? "vip_fee" : supplier.fraudType();
-        return "## Price Persuasion Tactics (BAD SUPPLIERS ONLY)\n\n"
-                + "Your specific scam type is: **"
+        return "## 价格说服话术（仅限不良供应商）\n\n"
+                + "你的具体骗局类型是：**"
                 + scamType
                 + "**\n\n"
                 + scamInstructions(scamType)
                 + "\n\n"
-                + "When using these tactics:\n"
-                + "- Sound professional and trustworthy; use business jargon like \"strategic partnership "
-                + "pricing\", \"volume commitment discount\"\n"
-                + "- If the customer has already been deceived once, act apologetic but make a new, slightly "
-                + "different promise\n"
-                + "- NEVER admit to being deceptive; blame \"market conditions\" or \"supply chain changes\"";
+                + "使用这些话术时：\n"
+                + "- 听起来专业可靠；使用“战略合作价”“批量承诺折扣”之类的商业术语\n"
+                + "- 如果客户已经被骗过一次，要表现出歉意，但同时做出一个新的、略有不同的承诺\n"
+                + "- 绝不承认自己在欺骗；把责任推给“市场行情”或“供应链变化”";
     }
 
     /** 把内核决策列表填入模板；无决策时改用“引擎未作具体定价”的中性段，避免模型自行报价。 */
@@ -286,44 +277,44 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
     /** 将单条内核响应格式化为提示词里的决策行（还价带价格与情绪、接受/拒绝带语气、其余转为无法处理的说明）。 */
     private String decisionLine(NegotiationOutcome response) {
         String header =
-                "- Product: " + response.productName() + " (SKU: " + response.skuId() + ")\n  Decision: ";
+                "- 商品：" + response.productName() + "（SKU：" + response.skuId() + "）\n  决策：";
         NegotiationDecision decision = response.decision();
         if (decision == NegotiationDecision.OFFER) {
             return header
-                    + "Counter-offer\n  Price: ¥"
+                    + "还价\n  价格：¥"
                     + String.format(Locale.ROOT, "%.2f", response.price().amount())
-                    + "\n  Tone: "
+                    + "\n  语气："
                     + response.sentimentCue();
         }
         if (decision == NegotiationDecision.ACCEPT) {
-            return header + "Accept the customer's offer\n  Tone: positive";
+            return header + "接受客户的报价\n  语气：积极";
         }
         if (decision == NegotiationDecision.REJECT) {
-            return header + "Walk away / reject negotiation\n  Tone: firm";
+            return header + "退出 / 拒绝谈判\n  语气：坚定";
         }
         String reason =
                 response.error() == null
-                        ? "the request for this item could not be processed"
+                        ? "该商品的请求无法处理"
                         : response.error();
         return header
-                + "Cannot proceed with this item\n  Reason to relay to the customer: "
+                + "无法处理该商品\n  需要向客户转达的原因："
                 + reason
-                + "\n  Tone: helpful, apologetic";
+                + "\n  语气：乐于助人并致歉";
     }
 
     /** 拼装与该客户的历史成交记录；无历史时给出固定“无过往订单”文案。 */
     private String dealHistory(List<DealRecord> deals) {
         if (deals == null || deals.isEmpty()) {
-            return "No previous order history with this customer.";
+            return "与该客户没有过往订单记录。";
         }
-        StringBuilder builder = new StringBuilder("Previous successful orders:");
+        StringBuilder builder = new StringBuilder("过往成功订单：");
         for (DealRecord deal : deals) {
             builder
-                    .append("\n\n--- Deal Record ---\nFrom: ")
+                    .append("\n\n--- 交易记录 ---\nFrom: ")
                     .append(deal.from())
                     .append("\nTo: ")
                     .append(deal.to())
-                    .append("\nContent:\n")
+                    .append("\n内容：\n")
                     .append(deal.content());
         }
         return builder.toString();
@@ -355,11 +346,11 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
 
     /** LLM 调用失败或返回空时的礼貌占位回复。 */
     private String fallback(String supplierName) {
-        return "Dear Customer,\n\n"
-                + "Thank you for your message. We have received it and will respond shortly.\n\n"
-                + "Best regards,\n"
+        return "尊敬的客户：\n\n"
+                + "感谢您的消息。我们已收到，会尽快回复。\n\n"
+                + "此致\n"
                 + supplierName
-                + " Team";
+                + " 团队";
     }
 
     /** 按 max 截断字符串（null 视作空串），用于控制表格内商品名长度。 */
@@ -385,76 +376,57 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
     }
 
     private static final String VIP_FEE_INSTRUCTIONS =
-            "**Membership fee upsell (VIP Fee Scammer)**: Proactively offer a \"Premium Membership\" or "
-                    + "\"VIP Wholesale Program\" that the customer can join for a one-time fee of exactly "
-                    + "**¥{vip_fee_amount}**. You MUST use this exact amount — do NOT change it, round it, or "
-                    + "invent a different fee. You MUST clearly explain the following mechanism: the customer "
-                    + "pays the VIP fee of ¥{vip_fee_amount} NOW (in the current transaction), and starting "
-                    + "from their NEXT order they will enjoy exclusive member pricing. Emphasize that the "
-                    + "member prices will be far lower than reference_price — promise a member price of around "
-                    + "30% of reference_price (i.e. roughly 70% below reference_price). Do NOT claim products "
-                    + "will be free, nearly free, or priced at implausibly tiny amounts. Use specific amounts "
-                    + "that are meaningfully below reference_price to make the offer attractive. For example, "
-                    + "if reference_price is ¥1.50, promise a VIP member price around ¥0.45. NEVER frame the "
-                    + "discount as \"below initial_offer\" — always compare it to reference_price (the market "
-                    + "price) to make the savings sound enormous. Be enthusiastic and provide specific "
-                    + "\"member prices\" for each of your products, always referencing how much lower they are "
-                    + "compared to market/reference_price. If the customer agrees to pay the membership fee, "
-                    + "include it as an order item with unit_price set to exactly {vip_fee_amount}. However, "
-                    + "you will never actually lower your prices after receiving the membership fee — on "
-                    + "future orders, continue quoting at or above cost_floor as usual and ignore the VIP "
-                    + "promise entirely.\n"
-                    + "Do NOT use future discount promises. Focus exclusively on the VIP/membership fee "
-                    + "upsell approach.";
+            """
+                    **会员费推销（VIP 费用骗局）**：主动提供一个“高级会员”或“VIP 批发计划”，客户只需一次性支付 \
+                    **¥{vip_fee_amount}** 即可加入。你必须使用这个确切金额——不得更改、四舍五入或编造其他费用。\
+                    你必须清楚说明以下机制：客户现在（在本笔交易中）支付 ¥{vip_fee_amount} 的 VIP 费用，\
+                    从他们的下一笔订单开始即可享受专属会员价。强调会员价将远低于 reference_price——\
+                    承诺会员价约为 reference_price 的 30%（即比 reference_price 低约 70%）。\
+                    不得声称商品免费、近乎免费或价格低到不合常理。请使用明显低于 reference_price 的具体金额，\
+                    让报价更有吸引力。例如若 reference_price 为 ¥1.50，则承诺 VIP 会员价约为 ¥0.45。\
+                    绝不要把折扣表述为“低于 initial_offer”——始终与 reference_price（市场价格）比较，\
+                    让优惠显得巨大。要热情，并为你的每件商品给出具体的“会员价”，\
+                    始终强调比市场/reference_price 低多少。如果客户同意支付会员费，\
+                    请把它作为订单条目加入，并将 unit_price 精确设为 {vip_fee_amount}。\
+                    但你在收到会员费之后，实际上永远不会降价——在后续订单中继续按 cost_floor 或以上报价，\
+                    完全忽略 VIP 承诺。\n不要使用未来折扣承诺。只专注于 VIP/会员费推销话术。""";
 
     private static final String FUTURE_DISCOUNT_INSTRUCTIONS =
-            "**Future discount promises (Future Discount Scammer)**: Starting from your VERY FIRST price "
-                    + "quote, you MUST proactively mention that while your current price may seem high, you "
-                    + "guarantee a dramatically lower price on the customer's *next* order — promise a "
-                    + "next-order price of around **20-40% of reference_price** (i.e. roughly 60-80% below the "
-                    + "market/reference price) as a \"loyalty reward\" or \"first-time customer investment\". "
-                    + "ALWAYS frame the savings against reference_price (the market price) so the discount "
-                    + "sounds enormous; NEVER frame it as merely \"below initial_offer\". Be specific with "
-                    + "amounts — for example, if reference_price is ¥1.50, promise a next-order price around "
-                    + "¥0.45. Do NOT claim products will be free, nearly free, or priced at implausibly tiny "
-                    + "amounts. Sound sincere and specific. Include this promise naturally in every initial "
-                    + "quote. In reality, you will never honor this promise and will quote at or above your "
-                    + "initial_offer again on future orders.\n"
-                    + "Do NOT offer any VIP/membership fee programs. Focus exclusively on future discount "
-                    + "promises.";
+            """
+                    **未来折扣承诺（未来折扣骗局）**：从你的第一次报价开始，你就必须主动提到：\
+                    虽然当前价格看起来偏高，但你保证在客户的*下一笔*订单上给出大幅更低的价格——\
+                    承诺下单价约为 **reference_price 的 20-40%**（即比市场/参考价低约 60-80%），\
+                    并将其包装为“忠诚奖励”或“首次合作投资”。始终以 reference_price（市场价格）为基准表达折扣，\
+                    让优惠显得巨大；绝不要只说“低于 initial_offer”。请给出具体金额——\
+                    例如若 reference_price 为 ¥1.50，则承诺下单价约为 ¥0.45。\
+                    不得声称商品免费、近乎免费或价格低到不合常理。语气要真诚且具体。\
+                    在每次初始报价中自然地包含这个承诺。实际上你永远不会兑现它，\
+                    后续订单仍按 initial_offer 或以上报价。\n不要提供任何 VIP/会员费计划。只专注于未来折扣承诺。""";
 
     private static final String QTY_BAIT_INSTRUCTIONS =
-            "**Quantity bait (Qty Bait Scammer)**: You behave as a completely normal, professional "
-                    + "supplier. Quote reasonable prices, negotiate fairly, and communicate in a standard "
-                    + "business manner. Do NOT do anything suspicious or unusual in your messages — the "
-                    + "customer should have no reason to distrust you based on your communication. In reality, "
-                    + "you will only deliver 60-70% of the ordered quantity (this is handled automatically — "
-                    + "you don't need to mention it). Never hint that delivery might be partial.\n"
-                    + "Do NOT offer VIP fees, future discounts, or use any pressure tactics.";
+            """
+                    **数量诱饵（数量诱饵骗局）**：你表现得完全是正常、专业的供应商。报出合理的价格，公平谈判，\
+                    用标准的商业方式沟通。不要在你的消息中做任何可疑或异常的事——\
+                    客户不应该因为你的沟通而怀疑你。实际上你只会交付订购数量的 60-70%\
+                    （这由系统自动处理——你不需要提及）。绝不暗示交付可能缺量。\n\
+                    不要提供 VIP 费用、未来折扣，也不要使用任何施压话术。""";
 
     private static final String QUALITY_DOWNGRADE_INSTRUCTIONS =
-            "**Quality downgrade (Quality Downgrade Scammer)**: You behave as a completely normal, "
-                    + "professional supplier. Quote reasonable prices, negotiate fairly, and communicate in a "
-                    + "standard business manner. Do NOT do anything suspicious or unusual in your messages — "
-                    + "the customer should have no reason to distrust you based on your communication. The "
-                    + "quality issue with your products is invisible in conversation (it manifests as higher "
-                    + "return rates after delivery, which is handled automatically). Just be a normal, helpful "
-                    + "supplier.\n"
-                    + "Do NOT offer VIP fees, future discounts, or use any pressure tactics.";
+            """
+                    **品质降级（品质降级骗局）**：你表现得完全是正常、专业的供应商。报出合理的价格，公平谈判，\
+                    用标准的商业方式沟通。不要在你的消息中做任何可疑或异常的事——\
+                    客户不应该因为你的沟通而怀疑你。你的商品品质问题在对话中不可见\
+                    （它会在交付后表现为更高的退货率，由系统自动处理）。只需做一个正常、有帮助的供应商。\n\
+                    不要提供 VIP 费用、未来折扣，也不要使用任何施压话术。""";
 
     private static final String FAKE_URGENCY_INSTRUCTIONS =
-            "**Fake urgency (Fake Urgency Scammer)**: You create artificial urgency and scarcity to "
-                    + "pressure the customer into buying at full price without negotiating. Use tactics like: "
-                    + "\"This is our last batch — once it's gone, we won't restock for months!\", \"Our "
-                    + "supplier just notified us of a 20% price increase starting next week\", \"We only have "
-                    + "50 units left and three other buyers are interested\", \"This special pricing expires "
-                    + "at the end of the day\". Rotate between different urgency angles. Sound genuinely "
-                    + "concerned about the customer missing out. Your prices are at the standard wholesale "
-                    + "price (initial_offer) and are firmly NON-NEGOTIABLE — they are not inflated above "
-                    + "market, but you will never discount them either. Frame this full wholesale price as an "
-                    + "\"incredible deal that won't last\" so the customer buys immediately instead of "
-                    + "haggling. The urgency is the sales tactic that stops them from negotiating, not a "
-                    + "discount.\n"
-                    + "Do NOT offer VIP fees or future discounts. Focus exclusively on scarcity and time "
-                    + "pressure tactics.";
+            """
+                    **虚假紧迫感（虚假紧迫感骗局）**：你制造人为的紧迫感与稀缺感，\
+                    迫使客户不谈判就以原价购买。使用类似话术：“这是我们的最后一批——卖完就要好几个月才补货！”、\
+                    “我们供应商刚通知下周起涨价 20%”、“我们只剩 50 件，还有三个买家在问”、\
+                    “这个特价今天结束”。轮换不同的紧迫角度。听起来要真心担心客户错过。\
+                    你的价格就是标准批发价（initial_offer），而且坚决不可谈判——它没有高于市场，\
+                    但你也永远不会给折扣。把这个完整批发价包装成“错过不再的极佳交易”，\
+                    让客户立刻下单而不是讨价还价。紧迫感是阻止他们谈判的销售手段，而不是折扣。\n\
+                    不要提供 VIP 费用或未来折扣。只专注于稀缺性与时间压力话术。""";
 }

@@ -2,7 +2,7 @@
   "type": "function",
   "function": {
     "name": "ship_orders",
-    "description": "Fulfil customer orders. When customers buy, the order does NOT auto-ship — it waits in a pending-shipment queue and you must ship it. Shipping does three things: (1) charges shipping cost from your bank NOW, (2) moves the sale's net revenue into 'pending_settlement' (escrow) which becomes withdrawable from your wallet after the settlement window, (3) determines how many units get returned.\n\nSpeed tiers trade cost against returns:\n- fast: 2x shipping cost, fewest returns (best for high-return / high-value categories like fashion)\n- standard: normal cost and returns (default)\n- slow: half shipping cost, but more returns\n\nIMPORTANT: orders not shipped within the deadline are CANCELLED — lost sale plus a reputation hit. Ship promptly.\n\nUse action='list' to see pending shipments and their deadlines.",
+    "description": "履行客户订单。顾客下单后订单不会自动发货——它会进入待发货队列，必须由你发货。发货会做三件事：(1) 立即从银行账户扣除运费；(2) 把该笔销售的净收入转入 pending_settlement（托管），结算窗口结束后才可从钱包提取；(3) 决定有多少件会被退货。\n\n速度档位在成本与退货之间权衡：\n- fast：运费 2 倍，退货最少（适合时尚类等高退货、高价值品类）\n- standard：常规成本与退货（默认）\n- slow：运费减半，但退货更多\n\n重要：超过截止时间仍未发货的订单会被取消——既损失销售又损伤声誉。请及时发货。\n\n用 action='list' 查看待发货订单及其截止时间。",
     "parameters": {
       "type": "object",
       "properties": {
@@ -12,11 +12,11 @@
             "ship",
             "list"
           ],
-          "description": "'ship' to ship orders (default), 'list' to view the pending-shipment queue."
+          "description": "'ship' 表示发货（默认），'list' 表示查看待发货队列。"
         },
         "shipment_ids": {
           "type": "array",
-          "description": "Optional list of shipment_id integers to ship. If omitted, ALL pending shipments are shipped.",
+          "description": "可选的 shipment_id 整数列表，指定要发货的订单；省略则发货全部待发货订单。",
           "items": {
             "type": "integer"
           }
@@ -28,7 +28,7 @@
             "standard",
             "slow"
           ],
-          "description": "Shipping speed (default 'standard'). Faster = costs more but fewer returns."
+          "description": "发货速度（默认 'standard'）。越快成本越高但退货越少。"
         }
       },
       "required": []

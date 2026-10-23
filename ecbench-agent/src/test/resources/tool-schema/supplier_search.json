@@ -2,21 +2,21 @@
   "type": "function",
   "function": {
     "name": "supplier_search",
-    "description": "Search for wholesale suppliers. Filter by product name, category, or store type. Contact suppliers via chatbox to negotiate prices and place orders.",
+    "description": "搜索批发供应商，可按商品名称、品类或店铺类型筛选。通过 chatbox 联系供应商谈判价格并下单。",
     "parameters": {
       "type": "object",
       "properties": {
         "product_name": {
           "type": "string",
-          "description": "Search by product name (partial match)."
+          "description": "按商品名称搜索（部分匹配）。"
         },
         "category": {
           "type": "string",
-          "description": "Filter by category."
+          "description": "按品类筛选。"
         },
         "store_type": {
           "type": "string",
-          "description": "Filter by store type."
+          "description": "按店铺类型筛选。"
         }
       },
       "required": []

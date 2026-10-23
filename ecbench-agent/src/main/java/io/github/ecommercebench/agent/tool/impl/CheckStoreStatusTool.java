@@ -47,7 +47,7 @@ public final class CheckStoreStatusTool implements EcommerceTool {
         }
         StoreState store = engine.state().store(storeId);
         if (store == null) {
-            out.put("error", "Store '" + storeId + "' not found.");
+            out.put("error", "未找到店铺 '" + storeId + "'。");
             return out;
         }
         return detail(out, engine, store);

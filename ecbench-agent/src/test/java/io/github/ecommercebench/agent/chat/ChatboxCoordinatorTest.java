@@ -166,7 +166,7 @@ class ChatboxCoordinatorTest {
         ObjectNode out = coordinator.send(List.of(goodSupplier.supplierEmail()), "hi", 0);
 
         assertThat(out.get("message").asText()).isEqualTo("supplier_bankrupt");
-        assertThat(out.get("supplier_reply").asText()).contains("ceased");
+        assertThat(out.get("supplier_reply").asText()).contains("停止");
         assertThat(renderCalls.get()).isEqualTo(0);
     }
 
@@ -175,7 +175,7 @@ class ChatboxCoordinatorTest {
         ObjectNode out = coordinator.send(List.of(goodSupplier.supplierEmail()), "hi", 5);
 
         assertThat(out.get("conversation_history").isArray()).isTrue();
-        assertThat(out.get("conversation_history").get(0).get("from").asText()).isEqualTo("You");
+        assertThat(out.get("conversation_history").get(0).get("from").asText()).isEqualTo("你");
         assertThat(out.get("conversation_history").get(0).get("content").asText()).isEqualTo("hi");
     }
 
@@ -214,8 +214,8 @@ class ChatboxCoordinatorTest {
 
         assertThat(out.get("order_failed").asBoolean()).isTrue();
         assertThat(out.get("failed_orders").get(0).get("error").asText())
-                .contains("Insufficient funds");
-        assertThat(out.get("error").asText()).contains("Insufficient funds");
+                .contains("余额不足");
+        assertThat(out.get("error").asText()).contains("余额不足");
         assertThat(
                 kernelManager
                         .state(goodSupplier.supplierName(), goodProduct.productId())

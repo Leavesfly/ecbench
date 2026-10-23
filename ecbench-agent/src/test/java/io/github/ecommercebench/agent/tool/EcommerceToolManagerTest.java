@@ -71,7 +71,7 @@ class EcommerceToolManagerTest {
 
         assertThat(wait.calls).isEqualTo(1);
         assertThat(results.get(0).content()).contains("\"day\"");
-        assertThat(results.get(1).content()).contains("Duplicate wait_for_next_day");
+        assertThat(results.get(1).content()).contains("重复的 wait_for_next_day");
     }
 
     @Test
@@ -81,7 +81,7 @@ class EcommerceToolManagerTest {
         List<ToolExecutionResult> results = manager.execute(List.of(call("1", "nope", "{}")));
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).content()).contains("Unknown tool: nope");
+        assertThat(results.get(0).content()).contains("未知工具：nope");
     }
 
     @Test
@@ -97,7 +97,7 @@ class EcommerceToolManagerTest {
         List<ToolExecutionResult> results =
                 manager.execute(List.of(call("1", "bad", "{}"), call("2", "good", "{}")));
 
-        assertThat(results.get(0).content()).contains("Invalid arguments for bad");
+        assertThat(results.get(0).content()).contains("工具参数无效（bad）");
         assertThat(log).containsExactly("bad", "good");
     }
 
@@ -120,9 +120,9 @@ class EcommerceToolManagerTest {
                                 call("3", "wait_for_next_day", "{\"current_day\":\"2026-01-01\"}")));
 
         assertThat(log).containsExactly("boom");
-        assertThat(results.get(0).content()).contains("Tool execution exception");
-        assertThat(results.get(1).content()).contains("Tool execution failed");
-        assertThat(results.get(2).content()).contains("Tool execution failed");
+        assertThat(results.get(0).content()).contains("工具执行异常");
+        assertThat(results.get(1).content()).contains("工具执行失败");
+        assertThat(results.get(2).content()).contains("工具执行失败");
     }
 
     /**

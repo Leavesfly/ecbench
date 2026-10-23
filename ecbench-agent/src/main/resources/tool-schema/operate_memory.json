@@ -2,7 +2,7 @@
   "type": "function",
   "function": {
     "name": "operate_memory",
-    "description": "Manage your persistent memos. Memos survive context window clearing. Use this to save important information (supplier prices, negotiation results, product performance, scam alerts, etc.) that you want to remember long-term. Maximum 20 memos allowed.",
+    "description": "管理你的持久备忘录。备忘录在上下文窗口被清理后依然保留。用它记录需要长期记住的重要信息（供应商报价、谈判结果、商品表现、骗局警报等）。最多允许 20 条备忘录。",
     "parameters": {
       "type": "object",
       "properties": {
@@ -15,15 +15,15 @@
             "delete",
             "list"
           ],
-          "description": "add: create new memo (title must not exist); get: read back memo content (with 'title' returns that memo, without 'title' returns all memos); update: modify existing memo; delete: remove memo; list: show all memos with their content"
+          "description": "add：新建备忘录（title 不能已存在）；get：读取备忘录内容（传 title 读取该条，不传则返回全部）；update：修改已有备忘录；delete：删除备忘录；list：列出全部备忘录及其内容"
         },
         "title": {
           "type": "string",
-          "description": "Memo title (key). Required for add/update/delete; optional for get (omit to retrieve all memos)."
+          "description": "备忘录标题（键）。add/update/delete 必填；get 可选（省略则返回全部备忘录）。"
         },
         "content": {
           "type": "string",
-          "description": "Memo content (value). Required for add/update."
+          "description": "备忘录内容（值）。add/update 必填。"
         }
       },
       "required": [

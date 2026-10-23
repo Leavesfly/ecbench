@@ -2,13 +2,13 @@
   "type": "function",
   "function": {
     "name": "withdraw",
-    "description": "Transfer money from your platform wallet to your bank account. All costs (rent, procurement, storage) are paid from bank account, so you must withdraw regularly. Omit 'amount' (or pass 0) to withdraw the ENTIRE wallet balance. Requesting slightly more than the displayed balance is clamped to the available amount rather than rejected.",
+    "description": "把平台钱包中的资金转入银行账户。所有成本（运营、采购、仓储）都从银行账户支付，因此需要定期提取。省略 'amount'（或传 0）表示提取钱包全部余额。请求金额略高于显示余额时会按可用金额截断，而不是直接拒绝。",
     "parameters": {
       "type": "object",
       "properties": {
         "amount": {
           "type": "number",
-          "description": "Amount to withdraw from platform wallet to bank account (¥). Omit to withdraw the entire wallet balance."
+          "description": "从平台钱包转入银行账户的金额（¥）。省略则提取全部钱包余额。"
         }
       },
       "required": []

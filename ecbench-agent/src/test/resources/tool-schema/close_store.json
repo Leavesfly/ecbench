@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "close_store",
-    "description": "Close an open store permanently. No closing fee. By default the remaining shelf inventory returns to your warehouse, where it KEEPS accruing daily storage fees (which rise with age) until you sell it through another store. Set liquidate=true to instead sell that inventory back at its salvage value (a fraction of what you paid for it), credited to your bank account, so the closed store's stock stops costing you storage — use this to cleanly exit an underperforming store.",
+    "description": "永久关闭一个营业中的店铺，不收取关闭费用。默认情况下，货架上的剩余库存会退回你的仓库，并继续按天产生仓储费（费用随库龄上涨），直到你通过其他店铺卖出。把 liquidate 设为 true 则改为按残值（进货价的一定比例）变现并计入银行账户，使该店铺的库存不再产生仓储费——可用它干净地退出表现不佳的店铺。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_id": {
           "type": "string",
-          "description": "ID of the store to close (e.g. 'store_001')."
+          "description": "要关闭的店铺 ID（例如 'store_001'）。"
         },
         "liquidate": {
           "type": "boolean",
-          "description": "If true, sell the store's remaining inventory at salvage value (credited to bank) instead of moving it to the warehouse. Default false."
+          "description": "为 true 时按残值变现店铺剩余库存（计入银行账户），而不是退回仓库。默认 false。"
         }
       },
       "required": [

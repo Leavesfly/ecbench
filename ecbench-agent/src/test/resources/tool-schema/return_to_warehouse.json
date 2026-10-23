@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "return_to_warehouse",
-    "description": "Move products from a store shelf back to the central warehouse.",
+    "description": "把商品从店铺货架退回中心仓库。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_id": {
           "type": "string",
-          "description": "Store ID."
+          "description": "店铺 ID。"
         },
         "items": {
           "type": "array",
-          "description": "List: [{'product_id': '...', 'quantity': N}, ...]",
+          "description": "条目列表：[{'product_id': '...', 'quantity': N}, ...]",
           "items": {
             "type": "object",
             "properties": {

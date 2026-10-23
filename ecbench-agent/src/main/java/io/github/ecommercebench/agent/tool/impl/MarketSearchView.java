@@ -22,12 +22,11 @@ import java.util.stream.Collectors;
 final class MarketSearchView {
 
     private static final String SUBCATEGORY_NOTE =
-            "typical_gross_margin is a qualitative indicator (low/moderate/high) — your actual margin "
-                    + "depends on negotiation skill, your retail price, and returns. monthly_sales_index is "
-                    + "a 12-entry list (Jan..Dec, baseline=100).";
+            "typical_gross_margin 是定性指标（低/中/高）——你的实际毛利取决于谈判能力、零售价与退货情况。"
+                    + "monthly_sales_index 是 12 个元素的列表（1 月..12 月，基准=100）。";
     private static final String STORE_DETAIL_NOTE =
-            "Call market_search(category='<name>') for a sub-category's return-rate range, typical "
-                    + "gross-margin range, and typical sales range before deciding what to stock.";
+            "调用 market_search(category='<name>') 可查看某个子品类的退货率区间、典型毛利区间与典型销量区间，"
+                    + "再决定备货。";
 
     private final CatalogData catalog;
     private final MarketGuidance guidance;
@@ -60,26 +59,25 @@ final class MarketSearchView {
             response.set("results", mapper.createArrayNode());
             String hint =
                     storeType != null && !storeType.isBlank()
-                            ? "Valid sub-categories for '"
+                            ? "店铺类型 '"
                             + storeType
-                            + "': "
+                            + "' 的有效子品类："
                             + pythonList(subcategoryNames(storeType))
-                            : "Unknown sub-category. Call market_search() with no arguments to list store types "
-                            + "and their sub-categories.";
-            response.put("note", "No sub-category named '" + category + "'. " + hint);
+                            : "未知子品类。可先不带参数调用 market_search() 以列出店铺类型及其子品类。";
+            response.put("note", "没有名为 '" + category + "' 的子品类。 " + hint);
             return response;
         }
         if (storeType != null && !storeType.isBlank() && !params.storeType().equals(storeType)) {
             response.set("results", mapper.createArrayNode());
             response.put(
                     "note",
-                    "Sub-category '"
+                    "子品类 '"
                             + category
-                            + "' belongs to store type '"
+                            + "' 属于店铺类型 '"
                             + params.storeType()
-                            + "', not '"
+                            + "'，而不是 '"
                             + storeType
-                            + "'.");
+                            + "'。");
             return response;
         }
         response.set("detail", subcategoryDetail(category, params));
@@ -95,9 +93,9 @@ final class MarketSearchView {
             response.set("results", mapper.createArrayNode());
             response.put(
                     "note",
-                    "Unknown store type '"
+                    "未知店铺类型 '"
                             + storeType
-                            + "'. Valid: "
+                            + "'。可选："
                             + pythonList(List.copyOf(catalog.storeTypes().keySet())));
             return response;
         }
@@ -149,15 +147,14 @@ final class MarketSearchView {
         response.put("count", overview.size());
         response.put(
                 "note",
-                "Overview of all store types (you may open up to "
+                "全部店铺类型概览（你最多可开设 "
                         + maxStores
-                        + " stores). 'tier' and 'daily_ops_cost' show the daily ops cost per store; each store "
-                        + "pays its full ops cost (there is no multi-store discount). 'store_advantage' "
-                        + "summarises its distinctive strength + weakness; 'monthly_sales_index' (Jan..Dec, "
-                        + "baseline=100) shows its seasonal shape. Drill down with market_search(store_type="
-                        + "'<id>') to see a store's sub-categories, then market_search(category='<name>') for "
-                        + "one sub-category's return-rate / margin / sales detail. Different store types win "
-                        + "in different ways — pick the ones you can run best.");
+                        + " 家店铺）。'tier' 与 'daily_ops_cost' 显示每家店铺的每日运营成本；每家店都按全额支付运营成本"
+                        + "（没有多店折扣）。'store_advantage' 概括其独特优势 + 劣势；"
+                        + "'monthly_sales_index'（1 月..12 月，基准=100）展示其季节性形态。"
+                        + "用 market_search(store_type='<id>') 下钻查看某店铺的子品类，再用 "
+                        + "market_search(category='<name>') 查看某个子品类的退货率/毛利/销量明细。"
+                        + "不同店铺类型以不同方式取胜——选择你最擅长经营的那些。");
         return response;
     }
 
@@ -176,7 +173,7 @@ final class MarketSearchView {
         double marginMid =
                 Math.max(
                         0.0, 1.0 - params.wholesaleRatio().add(params.costFloorRatio()).doubleValue() / 2.0);
-        String marginLabel = marginMid < 0.20 ? "low" : marginMid < 0.35 ? "moderate" : "high";
+        String marginLabel = marginMid < 0.20 ? "低" : marginMid < 0.35 ? "中" : "高";
         EconomicRules.SizeCost costs = EconomicRules.sizeCost(params.defaultSize());
         StoreTypeConfig type = catalog.storeTypes().get(storeType);
         detail.put("category", category);
@@ -191,7 +188,7 @@ final class MarketSearchView {
                 params.monthlySalesMin()
                         + "-"
                         + params.monthlySalesMax()
-                        + " units/month (platform-wide; a single store realises only a fraction)");
+                        + " 件/月（全平台口径；单店只能实现其中一部分）");
         detail.put("shipping_cost_per_unit", costs.shipping().amount().doubleValue());
         detail.put("storage_cost_per_unit_per_day", costs.storagePerDay().amount().doubleValue());
         detail.put("store_advantage", guidance.storeAdvantage(storeType));

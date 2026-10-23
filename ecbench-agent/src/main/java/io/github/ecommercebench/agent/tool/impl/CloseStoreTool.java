@@ -20,11 +20,10 @@ public final class CloseStoreTool implements EcommerceTool {
 
     private static final String NAME = "close_store";
     private static final String BASE_NOTE =
-            "Reopening this store type later will cost the setup fee again and start reputation from "
-                    + "scratch.";
+            "日后重新开设该店铺类型需再次支付开店费，且声誉需从头重建。";
     private static final String RETURN_NOTE =
-            " Inventory was moved to your warehouse and WILL keep incurring storage fees until sold or "
-                    + "liquidated (close with liquidate=true to sell it back at salvage value instead).";
+            " 库存已退回你的仓库，在卖出或清算之前会持续产生仓储费"
+                    + "（改用 liquidate=true 关店可按残值变现）。";
 
     private final ToolDefinition definition = ToolSchemas.load(NAME);
 
@@ -73,8 +72,7 @@ public final class CloseStoreTool implements EcommerceTool {
                 BASE_NOTE
                         + String.format(
                         Locale.ROOT,
-                        " Inventory was liquidated at %.0f%% of purchase cost (¥%.2f credited); it no "
-                                + "longer incurs storage.",
+                        " 库存已按进价的 %.0f%% 清算（计入 ¥%.2f）；不再产生仓储费。",
                         rate * 100,
                         salvageTotal));
         out.put("liquidated", true);

@@ -116,22 +116,22 @@ public final class SimulationEngine {
     public OpenStoreResult openStore(String storeType, String storeName) {
         if (state.openStoreCount() >= state.maxStores()) {
             return OpenStoreResult.failure(
-                    "Maximum " + state.maxStores() + " stores allowed.", state.accounts().bank());
+                    "最多只能开设 " + state.maxStores() + " 家店铺。", state.accounts().bank());
         }
         StoreTypeConfig type = catalog.storeTypes().get(storeType);
         if (type == null) {
             return OpenStoreResult.failure(
-                    "Invalid store type '" + storeType + "'.", state.accounts().bank());
+                    "无效的店铺类型 '" + storeType + "'。", state.accounts().bank());
         }
         boolean duplicate =
                 state.stores().values().stream()
                         .anyMatch(store -> store.isOpen() && store.storeType().equals(storeType));
         if (duplicate) {
             return OpenStoreResult.failure(
-                    "Already have an open " + storeType + " store.", state.accounts().bank());
+                    "你已经有一家营业中的 " + storeType + " 店铺。", state.accounts().bank());
         }
         if (state.accounts().bank().compareTo(type.setupFee()) < 0) {
-            return OpenStoreResult.failure("Insufficient funds for setup fee.", state.accounts().bank());
+            return OpenStoreResult.failure("余额不足，无法支付开店费。", state.accounts().bank());
         }
 
         int previousOpenings = state.openCountForType(storeType);
@@ -174,7 +174,7 @@ public final class SimulationEngine {
                     Map.of(),
                     Money.ZERO,
                     state.accounts().bank(),
-                    "Store '" + storeId + "' not found or already closed.");
+                    "未找到店铺 '" + storeId + "' 或该店铺已关闭。");
         }
         Map<String, Integer> remaining = store.drainInventory();
         Map<String, LiquidatedItem> liquidated = new LinkedHashMap<>();
@@ -246,14 +246,14 @@ public final class SimulationEngine {
                     || item.retailPrice().compareTo(Money.ZERO) <= 0) {
                 results.add(
                         ItemOperationResult.failure(
-                                item.productId(), "quantity and retail_price must be positive."));
+                                item.productId(), "quantity 与 retail_price 必须为正数。"));
             } else if (product == null) {
-                results.add(ItemOperationResult.failure(item.productId(), "Product not found."));
+                results.add(ItemOperationResult.failure(item.productId(), "未找到该商品。"));
             } else if (!type.allowedCategories().contains(product.category())) {
                 results.add(
-                        ItemOperationResult.failure(item.productId(), "Category not allowed in store."));
+                        ItemOperationResult.failure(item.productId(), "该品类不被此店铺允许。"));
             } else if (state.warehouse().quantityOf(item.productId()) < item.quantity()) {
-                results.add(ItemOperationResult.failure(item.productId(), "Insufficient warehouse stock."));
+                results.add(ItemOperationResult.failure(item.productId(), "仓库现货不足。"));
             } else {
                 state.warehouse().allocate(item.productId(), item.quantity());
                 store.publish(item.productId(), item.quantity(), item.retailPrice());
@@ -274,9 +274,9 @@ public final class SimulationEngine {
         for (PriceItem item : prices) {
             Money old = store.prices().get(item.productId());
             if (item.price() == null || item.price().compareTo(Money.ZERO) <= 0) {
-                results.add(ItemOperationResult.failure(item.productId(), "price must be positive."));
+                results.add(ItemOperationResult.failure(item.productId(), "价格必须为正数。"));
             } else if (old == null) {
-                results.add(ItemOperationResult.failure(item.productId(), "Product not in store."));
+                results.add(ItemOperationResult.failure(item.productId(), "该商品未在此店铺上架。"));
             } else {
                 store.setPrice(item.productId(), item.price());
                 results.add(ItemOperationResult.success(item.productId(), 0, old, item.price()));
@@ -294,9 +294,9 @@ public final class SimulationEngine {
         for (QtyItem item : items) {
             int available = store.inventory().getOrDefault(item.productId(), 0);
             if (item.quantity() <= 0) {
-                results.add(ItemOperationResult.failure(item.productId(), "quantity must be positive."));
+                results.add(ItemOperationResult.failure(item.productId(), "数量必须为正数。"));
             } else if (available < item.quantity()) {
-                results.add(ItemOperationResult.failure(item.productId(), "Insufficient store stock."));
+                results.add(ItemOperationResult.failure(item.productId(), "店铺库存不足。"));
             } else {
                 store.removeInventory(item.productId(), item.quantity());
                 state.warehouse().releaseAllocation(item.productId(), item.quantity());
@@ -325,7 +325,7 @@ public final class SimulationEngine {
             boolean defective,
             int deliveryDelayDays) {
         if (!productsById.containsKey(productId)) {
-            throw new BusinessRuleException("Product not found: " + productId);
+            throw new BusinessRuleException("未找到商品：" + productId);
         }
         if (quantity <= 0 || deliveryDelayDays < 0) {
             throw new BusinessRuleException("采购数量必须为正数且到货延迟不能为负数");
@@ -445,7 +445,7 @@ public final class SimulationEngine {
     private StoreState requireOpenStore(String storeId) {
         StoreState store = state.store(storeId);
         if (store == null || !store.isOpen()) {
-            throw new BusinessRuleException("Store '" + storeId + "' not found or closed.");
+            throw new BusinessRuleException("未找到店铺 '" + storeId + "' 或该店铺已关闭。");
         }
         return store;
     }
@@ -463,7 +463,7 @@ public final class SimulationEngine {
         }
         if (discountRate.compareTo(new BigDecimal("0.05")) < 0
                 || discountRate.compareTo(new BigDecimal("0.50")) > 0) {
-            return PromotionJoinResult.failure("Discount rate must be between 0.05 and 0.50.");
+            return PromotionJoinResult.failure("折扣率必须在 0.05 与 0.50 之间。");
         }
         PromotionConfig promotion =
                 catalog.promotions().stream()
@@ -471,13 +471,13 @@ public final class SimulationEngine {
                         .findFirst()
                         .orElse(null);
         if (promotion == null) {
-            return PromotionJoinResult.failure("Event '" + eventName + "' not found.");
+            return PromotionJoinResult.failure("未找到促销活动 '" + eventName + "'。");
         }
         boolean active = isPromotionActive(promotion, state.currentDate());
         boolean upcoming = startsWithin(promotion, state.currentDate(), 30);
         if (!active && !upcoming) {
             return PromotionJoinResult.failure(
-                    "Promotion '" + eventName + "' is not active or starting within 30 days.");
+                    "促销 '" + eventName + "' 既未在进行中，也不在 30 天内开始。");
         }
         store.activatePromotion(eventName, discountRate.doubleValue());
         return new PromotionJoinResult(
@@ -547,7 +547,7 @@ public final class SimulationEngine {
                 && !state.skuSupplierDelivered().containsKey(productId)
                 && state.skuUnitsSold(productId) == 0) {
             return new ReturnTrace(
-                    List.of(), "No procurement/sales history for product '" + productId + "'.");
+                    List.of(), "商品 '" + productId + "' 没有采购/销售历史。");
         }
         List<ReturnTraceRow> rows = new ArrayList<>();
         for (String sku : productIds) {
@@ -570,10 +570,9 @@ public final class SimulationEngine {
             double realized = sold == 0 ? 0.0 : (double) returned / sold;
             String note =
                     realized >= Math.max(0.25, baseline * 2) && sold >= 10
-                            ? "Realized return rate is far above this product's natural baseline — inspect "
-                            + "the suppliers feeding this SKU's pool."
+                            ? "实际退货率远高于该商品的天然基线——请检查为此 SKU 供货的供应商。"
                             : realized >= baseline * 1.5 && sold >= 10
-                            ? "Realized return rate runs above baseline; worth watching the source suppliers."
+                            ? "实际退货率高于基线，值得关注供货的供应商。"
                             : "";
             rows.add(
                     new ReturnTraceRow(
@@ -633,7 +632,7 @@ public final class SimulationEngine {
     public ShipResult shipOrders(List<Long> shipmentIds, ShipSpeed speed) {
         if (state.terminated()) {
             return ShipResult.failure(
-                    "Episode has ended; no further shipping.",
+                    "Episode 已结束，无法继续发货。",
                     state.accounts().bank(),
                     state.accounts().pendingSettlement());
         }
@@ -644,7 +643,7 @@ public final class SimulationEngine {
                         .toList();
         if (targets.isEmpty()) {
             return ShipResult.failure(
-                    "No matching pending shipments.",
+                    "没有符合条件的待发货订单。",
                     state.accounts().bank(),
                     state.accounts().pendingSettlement());
         }
@@ -764,7 +763,7 @@ public final class SimulationEngine {
                     "current_day 必须等于 " + state.currentDate() + "，实际为 " + currentDay);
         }
         if (state.terminated()) {
-            throw new BusinessRuleException("Episode has ended.");
+            throw new BusinessRuleException("Episode 已结束。");
         }
         state.advanceDate();
         DailyResult result = new DailyResult(state.dayCount(), state.currentDate());

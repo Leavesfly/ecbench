@@ -14,9 +14,9 @@ class StorePlaybookLoaderTest {
 
     MarketGuidance guidance = new StorePlaybookLoader().load(json);
 
-    assertThat(guidance.profitPotential(1)).isEqualTo("Very high");
-    assertThat(guidance.profitPotential(3)).isEqualTo("Modest — low ceiling");
-    assertThat(guidance.storeAdvantage("beauty")).contains("PROFIT POTENTIAL: MODEST");
+    assertThat(guidance.profitPotential(1)).isEqualTo("很高");
+    assertThat(guidance.profitPotential(3)).isEqualTo("有限——天花板较低");
+    assertThat(guidance.storeAdvantage("beauty")).contains("盈利潜力：有限");
     assertThat(guidance.playbook("beauty").strengths()).isNotEmpty();
     assertThat(guidance.playbook("beauty").challenges()).isNotEmpty();
     assertThat(guidance.playbook("beauty").tips()).isNotEmpty();

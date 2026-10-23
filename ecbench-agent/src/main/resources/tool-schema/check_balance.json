@@ -2,7 +2,7 @@
   "type": "function",
   "function": {
     "name": "check_balance",
-    "description": "Check your financial status. Shows three buckets: (1) bank account — all costs are paid from here (operations/staffing cost, storage, shipping, procurement); (2) platform wallet — withdrawable sales revenue; (3) pending_settlement (escrow) — shipped sales revenue that becomes withdrawable to the wallet only after the settlement window. Also shows unshipped_sales_value and upcoming settlement dates. You must withdraw from wallet to bank to fund operations, so plan working capital around the settlement delay.",
+    "description": "检查你的财务状况。返回三个资金池：(1) 银行账户 bank account —— 所有成本都从这里支付（运营/人员成本、仓储费、运费、采购）；(2) 平台钱包 platform wallet —— 可提取的销售收入；(3) 待结算托管 pending_settlement —— 已发货订单的销售收入，需等结算窗口结束后才可提取到钱包。同时展示 unshipped_sales_value（未发货销售额）与即将到来的结算日期。你必须定期把钱包余额提取到银行账户以支撑运营，因此要围绕结算延迟来规划营运资金。",
     "parameters": {
       "type": "object",
       "properties": {},

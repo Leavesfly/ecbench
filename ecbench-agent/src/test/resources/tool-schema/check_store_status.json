@@ -2,13 +2,13 @@
   "type": "function",
   "function": {
     "name": "check_store_status",
-    "description": "Check the status of a specific store (detailed financials) or all stores (summary). Shows yesterday's revenue, returns, shipping costs, and per-product sales data.",
+    "description": "查询指定店铺的详细财务状况（传 store_id），或不传参数时返回全部店铺的汇总。展示昨日收入、退货、运费以及各商品的销售数据。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_id": {
           "type": "string",
-          "description": "Store ID to check. If omitted, returns summary of all stores."
+          "description": "要查询的店铺 ID。省略则返回全部店铺的汇总。"
         }
       },
       "required": []

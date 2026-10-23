@@ -108,7 +108,7 @@ public final class ContextEditor {
     /** 生成当前 token 用量水位告警串（含已用/容量/百分比/剩余额）。 */
     private String status(int usage, int maximumCapacity) {
         double percentage = maximumCapacity <= 0 ? 0.0 : (double) usage / maximumCapacity;
-        return "<system_warning>Token usage: %d/%d tokens (%.0f%%); %d remaining</system_warning>"
+        return "<system_warning>Token 用量：%d/%d tokens（%.0f%%）；剩余 %d</system_warning>"
                 .formatted(usage, maximumCapacity, percentage * 100.0, maximumCapacity - usage);
     }
 

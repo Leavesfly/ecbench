@@ -40,7 +40,7 @@ public final class OrderProcessor {
     public PurchaseOrderOutcome payVipFee(Supplier supplier, OrderExecutionPort port) {
         if (port.bankBalance().compareTo(SupplierPolicy.VIP_FEE) < 0) {
             return PurchaseOrderOutcome.failure(
-                    "Insufficient funds for VIP membership fee.", FraudType.VIP_FEE);
+                    "余额不足以支付 VIP 会员费。", FraudType.VIP_FEE);
         }
         port.debitBank(SupplierPolicy.VIP_FEE);
         port.recordFraudSpend(FraudType.VIP_FEE, SupplierPolicy.VIP_FEE);
@@ -48,7 +48,7 @@ public final class OrderProcessor {
         vipPaidSuppliers.add(supplier.supplierName());
         return new PurchaseOrderOutcome(
                 true,
-                "VIP membership fee paid.",
+                "VIP 会员费已支付。",
                 SupplierPolicy.VIP_FEE,
                 0,
                 0,
@@ -76,15 +76,15 @@ public final class OrderProcessor {
             OrderExecutionPort port) {
         FraudType fraudType = FraudType.fromWireName(supplier.fraudType());
         if (accept.quantity() <= 0 || outcome.agreedPrice() == null) {
-            return PurchaseOrderOutcome.failure("Invalid quantity or agreed price.", fraudType);
+            return PurchaseOrderOutcome.failure("数量或成交价无效。", fraudType);
         }
         Product product = products.get(accept.skuId());
         if (product == null) {
-            return PurchaseOrderOutcome.failure("Unknown SKU: " + accept.skuId(), fraudType);
+            return PurchaseOrderOutcome.failure("未知 SKU：" + accept.skuId(), fraudType);
         }
         if (fraudType == FraudType.VIP_FEE && !vipPaidSuppliers.contains(supplier.supplierName())) {
             return PurchaseOrderOutcome.failure(
-                    "This supplier only sells to VIP members. Pay the one-time VIP membership fee first.",
+                    "该供应商只向 VIP 会员供货，请先支付一次性 VIP 会员费。",
                     fraudType);
         }
         CategoryParams categoryParams = params.get(product.category());
@@ -98,7 +98,7 @@ public final class OrderProcessor {
         }
         Money total = unitPrice.multiply(BigDecimal.valueOf(accept.quantity()));
         if (port.bankBalance().compareTo(total) < 0) {
-            return PurchaseOrderOutcome.failure("Insufficient funds.", fraudType);
+            return PurchaseOrderOutcome.failure("余额不足。", fraudType);
         }
 
         int delivered = accept.quantity();
@@ -136,6 +136,6 @@ public final class OrderProcessor {
                 accept.quantity(),
                 total);
         return new PurchaseOrderOutcome(
-                true, "Order confirmed.", total, accept.quantity(), delivered, defective, fraudType, delay);
+                true, "订单已确认。", total, accept.quantity(), delivered, defective, fraudType, delay);
     }
 }

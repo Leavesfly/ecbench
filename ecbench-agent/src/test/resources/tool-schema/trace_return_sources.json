@@ -2,13 +2,13 @@
   "type": "function",
   "function": {
     "name": "trace_return_sources",
-    "description": "Trace which suppliers a product's warehouse stock was purchased from, shown next to that product's realized sold/returned counts and its natural baseline return rate. Use this to investigate high returns: a product whose realized return rate runs far above its baseline, and whose stock pool is dominated by one supplier, points to that supplier as the likely cause (e.g. defective goods). Note: inventory is pooled per product, so an individual returned unit cannot be tied to one supplier lot — you must infer the bad source from the delivery mix and return rate. Omit product_id to scan all products that have had returns, sorted by realized return rate (most suspect first).",
+    "description": "追溯某商品在仓库中的库存来自哪些供应商，并同时展示该商品实际已售/已退件数及其自然基线退货率。用它排查高退货：若某商品的实际退货率远高于基线，且其库存主要来自某一个供应商，则该供应商很可能就是原因（例如次品）。注意：库存按商品混合存放，单个退货件无法归因到某一供应商批次——你需要根据供货构成与退货率推断不良来源。省略 product_id 可扫描所有发生过退货的商品，并按实际退货率从高到低排序（最可疑的在前）。",
     "parameters": {
       "type": "object",
       "properties": {
         "product_id": {
           "type": "string",
-          "description": "Product (SKU) ID to trace. If omitted, returns all products with returns."
+          "description": "要追溯的商品（SKU）ID。省略则返回所有发生过退货的商品。"
         }
       },
       "required": []

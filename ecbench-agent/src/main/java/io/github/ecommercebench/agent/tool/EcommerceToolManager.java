@@ -29,8 +29,7 @@ public final class EcommerceToolManager {
     public static final String WAIT_FOR_NEXT_DAY = "wait_for_next_day";
 
     private static final String DUPLICATE_WAIT_NOTE =
-            "Duplicate wait_for_next_day in the same batch was ignored — time advances only "
-                    + "one day per turn. Issue one wait per turn.";
+            "同一批次中重复的 wait_for_next_day 已被忽略——每轮只能推进一天。每轮请只调用一次 wait。";
 
     private final ToolRegistry registry;
     private final SimulationEngine engine;
@@ -80,7 +79,7 @@ public final class EcommerceToolManager {
             }
             Optional<EcommerceTool> tool = registry.find(name);
             if (tool.isEmpty()) {
-                responses[i] = textJson("error", "Unknown tool: " + name);
+                responses[i] = textJson("error", "未知工具：" + name);
                 continue;
             }
             try {
@@ -88,11 +87,11 @@ public final class EcommerceToolManager {
                 injectCurrentTime(out);
                 responses[i] = write(out);
             } catch (IllegalArgumentException | BusinessRuleException e) {
-                responses[i] = textJson("error", "Invalid arguments for " + name + ": " + e.getMessage());
+                responses[i] = textJson("error", "工具参数无效（" + name + "）：" + e.getMessage());
             } catch (RuntimeException e) {
                 critical = true;
                 detail = String.valueOf(e.getMessage());
-                responses[i] = textJson("error", "Tool execution exception: " + e.getMessage());
+                responses[i] = textJson("error", "工具执行异常：" + e.getMessage());
                 break;
             }
         }
@@ -131,7 +130,7 @@ public final class EcommerceToolManager {
         if (engine.state().terminated()) {
             ObjectNode out = mapper.createObjectNode();
             out.put("current_time", currentTime());
-            out.put("note", "Simulation has ended; no further days to advance.");
+            out.put("note", "仿真已结束，没有可推进的日期了。");
             String reason = engine.state().terminationReason();
             if (reason != null) {
                 out.put("termination_reason", reason);
@@ -152,7 +151,7 @@ public final class EcommerceToolManager {
             out.put("error", String.valueOf(e.getMessage()));
             return write(out);
         } catch (RuntimeException e) {
-            return textJson("error", "Tool execution exception: " + e.getMessage());
+            return textJson("error", "工具执行异常：" + e.getMessage());
         }
     }
 
@@ -178,7 +177,7 @@ public final class EcommerceToolManager {
     /** 构造统一的工具执行失败负载 {error, detail}。 */
     private String failureJson(String detail) {
         ObjectNode node = mapper.createObjectNode();
-        node.put("error", "Tool execution failed");
+        node.put("error", "工具执行失败");
         node.put("detail", detail);
         return write(node);
     }

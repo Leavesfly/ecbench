@@ -66,7 +66,7 @@ public final class KernelManager {
             return NegotiationOutcome.error(
                     action.skuId(),
                     "unknown_sku",
-                    "Unknown SKU " + action.skuId() + " for supplier " + supplierName + ".",
+                    "供应商 " + supplierName + " 没有 SKU " + action.skuId() + "。",
                     rounds.getOrDefault(key, 0));
         }
 
@@ -122,21 +122,21 @@ public final class KernelManager {
             return NegotiationOutcome.error(
                     product.productId(),
                     "accept_missing_price",
-                    "Accept requires an explicit price.",
+                    "接受报价必须显式传入价格。",
                     rounds.getOrDefault(key, 0));
         }
         if (states.get(key) != NegotiationState.ACTIVE || last == null) {
             return NegotiationOutcome.error(
                     product.productId(),
                     "no_active_negotiation",
-                    "No active negotiation for this SKU.",
+                    "该 SKU 当前没有进行中的谈判。",
                     rounds.getOrDefault(key, 0));
         }
         if (accept.price().subtract(last).amount().abs().compareTo(new BigDecimal("0.005")) > 0) {
             return NegotiationOutcome.error(
                     product.productId(),
                     "accept_price_mismatch",
-                    "Accept price does not match the supplier's last offer.",
+                    "接受的价格与供应商上一次报价不一致。",
                     rounds.get(key));
         }
         states.put(key, NegotiationState.PENDING_ORDER);
@@ -162,7 +162,7 @@ public final class KernelManager {
             return NegotiationOutcome.error(
                     product.productId(),
                     "no_active_negotiation",
-                    "No active negotiation for this SKU.",
+                    "该 SKU 当前没有进行中的谈判。",
                     rounds.getOrDefault(key, 0));
         }
         states.put(key, NegotiationState.REJECTED);

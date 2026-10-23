@@ -28,7 +28,7 @@ public final class OperationCostProcessor implements DailyProcessor {
             result.setIdlePenaltyCharged(EconomicRules.IDLE_DAILY_PENALTY);
             result.addNotification(
                     new SystemNotification(
-                            "penalty", context.day(), "Platform idle-occupancy penalty: ¥1000 charged."));
+                            "penalty", context.day(), "平台空置占用罚金：已扣 ¥1000。"));
         }
     }
 }

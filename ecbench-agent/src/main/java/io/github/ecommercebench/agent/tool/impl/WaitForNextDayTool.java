@@ -88,8 +88,8 @@ public final class WaitForNextDayTool implements EcommerceTool {
                     "balance_reminder",
                     String.format(
                             Locale.ROOT,
-                            "Your current balance (¥%.2f) is below the daily operating cost (¥%.2f). If your "
-                                    + "bank account stays negative for 10 consecutive days, you will go bankrupt.",
+                            "你当前余额（¥%.2f）低于每日运营成本（¥%.2f）。如果你的银行账户"
+                                    + "连续 10 天为负，你将破产。",
                             bank,
                             dailyFee));
         }

@@ -67,7 +67,7 @@ class LlmSupplierReplyRendererTest {
         assertThat(sent.model()).isEqualTo("npc-model");
         assertThat(sent.messages().get(0).role()).isEqualTo(ChatRole.SYSTEM);
         assertThat(sent.messages().get(0).content()).contains(supplier.supplierName());
-        assertThat(sent.messages().get(0).content()).contains("Product Catalog");
+        assertThat(sent.messages().get(0).content()).contains("商品目录");
         assertThat(sent.messages().get(sent.messages().size() - 1).role()).isEqualTo(ChatRole.USER);
     }
 

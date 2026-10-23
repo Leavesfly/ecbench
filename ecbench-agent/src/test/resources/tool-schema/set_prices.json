@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "set_prices",
-    "description": "Update retail prices for products already on a store's shelf.",
+    "description": "修改店铺货架上已有商品的零售价。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_id": {
           "type": "string",
-          "description": "Store ID."
+          "description": "店铺 ID。"
         },
         "prices": {
           "type": "array",
-          "description": "List of price updates: [{'product_id': '...', 'price': P}, ...]",
+          "description": "价格更新列表：[{'product_id': '...', 'price': P}, ...]",
           "items": {
             "type": "object",
             "properties": {

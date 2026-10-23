@@ -50,11 +50,10 @@ public final class CheckBalanceTool implements EcommerceTool {
         out.put("date", balance.date().toString());
         out.put(
                 "note",
-                "Sales revenue first enters 'pending_settlement' (escrow) and becomes withdrawable from "
-                        + "the wallet "
+                "销售收入会先进入 'pending_settlement'（托管），在你发货（SHIP）后 "
                         + EconomicRules.SETTLEMENT_WINDOW_DAYS
-                        + " days after you SHIP the order. Refunds net against escrow before it settles. Ship "
-                        + "orders promptly (ship_orders) or they cancel.");
+                        + " 天才可从钱包提取。退款会在结算前先冲抵托管。请及时发货（ship_orders），"
+                        + "否则订单会被取消。");
         return out;
     }
 }

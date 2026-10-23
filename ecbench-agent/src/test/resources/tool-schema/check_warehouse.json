@@ -2,7 +2,7 @@
   "type": "function",
   "function": {
     "name": "check_warehouse",
-    "description": "Check current warehouse inventory. Shows all products in storage with quantities and purchase prices.",
+    "description": "查看当前仓库库存，列出所有在库商品的数量与采购价。",
     "parameters": {
       "type": "object",
       "properties": {},

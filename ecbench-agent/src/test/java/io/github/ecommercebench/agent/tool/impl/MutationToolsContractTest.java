@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * 九个变更型工具的契约测试：Schema 与 Python golden 逐键一致，输出字段对齐 Python。
+ * 九个变更型工具的契约测试：Schema 与 test-resource golden 逐键一致，输出字段对齐 Python。
  */
 class MutationToolsContractTest {
 
@@ -153,7 +153,7 @@ class MutationToolsContractTest {
         assertThat(out.get("inventory_returned_to_warehouse").get(beautyProductId).asInt())
                 .isEqualTo(4);
         assertThat(out.get("total_items_returned").asInt()).isEqualTo(4);
-        assertThat(out.get("note").asText()).contains("warehouse");
+        assertThat(out.get("note").asText()).contains("仓库");
     }
 
     @Test
@@ -173,7 +173,7 @@ class MutationToolsContractTest {
         assertThat(out.get("salvage_credited").asDouble()).isGreaterThan(0.0);
         assertThat(out.has("salvage_rate")).isTrue();
         assertThat(out.has("bank_balance")).isTrue();
-        assertThat(out.get("note").asText()).contains("liquidated");
+        assertThat(out.get("note").asText()).contains("清算");
     }
 
     @Test
@@ -237,11 +237,11 @@ class MutationToolsContractTest {
                         json(
                                 "{\"store_id\":\""
                                         + storeId
-                                        + "\",\"event_name\":\"New Year Kickoff Sale\",\"discount_rate\":0.2}"),
+                                        + "\",\"event_name\":\"新年开门红\",\"discount_rate\":0.2}"),
                         ctx());
         assertThat(joined.get("success").asBoolean()).isTrue();
         assertThat(joined.get("store_id").asText()).isEqualTo(storeId);
-        assertThat(joined.get("event").asText()).isEqualTo("New Year Kickoff Sale");
+        assertThat(joined.get("event").asText()).isEqualTo("新年开门红");
         assertThat(joined.get("discount_rate").asDouble()).isEqualTo(0.2);
         assertThat(joined.get("active_now").asBoolean()).isTrue();
         assertThat(joined.get("max_demand_multiplier").asDouble()).isEqualTo(2.0);
@@ -251,7 +251,7 @@ class MutationToolsContractTest {
                         json(
                                 "{\"store_id\":\""
                                         + storeId
-                                        + "\",\"event_name\":\"New Year Kickoff Sale\",\"discount_rate\":0.9}"),
+                                        + "\",\"event_name\":\"新年开门红\",\"discount_rate\":0.9}"),
                         ctx());
         assertThat(badDiscount.get("success").asBoolean()).isFalse();
         assertThat(badDiscount.has("error")).isTrue();
@@ -277,7 +277,7 @@ class MutationToolsContractTest {
 
         ObjectNode badSpeed = tool.execute(json("{\"action\":\"ship\",\"speed\":\"teleport\"}"), ctx());
         assertThat(badSpeed.get("success").asBoolean()).isFalse();
-        assertThat(badSpeed.get("error").asText()).contains("Invalid speed");
+        assertThat(badSpeed.get("error").asText()).contains("无效的发货速度");
     }
 
     @Test

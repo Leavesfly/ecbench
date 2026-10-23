@@ -26,7 +26,7 @@ import java.util.List;
 public final class EcommerceBenchAgent {
 
     private static final int MAX_NO_TOOL_CALLS = 3;
-    private static final String SEED_USER_MESSAGE = "You are running an e-commerce business.";
+    private static final String SEED_USER_MESSAGE = "你正在经营一家电商业务。";
     private static final String TASK = "agent_multiturn/long_horizon/ecommerce_bench";
     private static final String DATA_SOURCE = "ecommerce_bench";
     private static final int MAX_TOOL_RESPONSE_CHARS = 64 * 1024;
@@ -220,15 +220,15 @@ public final class EcommerceBenchAgent {
             }
         }
         int percent = capacity > 0 ? used * 100 / capacity : 0;
-        return "\n<system_warning>Token usage: "
+        return "\n<system_warning>Token 用量："
                 + used
                 + "/"
                 + capacity
-                + " tokens ("
+                + " tokens（"
                 + percent
-                + "%); "
+                + "%）；剩余 "
                 + (capacity - used)
-                + " remaining</system_warning>";
+                + "</system_warning>";
     }
 
     /** 以不可变方式返回一条在正文末尾拼接了后缀的新消息（空正文不额外插入分隔符）。 */
@@ -252,19 +252,18 @@ public final class EcommerceBenchAgent {
             return "";
         }
         return content.length() > maxChars
-                ? content.substring(0, maxChars) + "\n... [truncated]"
+                ? content.substring(0, maxChars) + "\n... [已截断]"
                 : content;
     }
 
     /** 生成“未调用任何工具”的提醒文案，并提示连续空转达到上限将判失败。 */
     private static String nudge(int consecutive) {
-        return "You did not call any tool. You must call a tool to operate the business and advance "
-                + "time. Please call a tool now. (warning "
+        return "你没有调用任何工具。你必须调用工具来经营业务并推进时间。请现在调用一个工具。（警告 "
                 + consecutive
                 + "/"
                 + MAX_NO_TOOL_CALLS
-                + ": after "
+                + "：连续 "
                 + MAX_NO_TOOL_CALLS
-                + " consecutive turns without a tool call the episode will be terminated as a failure.)";
+                + " 轮未调用任何工具，episode 将以失败告终。）";
     }
 }

@@ -2,17 +2,17 @@
   "type": "function",
   "function": {
     "name": "list_products",
-    "description": "List available products that can be purchased and sold. Filter by store type or category.",
+    "description": "列出可采购并可销售的商品，可按店铺类型或品类筛选。",
     "parameters": {
       "type": "object",
       "properties": {
         "store_type": {
           "type": "string",
-          "description": "Filter by store type (e.g. 'beauty')."
+          "description": "按店铺类型筛选（例如 'beauty'）。"
         },
         "category": {
           "type": "string",
-          "description": "Filter by category (e.g. 'Skincare & Beauty')."
+          "description": "按品类筛选（例如 'Skincare & Beauty'）。"
         }
       },
       "required": []
