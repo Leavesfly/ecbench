@@ -147,7 +147,8 @@ public final class NegotiationTracker {
                         record ->
                                 grouped
                                         .computeIfAbsent(
-                                                key(record.supplierName(), record.skuId()), ignored -> new ArrayList<>())
+                                                key(record.supplierName(), record.skuId()),
+                                                ignored -> new ArrayList<>())
                                         .add(record));
         List<Double> regrets = new ArrayList<>();
         for (List<NegotiationRecord> records : grouped.values()) {

@@ -124,8 +124,14 @@
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>${spotless.version}</version>
                 <configuration>
+                    <!--
+                      刻意不启用 googleJavaFormat：仓库缩进风格混排（ecbench-domain 内部同时存在
+                      2 空格与 4 空格文件，其余六个模块为 4 空格），而 Google Java Format 只有
+                      GOOGLE(2 空格) 与 AOSP(4 空格) 两种全局风格，任一单选都会让另一半文件在
+                      spotless:check 报红，使 mvn clean verify 无法全绿。此处只保留与缩进无关的
+                      通用清理（去未用 import / 去行尾空白 / 补末行换行），格式统一留作独立任务。
+                    -->
                     <java>
-                        <googleJavaFormat/>
                         <removeUnusedImports/>
                         <trimTrailingWhitespace/>
                         <endWithNewline/>

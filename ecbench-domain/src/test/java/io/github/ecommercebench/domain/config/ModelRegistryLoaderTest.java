@@ -21,7 +21,7 @@ class ModelRegistryLoaderTest {
     assertThat(model.modelName()).isEqualTo("gpt-5.6-sol");
     assertThat(model.apiStyle()).isEqualTo("responses");
     assertThat(model.effort()).isEqualTo("max");
-    assertThat(registry.npcModel().modelName()).isEqualTo("gpt-4o-mini");
+    assertThat(registry.npcModel().modelName()).isEqualTo("qwen3.6-plus");
   }
 
   @Test

@@ -50,17 +50,18 @@ class ProviderClientsTest {
 
     @Test
     void openAiChatMapsToolCallsAndReasoning() {
+        String body =
+                """
+                {"choices":[{"message":{"role":"assistant","content":"checking",
+                "reasoning_content":"reason","tool_calls":[{"id":"call_1","type":"function",
+                "function":{"name":"check_balance","arguments":"{}"}}]}}]}
+                """;
         server.stubFor(
                 post(urlEqualTo("/v1/chat/completions"))
                         .willReturn(
                                 aResponse()
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody(
-                                                """
-                                                        {"choices":[{"message":{"role":"assistant","content":"checking",
-                                                        "reasoning_content":"reason","tool_calls":[{"id":"call_1","type":"function",
-                                                        "function":{"name":"check_balance","arguments":"{}"}}]}}]}
-                                                        """)));
+                                        .withBody(body)));
 
         var client =
                 new OpenAiChatClient(provider("chat"), mapper, restClientBuilder(), retry, noDelay);
@@ -82,19 +83,20 @@ class ProviderClientsTest {
 
     @Test
     void openAiResponsesMapsReasoningAndFunctionCallItems() {
+        String body =
+                """
+                {"output":[
+                  {"type":"reasoning","id":"r1","encrypted_content":"opaque"},
+                  {"type":"message","content":[{"type":"output_text","text":"ok"}]},
+                  {"type":"function_call","call_id":"call_2","name":"check_balance","arguments":"{}"}
+                ]}
+                """;
         server.stubFor(
                 post(urlEqualTo("/v1/responses"))
                         .willReturn(
                                 aResponse()
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody(
-                                                """
-                                                        {"output":[
-                                                          {"type":"reasoning","id":"r1","encrypted_content":"opaque"},
-                                                          {"type":"message","content":[{"type":"output_text","text":"ok"}]},
-                                                          {"type":"function_call","call_id":"call_2","name":"check_balance","arguments":"{}"}
-                                                        ]}
-                                                        """)));
+                                        .withBody(body)));
 
         var client =
                 new OpenAiResponsesClient(
@@ -110,19 +112,20 @@ class ProviderClientsTest {
 
     @Test
     void anthropicMapsThinkingTextAndToolUseBlocks() {
+        String body =
+                """
+                {"content":[
+                  {"type":"thinking","thinking":"reason","signature":"sig"},
+                  {"type":"text","text":"ok"},
+                  {"type":"tool_use","id":"call_3","name":"check_balance","input":{}}
+                ]}
+                """;
         server.stubFor(
                 post(urlEqualTo("/v1/messages"))
                         .willReturn(
                                 aResponse()
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody(
-                                                """
-                                                        {"content":[
-                                                          {"type":"thinking","thinking":"reason","signature":"sig"},
-                                                          {"type":"text","text":"ok"},
-                                                          {"type":"tool_use","id":"call_3","name":"check_balance","input":{}}
-                                                        ]}
-                                                        """)));
+                                        .withBody(body)));
 
         var client =
                 new AnthropicClient(
