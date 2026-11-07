@@ -6,10 +6,9 @@ import java.nio.file.Path;
 /**
  * Java 实现资源路径解析器。
  *
- * <p>{@code java-impl/} 持有自己的隔离副本（{@code data/}、{@code models_config.json}、{@code
- * tokenizer/tokenizer.json}），与仓库根 Python 侧共享资源解耦。本类默认解析到该副本（见 {@link #resourceRoot()}）， 并允许 CLI/env
- * 显式覆盖每一处路径；副本缺失时回退到仓库根的 {@code data/}、{@code models_config.json}、{@code
- * context_manager/tokenizer/}。
+ * <p>{@code java-impl/} 持有自己的隔离副本（{@code data/}、{@code models_config.json}），与仓库根 Python 侧共享资源解耦。
+ * 本类默认解析到该副本（见 {@link #resourceRoot()}），并允许 CLI/env 显式覆盖每一处路径；副本缺失时回退到仓库根的 {@code
+ * data/}、{@code models_config.json}。
  */
 public final class ResourcePaths {
 
@@ -78,25 +77,6 @@ public final class ResourcePaths {
      */
     public Path dataDir(String cliOverride) {
         return isSet(cliOverride) ? absolute(cliOverride) : resourceRoot().resolve("data");
-    }
-
-    /**
-     * tokenizer 目录：CLI 覆盖 &gt; env 覆盖 &gt; 资源根 {@code tokenizer/}（隔离副本）&gt; 资源根 {@code
-     * context_manager/tokenizer}（仓库根旧布局回退）。
-     */
-    public Path tokenizer(String cliOverride, String envOverride) {
-        if (isSet(cliOverride)) {
-            return absolute(cliOverride);
-        }
-        if (isSet(envOverride)) {
-            return absolute(envOverride);
-        }
-        Path root = resourceRoot();
-        Path isolated = root.resolve("tokenizer");
-        if (Files.isDirectory(isolated)) {
-            return isolated;
-        }
-        return root.resolve("context_manager").resolve("tokenizer");
     }
 
     /**

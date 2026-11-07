@@ -29,9 +29,6 @@ public interface RunOptions {
     /** 上下文窗口 token 容量。 */
     int maxTokenCapacity();
 
-    /** HuggingFace tokenizer 路径覆盖；null 表示走资源根默认。 */
-    String tokenizerPath();
-
     /** 日志输出目录覆盖；null 表示走 {@code ./log}。 */
     String logDir();
 

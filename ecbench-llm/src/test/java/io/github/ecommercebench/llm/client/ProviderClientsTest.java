@@ -2,6 +2,7 @@ package io.github.ecommercebench.llm.client;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -144,6 +145,35 @@ class ProviderClientsTest {
         server.verify(
                 postRequestedFor(urlPathEqualTo("/v1/messages"))
                         .withHeader("x-api-key", equalTo("secret")));
+    }
+
+    @Test
+    void openAiChatMergesProviderExtraBodyIntoRequestBody() {
+        String body = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}";
+        server.stubFor(
+                post(urlEqualTo("/v1/chat/completions"))
+                        .willReturn(
+                                aResponse()
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody(body)));
+
+        var client =
+                new OpenAiChatClient(
+                        new ResolvedProvider(
+                                "openai-compatible",
+                                "chat",
+                                server.baseUrl() + "/v1",
+                                "secret",
+                                Map.of("enable_thinking", false)),
+                        mapper,
+                        restClientBuilder(),
+                        retry,
+                        noDelay);
+        client.generate(request());
+
+        server.verify(
+                postRequestedFor(urlPathEqualTo("/v1/chat/completions"))
+                        .withRequestBody(matchingJsonPath("$.enable_thinking", equalTo("false"))));
     }
 
     private RestClient.Builder restClientBuilder() {

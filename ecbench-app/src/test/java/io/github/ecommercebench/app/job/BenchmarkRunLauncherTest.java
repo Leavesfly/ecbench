@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 /**
  * 每次 launch 必须新建一个 RunComponentFactory，否则缓存的会话目录会串到下一个 job。
  *
- * <p>用同包的可覆盖接缝拦截，避免真跑仿真与加载 tokenizer。
+ * <p>用同包的可覆盖接缝拦截，避免真跑仿真与装配完整组件。
  */
 class BenchmarkRunLauncherTest {
 

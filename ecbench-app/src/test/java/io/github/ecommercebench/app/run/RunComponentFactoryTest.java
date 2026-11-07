@@ -31,7 +31,7 @@ class RunComponentFactoryTest {
 
     private static final LlmClientProvider NO_PROVIDER = config -> null;
 
-    /** 只填 model 与 logDir 的最小 RunOptions，避免触发 catalog / tokenizer 加载。 */
+    /** 只填 model 与 logDir 的最小 RunOptions，避免触发 catalog 加载。 */
     private record MinimalOptions(String model, String logDir) implements RunOptions {
         @Override
         public int maxTokens() {
@@ -61,11 +61,6 @@ class RunComponentFactoryTest {
         @Override
         public int maxTokenCapacity() {
             return 128000;
-        }
-
-        @Override
-        public String tokenizerPath() {
-            return null;
         }
 
         @Override

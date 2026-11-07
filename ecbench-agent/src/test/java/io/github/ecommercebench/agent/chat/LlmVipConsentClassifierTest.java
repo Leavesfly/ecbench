@@ -1,13 +1,12 @@
 package io.github.ecommercebench.agent.chat;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import io.github.ecommercebench.llm.LlmClient;
 import io.github.ecommercebench.llm.model.LlmResponse;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * LlmVipConsentClassifier 测试：端口 Python `check_vip_fee_agreement` 的 yes/no 判定与容错。

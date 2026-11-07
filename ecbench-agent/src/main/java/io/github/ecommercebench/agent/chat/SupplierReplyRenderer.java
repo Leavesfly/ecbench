@@ -13,7 +13,9 @@ import java.util.List;
 @FunctionalInterface
 public interface SupplierReplyRenderer {
 
-    /** 依据渲染请求生成供应商回复文本；真实实现走 NPC LLM，测试可用确定性 fake 替换。 */
+    /**
+     * 依据渲染请求生成供应商回复文本；真实实现走 NPC LLM，测试可用确定性 fake 替换。
+     */
     String render(Request request);
 
     /**

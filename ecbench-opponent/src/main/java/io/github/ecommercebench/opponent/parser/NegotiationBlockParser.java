@@ -24,7 +24,9 @@ public final class NegotiationBlockParser {
         this.objectMapper = objectMapper;
     }
 
-    /** 抽取正文中所有以 negotiate 标记的 fenced 代码块并解析为动作列表，同时返回剔除这些块后的剩余文本。 */
+    /**
+     * 抽取正文中所有以 negotiate 标记的 fenced 代码块并解析为动作列表，同时返回剔除这些块后的剩余文本。
+     */
     public ParsedNegotiation parse(String content) {
         Matcher matcher = BLOCK.matcher(content == null ? "" : content);
         List<NegotiationAction> actions = new ArrayList<>();
@@ -77,7 +79,9 @@ public final class NegotiationBlockParser {
         }
     }
 
-    /** 将单个 JSON 节点转为谈判动作：按 action 字段分派 offer/accept/reject，缺 sku_id 或 offer 缺价时丢弃。 */
+    /**
+     * 将单个 JSON 节点转为谈判动作：按 action 字段分派 offer/accept/reject，缺 sku_id 或 offer 缺价时丢弃。
+     */
     private NegotiationAction toAction(JsonNode node) {
         String action = node.path("action").asText("").toLowerCase(Locale.ROOT);
         String sku = node.path("sku_id").asText("").trim().toLowerCase(Locale.ROOT);

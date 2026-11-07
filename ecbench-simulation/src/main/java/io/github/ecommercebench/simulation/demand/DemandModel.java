@@ -7,7 +7,9 @@ import java.math.BigDecimal;
  */
 public final class DemandModel {
 
-    /** 定价→退货率乘子的分段线性拐点：每行为 [价格比, 退货乘子]，低于首个/高于末个取端点值。 */
+    /**
+     * 定价→退货率乘子的分段线性拐点：每行为 [价格比, 退货乘子]，低于首个/高于末个取端点值。
+     */
     private static final double[][] RETURN_PRICE_KNEES = {
             {0.8, 0.85}, {1.0, 1.00}, {1.3, 1.50}, {1.8, 2.20}
     };
@@ -49,7 +51,8 @@ public final class DemandModel {
     }
 
     /**
-     * 市场饱和因子：用类似调和均值的容量模型把原始需求总量压缩到不超过市场容量。 */
+     * 市场饱和因子：用类似调和均值的容量模型把原始需求总量压缩到不超过市场容量。
+     */
     public double marketSaturationFactor(double capacity, double rawDemand) {
         if (capacity <= 0 || rawDemand <= 0) {
             return 1.0;

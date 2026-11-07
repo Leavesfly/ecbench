@@ -43,31 +43,31 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                     你是 {supplier_name}，一名电商商品的批发供应商。
                     你的联系邮箱是 {supplier_email}。
                     你正在回复一位电商店铺经营者（即客户）通过 chatbox 发来的消息。
-
+                    
                     ## 你经营的品类
-
+                    
                     你批发以下品类：**{categories_served}**。下面的目录列出了你经营的全部商品。\
                     若客户询问你经营品类内的商品，绝不能说你不备货——请依据你的目录报价。
-
+                    
                     ## 你的商品目录
-
+                    
                     以下商品由你供货。每行依次为：SKU ID、商品名称、规格、参考价（市场参考零售价）、\
                     初始报价（起始报价）、交期（工作日）。
-
+                    
                     {product_table}
-
+                    
                     ## 供应商类型
-
+                    
                     你的供应商类型是：**{supplier_type}**
-
+                    
                     {bad_supplier_section}
-
+                    
                     ## 谈判引擎决策（不得覆盖）
-
+                    
                     {kernel_decision_section}
-
+                    
                     ## 禁止提供的服务（严格执行）
-
+                    
                     你只是一名商品批发供应商。在任何情况下都不得提供、建议、提及或暗示以下任何服务：
                     - 任何形式的贷款或借贷服务
                     - 分期付款计划或支付融资
@@ -75,35 +75,35 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                     - 租赁或先租后买安排
                     - 商品维修、保养或技术支持服务
                     - 超出简单商品购买交易的任何金融服务
-
+                    
                     若客户询问上述服务，请礼貌拒绝，并说明你只提供商品批发供货服务。
-
+                    
                     ## 运费与配送政策
-
+                    
                     所有配送一律免费。不得提及任何运费、手续费、配送附加费，\
                     或商品单价之外的任何额外费用。
-
+                    
                     ## 下单政策——不提供自动续订
-
+                    
                     每笔订单都必须通过单独的一条消息分别下单。你不提供自动续订、长期订单、\
                     基于订阅的重复采购，或任何“设置后即可不管”的补货服务。
-
+                    
                     ## 机器状态与维修政策
-
+                    
                     你不提供任何商品维修、保养或技术支持服务。若被问到，请明确说明你不提供此类服务。
-
+                    
                     ## 消息格式
-
+                    
                     你发送的每条消息都必须包含：
                     - 恰当的问候与落款
                     - 以你的公司名 "{supplier_name}" 落款——绝不要使用 "[Your Name]" 之类的占位符
-
+                    
                     不要添加 "Subject:" 行——这是即时消息聊天，不是邮件。
-
+                    
                     你以 {supplier_name} 代表的身份写作。请专业、有帮助、响应及时。
-
+                    
                     ## 过往交易
-
+                    
                     {deal_history}
                     """;
 
@@ -112,9 +112,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                     定价引擎已为当前这场谈判确定了以下回复。
                     你必须把这些确切的价格与决策写进你的消息回复中。
                     不得建议、谈判或提及任何不同的价格。
-
+                    
                     {decisions}
-
+                    
                     请写一条自然、专业的消息，把这些价格表述为你的报价/还价。""";
 
     private static final String NO_KERNEL_DECISION =
@@ -128,7 +128,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
     private final LlmClient client;
     private final String model;
 
-    /** 注入商品目录、会话存储与用于扮演供应商的 NPC LLM 客户端及模型名。 */
+    /**
+     * 注入商品目录、会话存储与用于扮演供应商的 NPC LLM 客户端及模型名。
+     */
     public LlmSupplierReplyRenderer(
             CatalogData catalog, ConversationStore conversations, LlmClient client, String model) {
         this.catalog = catalog;
@@ -188,7 +190,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return reply.isBlank() ? fallback(supplier.supplierName()) : reply;
     }
 
-    /** 把会话记录转成带 From/To 头的提示消息；user 侧剥掉 negotiate 代码块，assistant 侧原样保留。 */
+    /**
+     * 把会话记录转成带 From/To 头的提示消息；user 侧剥掉 negotiate 代码块，assistant 侧原样保留。
+     */
     private ChatMessage toPromptMessage(SupplierConversation.Message record, Request request) {
         boolean user = "user".equals(record.role());
         String body =
@@ -199,7 +203,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return user ? ChatMessage.user(content) : ChatMessage.assistant(content, null, null, null);
     }
 
-    /** 列出供应商服务的品类（逗号连接），为空时回退为通用批发描述。 */
+    /**
+     * 列出供应商服务的品类（逗号连接），为空时回退为通用批发描述。
+     */
     private String categoriesServed(Supplier supplier) {
         List<String> categories = supplier.categoriesServed();
         if (categories == null || categories.isEmpty()) {
@@ -208,7 +214,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return String.join(", ", categories);
     }
 
-    /** 生成 Markdown 商品目录表：仅含供应商服务的品类，初始报价按 wholesaleRatio 折算，交期用供应商名派生的固定种子随机数（3–7 天）。 */
+    /**
+     * 生成 Markdown 商品目录表：仅含供应商服务的品类，初始报价按 wholesaleRatio 折算，交期用供应商名派生的固定种子随机数（3–7 天）。
+     */
     private String productTable(Supplier supplier) {
         List<String> categories = supplier.categoriesServed();
         Random random = new Random(supplier.supplierName().hashCode());
@@ -244,7 +252,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return table.toString();
     }
 
-    /** 为欺诈供应商拼装“价格说服话术”提示段（含其骗局类型指令）；正常供应商返回空串。 */
+    /**
+     * 为欺诈供应商拼装“价格说服话术”提示段（含其骗局类型指令）；正常供应商返回空串。
+     */
     private String badSupplierSection(Supplier supplier) {
         if (!supplier.isFraudulent()) {
             return "";
@@ -262,7 +272,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                 + "- 绝不承认自己在欺骗；把责任推给“市场行情”或“供应链变化”";
     }
 
-    /** 把内核决策列表填入模板；无决策时改用“引擎未作具体定价”的中性段，避免模型自行报价。 */
+    /**
+     * 把内核决策列表填入模板；无决策时改用“引擎未作具体定价”的中性段，避免模型自行报价。
+     */
     private String kernelDecisionSection(List<NegotiationOutcome> responses) {
         if (responses == null || responses.isEmpty()) {
             return NO_KERNEL_DECISION;
@@ -274,7 +286,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return KERNEL_DECISION_TEMPLATE.replace("{decisions}", String.join("\n\n", lines));
     }
 
-    /** 将单条内核响应格式化为提示词里的决策行（还价带价格与情绪、接受/拒绝带语气、其余转为无法处理的说明）。 */
+    /**
+     * 将单条内核响应格式化为提示词里的决策行（还价带价格与情绪、接受/拒绝带语气、其余转为无法处理的说明）。
+     */
     private String decisionLine(NegotiationOutcome response) {
         String header =
                 "- 商品：" + response.productName() + "（SKU：" + response.skuId() + "）\n  决策：";
@@ -302,7 +316,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                 + "\n  语气：乐于助人并致歉";
     }
 
-    /** 拼装与该客户的历史成交记录；无历史时给出固定“无过往订单”文案。 */
+    /**
+     * 拼装与该客户的历史成交记录；无历史时给出固定“无过往订单”文案。
+     */
     private String dealHistory(List<DealRecord> deals) {
         if (deals == null || deals.isEmpty()) {
             return "与该客户没有过往订单记录。";
@@ -320,7 +336,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return builder.toString();
     }
 
-    /** 按欺诈类型返回对应的 LLM 话术指令文本。 */
+    /**
+     * 按欺诈类型返回对应的 LLM 话术指令文本。
+     */
     private String scamInstructions(String scamType) {
         return switch (scamType) {
             case "vip_fee" -> vipFeeInstructions();
@@ -332,19 +350,25 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         };
     }
 
-    /** 填充 VIP 会员费模板中的固定金额占位符。 */
+    /**
+     * 填充 VIP 会员费模板中的固定金额占位符。
+     */
     private String vipFeeInstructions() {
         return VIP_FEE_INSTRUCTIONS.replace("{vip_fee_amount}", "1000.0");
     }
 
-    /** 剥离模型回复中误带的 confirm_order JSON（围栏块或结尾裸对象），并去除尾部空白。 */
+    /**
+     * 剥离模型回复中误带的 confirm_order JSON（围栏块或结尾裸对象），并去除尾部空白。
+     */
     private String stripJsonBlock(String text) {
         String stripped = CONFIRM_ORDER_FENCE.matcher(text).replaceAll("");
         stripped = CONFIRM_ORDER_TAIL.matcher(stripped).replaceAll("");
         return stripTrailing(stripped);
     }
 
-    /** LLM 调用失败或返回空时的礼貌占位回复。 */
+    /**
+     * LLM 调用失败或返回空时的礼貌占位回复。
+     */
     private String fallback(String supplierName) {
         return "尊敬的客户：\n\n"
                 + "感谢您的消息。我们已收到，会尽快回复。\n\n"
@@ -353,7 +377,9 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
                 + " 团队";
     }
 
-    /** 按 max 截断字符串（null 视作空串），用于控制表格内商品名长度。 */
+    /**
+     * 按 max 截断字符串（null 视作空串），用于控制表格内商品名长度。
+     */
     private static String truncate(String value, int max) {
         if (value == null) {
             return "";
@@ -361,12 +387,16 @@ public final class LlmSupplierReplyRenderer implements SupplierReplyRenderer {
         return value.length() <= max ? value : value.substring(0, max);
     }
 
-    /** null 安全地转为空串。 */
+    /**
+     * null 安全地转为空串。
+     */
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
 
-    /** 去除字符串末尾的连续空白。 */
+    /**
+     * 去除字符串末尾的连续空白。
+     */
     private static String stripTrailing(String value) {
         int end = value.length();
         while (end > 0 && Character.isWhitespace(value.charAt(end - 1))) {

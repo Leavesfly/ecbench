@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.ecommercebench.agent.tool.EcommerceTool;
+import io.github.ecommercebench.agent.tool.ToolArgs;
 import io.github.ecommercebench.agent.tool.ToolExecutionContext;
 import io.github.ecommercebench.agent.tool.ToolSchemas;
 import io.github.ecommercebench.llm.model.ToolDefinition;

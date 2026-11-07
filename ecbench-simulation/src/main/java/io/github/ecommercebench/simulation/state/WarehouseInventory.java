@@ -5,23 +5,30 @@ import io.github.ecommercebench.domain.money.Money;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * 按 SKU 保存 FIFO 库存批次，仓储费按每批实际库龄计算。
+ *
+ * <p>内部维护两套并行视图：lotsBySku（物理批次，含已上架但仍在仓的部分）与 availableBySku
+ * （尚未分配到店铺的可用量）。上架只扣可用量、售出只扣物理批次，退回仓库时再把可用量补回；某 SKU 最后一批取尽时
+ * 两个键一起移除。批次顺序即 FIFO 顺序：入仓追加队尾、出库从队首扣减。
  */
 public final class WarehouseInventory {
 
+    /**
+     * SKU → FIFO 批次队列，按入库先后排列，队首为最早批次。
+     */
     private final Map<String, Deque<WarehouseLot>> lotsBySku = new LinkedHashMap<>();
+
+    /**
+     * SKU → 未分配到店铺的可用件数，始终不超过该 SKU 的物理存量。
+     */
     private final Map<String, Integer> availableBySku = new LinkedHashMap<>();
 
-    /** 新增一个入库批次（追加到队尾保证 FIFO），同时按数量增加该 SKU 的可用库存。 */
+    /**
+     * 新增一个入库批次（追加到队尾保证 FIFO），同时按数量增加该 SKU 的可用库存。
+     */
     public void addLot(WarehouseLot lot) {
         Objects.requireNonNull(lot, "lot 不能为空");
         lotsBySku.computeIfAbsent(lot.sku(), ignored -> new ArrayDeque<>()).addLast(lot);
@@ -44,7 +51,9 @@ public final class WarehouseInventory {
                 .sum();
     }
 
-    /** 上架时占用：仅从可用库存中扣除，不动物理批次（因为商品仍在仓库，只是被店铺预占）。 */
+    /**
+     * 上架时占用：仅从可用库存中扣除，不动物理批次（因为商品仍在仓库，只是被店铺预占）。
+     */
     public void allocate(String sku, int quantity) {
         int available = quantityOf(sku);
         if (quantity <= 0 || quantity > available) {
@@ -53,7 +62,9 @@ public final class WarehouseInventory {
         availableBySku.put(sku, available - quantity);
     }
 
-    /** 释放占用（退回仓库或滞销下架）：把数量重新计入可用，但不得超过物理存量。 */
+    /**
+     * 释放占用（退回仓库或滞销下架）：把数量重新计入可用，但不得超过物理存量。
+     */
     public void releaseAllocation(String sku, int quantity) {
         if (quantity <= 0 || quantityOf(sku) + quantity > physicalQuantityOf(sku)) {
             throw new IllegalArgumentException("释放的分配库存无效: " + sku);
@@ -68,6 +79,9 @@ public final class WarehouseInventory {
         return consumePhysical(sku, quantity, false);
     }
 
+    /**
+     * 返回该 SKU 的批次快照（不可变副本，按 FIFO 顺序）；无该 SKU 时为空列表。
+     */
     public List<WarehouseLot> lots(String sku) {
         return List.copyOf(lotsBySku.getOrDefault(sku, new ArrayDeque<>()));
     }
@@ -83,6 +97,7 @@ public final class WarehouseInventory {
      * 从最早入库批次开始扣减物理库存；reduceAvailable 为真时同时扣可用量。
      *
      * <p>返回实际消耗件数、其中缺陷件数与按批次加权的采购成本，供下游记账与退货率修正使用。
+     * 未知 SKU 不抛异常，直接返回全零消耗。
      */
     private WarehouseConsumption consumePhysical(String sku, int requested, boolean reduceAvailable) {
         if (requested <= 0) {
@@ -120,7 +135,9 @@ public final class WarehouseInventory {
         return new WarehouseConsumption(consumed, defective, cost);
     }
 
-    /** 逐批次按库龄（today - inboundDate）累加仓储费，不限制未分配/已分配。 */
+    /**
+     * 逐批次按库龄（today - inboundDate）累加仓储费，不限制未分配/已分配。
+     */
     public Money calculateStorageFee(LocalDate today, StorageFeeRule rule) {
         Money total = Money.ZERO;
         for (Deque<WarehouseLot> lots : lotsBySku.values()) {
@@ -134,6 +151,9 @@ public final class WarehouseInventory {
         return total;
     }
 
+    /**
+     * 返回全部 SKU 的批次快照，按 SKU 首次入仓的先后依次拼接。
+     */
     public List<WarehouseLot> allLots() {
         List<WarehouseLot> result = new ArrayList<>();
         lotsBySku.values().forEach(result::addAll);

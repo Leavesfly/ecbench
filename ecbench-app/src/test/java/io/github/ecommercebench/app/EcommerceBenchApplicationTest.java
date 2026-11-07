@@ -62,7 +62,6 @@ class EcommerceBenchApplicationTest {
                         Money.of("100000"),
                         Money.of("50"),
                         128_000,
-                        JAVA_IMPL.resolve("tokenizer"),
                         JAVA_IMPL.resolve("data"),
                         logDir,
                         null,

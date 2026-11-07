@@ -1,7 +1,5 @@
 package io.github.ecommercebench.agent.tool.impl;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -21,13 +19,14 @@ import io.github.ecommercebench.opponent.metrics.NegotiationTracker;
 import io.github.ecommercebench.opponent.order.OrderProcessor;
 import io.github.ecommercebench.opponent.parser.NegotiationBlockParser;
 import io.github.ecommercebench.simulation.SimulationEngine;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * chatbox 工具契约测试：Schema 对齐 golden、uid/uids 归一化、单发/广播委派。

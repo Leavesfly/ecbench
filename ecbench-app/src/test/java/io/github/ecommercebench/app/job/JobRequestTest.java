@@ -22,11 +22,11 @@ class JobRequestTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    /** 服务进程启动参数：4 个路径类字段的来源。 */
+    /** 服务进程启动参数：3 个路径类字段的来源。 */
     private static final RunOptions SERVER =
             new JobRequest(
                     "unused", 1, 1, 1, 1.0, 1.0, 1, 1, null,
-                    "/srv/tokenizer", "/srv/log", "/srv/job.jsonl", "/srv/data");
+                    "/srv/log", "/srv/job.jsonl", "/srv/data");
 
     private static CliRunOptions cli(String... args) {
         CliRunOptions options = new CliRunOptions();
@@ -47,7 +47,7 @@ class JobRequestTest {
                         .collect(Collectors.toSet());
 
         assertThat(components).isEqualTo(contract);
-        assertThat(contract).hasSize(13);
+        assertThat(contract).hasSize(12);
     }
 
     @Test
@@ -77,14 +77,12 @@ class JobRequestTest {
         ObjectNode node = body("{\"model\":\"gpt\"}");
         node.put("logDir", "/attacker/log");
         node.put("dataDir", "/attacker/data");
-        node.put("tokenizerPath", "/attacker/tokenizer.json");
         node.put("jobFile", "/attacker/job.jsonl");
 
         JobRequest web = JobRequest.parse(node, SERVER);
 
         assertThat(web.logDir()).isEqualTo("/srv/log");
         assertThat(web.dataDir()).isEqualTo("/srv/data");
-        assertThat(web.tokenizerPath()).isEqualTo("/srv/tokenizer");
         assertThat(web.jobFile()).isEqualTo("/srv/job.jsonl");
     }
 
@@ -155,10 +153,9 @@ class JobRequestTest {
                 JobRequest.parse(body("{\"model\":\"gpt\"}"), SERVER, "/tmp/uploaded-123.jsonl");
 
         assertThat(request.jobFile()).isEqualTo("/tmp/uploaded-123.jsonl");
-        // 其余三个路径类字段仍取服务进程配置，不受 override 影响
+        // 其余两个路径类字段仍取服务进程配置，不受 override 影响
         assertThat(request.logDir()).isEqualTo(SERVER.logDir());
         assertThat(request.dataDir()).isEqualTo(SERVER.dataDir());
-        assertThat(request.tokenizerPath()).isEqualTo(SERVER.tokenizerPath());
     }
 
     /**

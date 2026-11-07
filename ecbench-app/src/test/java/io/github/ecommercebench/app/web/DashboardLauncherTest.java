@@ -75,11 +75,6 @@ class DashboardLauncherTest {
         }
 
         @Override
-        public String tokenizerPath() {
-            return null;
-        }
-
-        @Override
         public String jobFile() {
             return null;
         }

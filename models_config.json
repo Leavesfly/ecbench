@@ -8,6 +8,9 @@
     "through an internal gateway; the entries below name the same models at",
     "their providers' public endpoints, so results are comparable.",
     "",
+    "qwen3.8-flash is an extra Java-side entry (not part of the paper's 18) used",
+    "for quick local runs; it disables DashScope thinking to keep turns short.",
+    "",
     "Keys are read from the environment, so this file is safe to commit:",
     "  openai      -> OPENAI_API_KEY",
     "  anthropic   -> ANTHROPIC_API_KEY",
@@ -26,9 +29,12 @@
   ],
   "npc_tools": {
     "provider": "openai-compatible",
-    "model": "qwen3.6-plus",
+    "model": "qwen3.8-flash",
     "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "api_key": "${DASHSCOPE_API_KEY}"
+    "api_key": "${DASHSCOPE_API_KEY}",
+    "extra_body": {
+      "enable_thinking": false
+    }
   },
   "models": {
     "gpt-5.6-sol": {
@@ -82,6 +88,15 @@
       "model_name": "qwen3.8-max-preview",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "api_key": "${DASHSCOPE_API_KEY}"
+    },
+    "qwen3.8-flash": {
+      "provider": "openai-compatible",
+      "model_name": "qwen3.8-flash",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key": "${DASHSCOPE_API_KEY}",
+      "extra_body": {
+        "enable_thinking": false
+      }
     },
     "qwen3.7-max": {
       "provider": "openai-compatible",

@@ -84,7 +84,6 @@ class BenchmarkCommandTest {
         assertThat(o.maxTokenCapacity()).isEqualTo(128000);
         assertThat(o.runs()).isEqualTo(1);
         assertThat(o.seed()).isNull();
-        assertThat(o.tokenizerPath()).isNull();
         assertThat(o.logDir()).isNull();
         assertThat(o.jobFile()).isNull();
         assertThat(o.dataDir()).isNull();

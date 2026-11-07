@@ -1,16 +1,15 @@
 package io.github.ecommercebench.agent.context;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.ecommercebench.domain.config.ContextConfig;
 import io.github.ecommercebench.llm.model.ChatMessage;
 import io.github.ecommercebench.llm.model.ToolCall;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ContextEditorTest {
 

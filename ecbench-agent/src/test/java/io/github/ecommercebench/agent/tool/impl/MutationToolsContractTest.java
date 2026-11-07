@@ -1,8 +1,5 @@
 package io.github.ecommercebench.agent.tool.impl;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,13 +13,15 @@ import io.github.ecommercebench.domain.random.RandomStreams;
 import io.github.ecommercebench.simulation.SimulationEngine;
 import io.github.ecommercebench.simulation.dto.PublishItem;
 import io.github.ecommercebench.simulation.error.BusinessRuleException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 九个变更型工具的契约测试：Schema 与 test-resource golden 逐键一致，输出字段对齐 Python。

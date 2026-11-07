@@ -29,7 +29,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>3.5.16</spring-boot.version>
         <commons-csv.version>1.14.1</commons-csv.version>
-        <djl-tokenizers.version>0.38.0</djl-tokenizers.version>
         <xchart.version>4.0.4</xchart.version>
         <wiremock.version>3.13.1</wiremock.version>
         <picocli.version>4.7.7</picocli.version>
@@ -55,11 +54,6 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-csv</artifactId>
                 <version>${commons-csv.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ai.djl.huggingface</groupId>
-                <artifactId>tokenizers</artifactId>
-                <version>${djl-tokenizers.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.knowm.xchart</groupId>

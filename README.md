@@ -2,7 +2,7 @@
 
 E-CommerceBench 电商经营基准的 **Java 17 + Spring Boot 3 + Maven 多模块**等价重写版本。它以 CLI 批处理形态驱动 LLM Agent，在**确定性**的拟真电商经济环境中进行多轮经营决策（开店、定价、采购谈判、发货、退货、结算），并产出与 Python 参考实现兼容的轨迹 / 余额 / 指标产物，另附一个零依赖的本地 Web 看板用于对比多 run、下钻单 run 与在线提交新运行。
 
-> **独立可构建、可运行**：运行期不依赖 Python，仓库自带 `data/`、`models_config.json`、`tokenizer/tokenizer.json` 全部资源副本，克隆后即可构建运行。
+> **独立可构建、可运行**：运行期不依赖 Python，仓库自带 `data/`、`models_config.json` 全部资源副本，克隆后即可构建运行。
 
 ---
 
@@ -35,7 +35,7 @@ E-CommerceBench 用一套仿真电商经济来考察 LLM Agent 的**长期经营
 - **谈判内核 + 5 类供应商欺诈**：VIP 费门控、虚假未来折扣、数量诱饵、次品交付、虚假紧迫感。价格由内核裁决，LLM 仅渲染对话。
 - **18 个 Agent 工具**：工具 JSON Schema 与 Python 参考实现逐键对齐。
 - **多 LLM Provider 适配**：OpenAI Chat / Responses、Anthropic Messages、OpenAI 兼容端点（Gemini / OpenRouter / Qwen / GLM / Kimi / DeepSeek），统一同步接口 + 指数退避重试。
-- **精确 token 计数 + 上下文自动裁剪**：基于 HuggingFace `tokenizer.json`，超阈值时按工具调用组裁剪，并保留运行期备忘录（Memo）。
+- **轻量 token 估算 + 上下文自动裁剪**：按 CJK / ASCII 字符类别启发式估算 token 数（无需外部分词器文件），超阈值时按工具调用组裁剪，并保留运行期备忘录（Memo）。
 - **并行多 run 编排**：各 run 组件完全隔离，随机种子按 `seed + index` 派生。
 - **评估与可视化**：余额曲线绘图、chatbox 会话提取、跨会话指标比较、跨模型七轴归一化雷达与排名。
 - **本地 Web 看板**：零依赖单页应用（纯 SVG 图表），对比多 run、下钻单 run、在线提交运行并轮询进度。
@@ -105,7 +105,7 @@ evaluation ─▶ domain
 | Maven | **3.6.3+** |
 | 磁盘 / 网络 | 构建需访问 Maven 中央仓库；运行期离线（LLM 调用除外） |
 
-主要依赖版本：Spring Boot `3.5.16`、Picocli `4.7.7`、DJL HuggingFace Tokenizers `0.38.0`、XChart `4.0.4`、Apache Commons CSV `1.14.1`、WireMock Standalone `3.13.1`（测试）、JaCoCo `0.8.15`、Spotless `3.10.2`。
+主要依赖版本：Spring Boot `3.5.16`、Picocli `4.7.7`、XChart `4.0.4`、Apache Commons CSV `1.14.1`、WireMock Standalone `3.13.1`（测试）、JaCoCo `0.8.15`、Spotless `3.10.2`。
 
 ---
 
@@ -167,7 +167,6 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log
 | `--initial-balance` | `100000.0` | 初始银行余额 |
 | `--daily-fee` | `50.0` | 每日店铺运营费 |
 | `--max-token-capacity` | `128000` | 上下文窗口 token 容量 |
-| `--tokenizer-path` | `tokenizer/tokenizer.json` | HuggingFace tokenizer 路径 |
 | `--log-dir` | `<当前工作目录>/log` | 日志输出目录 |
 | `--job-file` | （可选） | 预构建的 job JSONL 文件 |
 | `--runs` | `1` | 并行运行次数 |
@@ -205,9 +204,9 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log
 
 ### 6.1 模型注册表 `models_config.json`
 
-模型键见 `models_config.json`，收录论文排行榜的 **18 个模型**，例如：
+模型键见 `models_config.json`，收录论文排行榜的 **18 个模型**，另加一项 Java 侧扩展 `qwen3.8-flash`（共 **19** 项，不属论文榜单，仅用于本地快速跑），例如：
 
-`gpt-5.6-sol`、`gpt-5.5`（OpenAI，`responses` 风格）、`claude-fable-5`、`claude-opus-4-8/4-7/4-6`（Anthropic）、`gemini-3.5-flash`、`gemini-3.1-pro`（Google）、`qwen3.8-max-preview`、`qwen3.7-max`、`qwen3.6-plus`、`qwen3.5-plus`（DashScope）、`glm-5.2-max`、`glm-5.2-high`、`glm-5.1`（智谱）、`kimi-k3`、`kimi-k2.6`（Moonshot）、`deepseek-v4-pro`（DeepSeek）。
+`gpt-5.6-sol`、`gpt-5.5`（OpenAI，`responses` 风格）、`claude-fable-5`、`claude-opus-4-8/4-7/4-6`（Anthropic）、`gemini-3.5-flash`、`gemini-3.1-pro`（Google）、`qwen3.8-flash`、`qwen3.8-max-preview`、`qwen3.7-max`、`qwen3.6-plus`、`qwen3.5-plus`（DashScope）、`glm-5.2-max`、`glm-5.2-high`、`glm-5.1`（智谱）、`kimi-k3`、`kimi-k2.6`（Moonshot）、`deepseek-v4-pro`（DeepSeek）。
 
 每条模型项可声明：
 
@@ -224,7 +223,7 @@ java -jar ecbench-app/target/ecbench-app.jar evaluate compare log/<sessionA> log
 
 ### 6.2 供应商 NPC 模型 `npc_tools`
 
-`npc_tools` 是**供应商角色扮演模型**（当前配置为 `qwen3.6-plus`，走 openai-compatible / DashScope），仅负责渲染对话文本；所有价格 / 条款由谈判内核裁决，因此选用小模型即可，也可改指向你已有密钥的任意 Provider。注意其字段用 `model`（而非 `model_name`），且**每个 run 都会额外创建一个 NPC 客户端**，其密钥与主模型独立。
+`npc_tools` 是**供应商角色扮演模型**（当前配置为 `qwen3.8-flash`，走 openai-compatible / DashScope，并通过 `extra_body.enable_thinking=false` 显式关闭思考，单次调用实测从约 18s 降到约 4s）；仅负责渲染对话文本；所有价格 / 条款由谈判内核裁决，因此选用小模型即可，也可改指向你已有密钥的任意 Provider。注意其字段用 `model`（而非 `model_name`），且**每个 run 都会额外创建一个 NPC 客户端**，其密钥与主模型独立。
 
 ### 6.3 Provider 客户端
 
@@ -273,8 +272,7 @@ Web 提交运行时，服务启动会读取「真实环境变量 + 仓库根 `.e
 | `data/promotions.csv` | 促销活动 | 8 |
 | `data/store_types.csv` | 店铺类型（开店费 / 日租 / 允许品类） | 12 |
 | `data/store_playbook.json` | 经营手册 / 市场指引 | — |
-| `models_config.json` | 模型注册表（18 模型 + `npc_tools`） | — |
-| `tokenizer/tokenizer.json` | HuggingFace 分词器 | — |
+| `models_config.json` | 模型注册表（19 模型 + `npc_tools`） | — |
 
 ### 环境变量覆盖
 
@@ -282,7 +280,6 @@ Web 提交运行时，服务启动会读取「真实环境变量 + 仓库根 `.e
 |---|---|---|
 | `ECBENCH_MODELS_CONFIG` | `models_config.json` | 模型注册表路径 |
 | `MODEL_EFFORT` | 取自模型项 | 覆盖推理强度 |
-| `TOKENIZER_PATH` | `tokenizer/` | 分词器路径 |
 | `ECBENCH_CONTEXT_TRIGGER` | `120000` | 触发上下文裁剪的 token 阈值 |
 | `ECBENCH_CONTEXT_CLEAR_AT_LEAST` | `60000` | 单次裁剪至少释放的 token 数 |
 | `ECBENCH_CONTEXT_KEEP_TOOL_USE` | `2` | 裁剪时保留的最近工具调用轮数 |
@@ -352,7 +349,7 @@ Web 提交运行时，服务启动会读取「真实环境变量 + 仓库根 `.e
 
 ### 8.4 上下文裁剪与运行期记忆（`ecbench-agent`）
 
-- **上下文裁剪**（`ContextEditor` + `HuggingFaceTokenCounter`）：按「assistant 工具调用 + 紧随 tool 响应」分组，从最旧组起清除直到释放量达标，同时保护 system、首条 user 与最近 `keepToolUse` 个工具组，并附 `<system_warning>` 水位告警。
+- **上下文裁剪**（`ContextEditor` + `EstimatedTokenCounter`）：`EstimatedTokenCounter` 按「CJK 字符 1 字符 ≈ 1 token、其余 3.5 字符/token」启发式估算（口径略偏保守，避免低估水位而撞窗口）；裁剪按「assistant 工具调用 + 紧随 tool 响应」分组，从最旧组起清除直到释放量达标，同时保护 system、首条 user 与最近 `keepToolUse` 个工具组，并附 `<system_warning>` 水位告警。
 - **运行期记忆**（`MemoryStore` / `InMemoryMemoryStore`）：run-local 备忘录，按标题索引，`operate_memory` 工具提供 add / get / update / delete / list（list 上限 20）。
 
 ### 8.5 LLM Provider 适配（`ecbench-llm`）
@@ -483,7 +480,7 @@ curl -sS -X POST http://127.0.0.1:8080/api/jobs \
 
 **可提交字段**：`model`（必填）、`maxTokens`、`maxTurns`、`maxDays`、`initialBalance`、`dailyFee`、`maxTokenCapacity`、`runs`、`seed`；缺省值与 CLI 完全一致。
 
-**路径字段不接受 HTTP 输入**：`logDir` / `dataDir` / `tokenizerPath` 一律取服务进程的启动配置（否则就成了任意路径写入入口）。
+**路径字段不接受 HTTP 输入**：`logDir` / `dataDir` 一律取服务进程的启动配置（否则就成了任意路径写入入口）。
 
 **密钥**：服务启动读取「环境变量 + 仓库根 `.env`」，真实环境变量优先，`.env` 只填补缺失项，密钥永不经浏览器传输。`.env` 已加入 `.gitignore`，格式为每行 `KEY=VALUE`（支持 `#` 注释与成对引号）：
 
@@ -535,9 +532,8 @@ mvn -DskipTests clean package                             # 重打 fat jar
 ```text
 ecbench/
 ├── pom.xml                     # Maven 聚合 POM + 依赖版本管理 + 质量门插件
-├── models_config.json          # 模型注册表（18 模型 + npc_tools）
+├── models_config.json          # 模型注册表（19 模型 + npc_tools）
 ├── data/                       # 仿真所需 CSV/JSON（products / suppliers / … / store_playbook）
-├── tokenizer/tokenizer.json    # HuggingFace 分词器
 ├── config/checkstyle/          # Checkstyle 规则
 ├── docs/superpowers/           # 设计规格与实现计划（specs / plans）
 ├── log/                        # 运行产物输出目录（会话 = {timestamp}_{model}）

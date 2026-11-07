@@ -33,7 +33,6 @@ class RunCoordinatorTest {
                         Money.of("100000"),
                         Money.of("50"),
                         128_000,
-                        null,
                         Path.of("data"),
                         null,
                         null,

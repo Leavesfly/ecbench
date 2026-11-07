@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.ecommercebench.agent.error.ToolExecutionException;
 import io.github.ecommercebench.llm.model.ToolCall;
+import io.github.ecommercebench.llm.model.ToolDefinition;
 import io.github.ecommercebench.simulation.SimulationEngine;
 import io.github.ecommercebench.simulation.error.BusinessRuleException;
 
@@ -36,7 +37,9 @@ public final class EcommerceToolManager {
     private final ObjectMapper mapper;
     private final ToolExecutionContext context;
 
-    /** 绑定工具注册表、仿真引擎与 JSON mapper，并据此构建供各工具共享的执行上下文。 */
+    /**
+     * 绑定工具注册表、仿真引擎与 JSON mapper，并据此构建供各工具共享的执行上下文。
+     */
     public EcommerceToolManager(ToolRegistry registry, SimulationEngine engine, ObjectMapper mapper) {
         this.registry = Objects.requireNonNull(registry, "registry 不能为空");
         this.engine = Objects.requireNonNull(engine, "engine 不能为空");
@@ -47,7 +50,7 @@ public final class EcommerceToolManager {
     /**
      * 注册表中全部工具的 schema，供构建发往模型的请求使用。
      */
-    public List<io.github.ecommercebench.llm.model.ToolDefinition> definitions() {
+    public List<ToolDefinition> definitions() {
         return registry.definitions();
     }
 
@@ -155,7 +158,9 @@ public final class EcommerceToolManager {
         }
     }
 
-    /** 在工具输出 JSON 中补上当前时间字段。 */
+    /**
+     * 在工具输出 JSON 中补上当前时间字段。
+     */
     private void injectCurrentTime(ObjectNode out) {
         out.put("current_time", currentTime());
     }
@@ -167,14 +172,18 @@ public final class EcommerceToolManager {
         return engine.currentDate() + " 08:00";
     }
 
-    /** 构造 {key: value} 形式的单字段 JSON 字符串。 */
+    /**
+     * 构造 {key: value} 形式的单字段 JSON 字符串。
+     */
     private String textJson(String key, String value) {
         ObjectNode node = mapper.createObjectNode();
         node.put(key, value);
         return write(node);
     }
 
-    /** 构造统一的工具执行失败负载 {error, detail}。 */
+    /**
+     * 构造统一的工具执行失败负载 {error, detail}。
+     */
     private String failureJson(String detail) {
         ObjectNode node = mapper.createObjectNode();
         node.put("error", "工具执行失败");
@@ -182,7 +191,9 @@ public final class EcommerceToolManager {
         return write(node);
     }
 
-    /** 序列化 ObjectNode 为 JSON 字符串；序列化失败转为不可恢复的 ToolExecutionException。 */
+    /**
+     * 序列化 ObjectNode 为 JSON 字符串；序列化失败转为不可恢复的 ToolExecutionException。
+     */
     private String write(ObjectNode node) {
         try {
             return mapper.writeValueAsString(node);

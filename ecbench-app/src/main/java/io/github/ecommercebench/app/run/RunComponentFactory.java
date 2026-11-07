@@ -9,7 +9,7 @@ import io.github.ecommercebench.agent.chat.LlmVipConsentClassifier;
 import io.github.ecommercebench.agent.chat.SimulationOrderExecutionAdapter;
 import io.github.ecommercebench.agent.chat.SupplierReplyRenderer;
 import io.github.ecommercebench.agent.context.ContextEditor;
-import io.github.ecommercebench.agent.context.HuggingFaceTokenCounter;
+import io.github.ecommercebench.agent.context.EstimatedTokenCounter;
 import io.github.ecommercebench.agent.context.TokenCounter;
 import io.github.ecommercebench.agent.memory.InMemoryMemoryStore;
 import io.github.ecommercebench.agent.memory.MemoryStore;
@@ -113,7 +113,7 @@ public final class RunComponentFactory {
         CatalogData catalog = sharedCatalog(options);
         MarketGuidance guidance = sharedGuidance(options);
         ModelRegistry registry = sharedRegistry(options);
-        TokenCounter tokenCounter = sharedTokenCounter(options);
+        TokenCounter tokenCounter = sharedTokenCounter();
         RunDirectory directory = sharedRunDirectory(options);
 
         RandomStreams random = new RandomStreams(options.runConfig().seed() + index);
@@ -232,10 +232,10 @@ public final class RunComponentFactory {
         return modelRegistry;
     }
 
-    /** 惰性加载并共享 HuggingFace token 计数器。 */
-    private synchronized TokenCounter sharedTokenCounter(BenchmarkOptions options) {
+    /** 惰性创建并共享 token 估算器（无状态、不依赖外部资源文件）。 */
+    private synchronized TokenCounter sharedTokenCounter() {
         if (tokenCounter == null) {
-            tokenCounter = HuggingFaceTokenCounter.load(resolveTokenizerJson(options));
+            tokenCounter = new EstimatedTokenCounter();
         }
         return tokenCounter;
     }
@@ -243,7 +243,7 @@ public final class RunComponentFactory {
     /**
      * 惰性创建并共享本次运行的产物目录（缺省落在 ./log，含时间戳与模型名）；创建后触发一次会话回调。
      *
-     * <p>包级可见以便测试直接验证回调，无需装配完整的 catalog / tokenizer / LLM 依赖。
+     * <p>包级可见以便测试直接验证回调，无需装配完整的 catalog / LLM 依赖。
      */
     synchronized RunDirectory sharedRunDirectory(BenchmarkOptions options) {
         if (runDirectory == null) {
@@ -265,16 +265,6 @@ public final class RunComponentFactory {
             fileJobs = new JobFileLoader(objectMapper, options.runConfig()).load(jobFile);
         }
         return fileJobs;
-    }
-
-    /** 解析 tokenizer 路径：指向 .json 直接用，否则视为目录并追加 tokenizer.json；未配置则报错。 */
-    private static Path resolveTokenizerJson(BenchmarkOptions options) {
-        Path tokenizerPath = options.runConfig().tokenizerPath();
-        if (tokenizerPath == null) {
-            throw new IllegalArgumentException("未配置 tokenizer 路径");
-        }
-        String fileName = tokenizerPath.getFileName().toString();
-        return fileName.endsWith(".json") ? tokenizerPath : tokenizerPath.resolve("tokenizer.json");
     }
 
     /** 若 CLI 指定了非空且不同的 effort，则以拷贝方式覆盖模型配置的 effort 字段，否则原样返回。 */

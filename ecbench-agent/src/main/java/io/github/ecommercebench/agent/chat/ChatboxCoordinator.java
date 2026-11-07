@@ -49,25 +49,91 @@ public final class ChatboxCoordinator {
     public static final String REQUIRED_SHIPPING_ADDRESS =
             "888 Qiantang Road, Hangzhou, Zhejiang, China 310000";
 
+    /**
+     * Agent 侧发件邮箱，作为会话与成交记录中「我方」的标识。
+     */
     private static final String AGENT_EMAIL = "wangwang@ecbench.com";
+
+    /**
+     * VIP 会员费在订单明细中使用的伪 SKU，仅用于 JSON 行展示，不对应真实商品。
+     */
     private static final String MEMBERSHIP_FEE_SKU = "MEMBERSHIP_FEE";
+
+    /**
+     * 判定供应商是否提及会员费的关键词表（中英双语），是 VIP 门控的前置条件。
+     */
     private static final List<String> MEMBERSHIP_FEE_KEYWORDS =
             List.of("membership", "vip", "premium", "program fee", "enrollment", "会员", "会费", "会籍");
+
+    /**
+     * 匹配渲染文本里 "Subject:" 行的正则，用于剥掉邮件头只留正文。
+     */
     private static final Pattern SUBJECT = Pattern.compile("^Subject:\\s*(.+)", Pattern.MULTILINE);
+
+    /**
+     * 会话历史时间戳格式（UTC），与 Python 侧线格式保持一致。
+     */
     private static final DateTimeFormatter STAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneOffset.UTC);
 
+    /**
+     * 商品与供应商目录，构造时据此建立邮箱索引。
+     */
     private final CatalogData catalog;
+
+    /**
+     * 仿真引擎，提供当前日期、供应商触达打点与成交统计。
+     */
     private final SimulationEngine engine;
+
+    /**
+     * 单供应商会话存储，维护消息历史、破产标记与成交计数。
+     */
     private final ConversationStore conversations;
+
+    /**
+     * 从 Agent 消息中解析 negotiate 块的解析器。
+     */
     private final NegotiationBlockParser parser;
+
+    /**
+     * 谈判内核管理，负责逐条动作裁决与协议提交/回滚。
+     */
     private final KernelManager kernelManager;
+
+    /**
+     * 下单处理器，校验价格底线并施加各类欺诈效果。
+     */
     private final OrderProcessor orderProcessor;
+
+    /**
+     * 订单执行端口，连接仿真引擎完成扣款、记账与安排到货。
+     */
     private final OrderExecutionPort orderPort;
+
+    /**
+     * NPC 回复渲染器，生成供应商口吻的邮件正文。
+     */
     private final SupplierReplyRenderer renderer;
+
+    /**
+     * 判断 Agent 是否明确同意支付会员费的分类器。
+     */
     private final VipConsentClassifier vipClassifier;
+
+    /**
+     * JSON 序列化用的 Jackson ObjectMapper。
+     */
     private final ObjectMapper mapper;
+
+    /**
+     * 供应商邮箱 → 供应商索引；chatbox 以 uid（邮箱）作为寻址键。
+     */
     private final Map<String, Supplier> suppliersByEmail = new LinkedHashMap<>();
+
+    /**
+     * 供应商名 → 已成交易的双向邮件记录，供渲染时作为历史成交上下文。
+     */
     private final Map<String, List<DealRecord>> dealMessages = new LinkedHashMap<>();
 
     /**
@@ -514,6 +580,9 @@ public final class ChatboxCoordinator {
         return text;
     }
 
+    /**
+     * 把 ObjectNode 列表转成 JSON 数组（Jackson 无现成工厂方法）。
+     */
     private ArrayNode toArray(List<ObjectNode> items) {
         ArrayNode array = mapper.createArrayNode();
         array.addAll(items);
@@ -527,26 +596,64 @@ public final class ChatboxCoordinator {
         return engine.currentDate() + " 08:00";
     }
 
+    /**
+     * 当日固定 08:00 的 UTC 时间戳，与会话记录的 now() 口径一致。
+     */
     private Instant now() {
         return engine.currentDate().atTime(8, 0).toInstant(ZoneOffset.UTC);
     }
 
+    /**
+     * 按 2 位小数（HALF_UP）四舍五入金额展示值。
+     */
     private static double round2(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 
+    /**
+     * 待执行的订单动作：标准化后带收货地址的 Accept，及其对应内核裁决。
+     */
     private record OrderAction(NegotiationAction.Accept accept, NegotiationOutcome outcome) {
     }
 
+    /**
+     * 一次解析得到的谈判结果：内核逐条响应与派生出的待下单动作。
+     */
     private record Negotiation(List<NegotiationOutcome> responses, List<OrderAction> orderActions) {
     }
 
+    /**
+     * 本回合订单执行汇总，供构造 Agent 可见 JSON 与回填谈判条目。
+     */
     private static final class OrderBatch {
+        /**
+         * 是否至少执行过一笔订单或会员费（区分「无动作」与「全失败」）。
+         */
         private boolean processed;
+
+        /**
+         * 本回合累计扣款金额（含会员费），仅用于回复展示。
+         */
         private double totalCharged;
+
+        /**
+         * 下单成功明细（JSON），输出为 orders_placed。
+         */
         private final List<ObjectNode> lineItems = new ArrayList<>();
+
+        /**
+         * 下单失败明细（JSON），输出为 failed_orders。
+         */
         private final List<ObjectNode> failedOrders = new ArrayList<>();
+
+        /**
+         * SKU → 成功明细，用于给 ACCEPT 的谈判条目回填 order_placed 等字段。
+         */
         private final Map<String, ObjectNode> chargedBySku = new LinkedHashMap<>();
+
+        /**
+         * SKU → 失败明细，用于给 ACCEPT 的谈判条目回填 order_error。
+         */
         private final Map<String, ObjectNode> failedBySku = new LinkedHashMap<>();
     }
 }

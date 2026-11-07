@@ -1,7 +1,5 @@
 package io.github.ecommercebench.agent.chat;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.ecommercebench.domain.catalog.CatalogData;
@@ -18,6 +16,8 @@ import io.github.ecommercebench.opponent.model.NegotiationState;
 import io.github.ecommercebench.opponent.order.OrderProcessor;
 import io.github.ecommercebench.opponent.parser.NegotiationBlockParser;
 import io.github.ecommercebench.simulation.SimulationEngine;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -27,8 +27,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * ChatboxCoordinator 契约测试：单发/广播/破产/未知供应商/成交提交/余额不足回滚/VIP 同意。

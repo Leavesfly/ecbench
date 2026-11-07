@@ -1,7 +1,5 @@
 package io.github.ecommercebench.agent;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.ecommercebench.agent.context.ContextEditor;
@@ -17,18 +15,15 @@ import io.github.ecommercebench.domain.config.RunConfig;
 import io.github.ecommercebench.domain.money.Money;
 import io.github.ecommercebench.domain.random.RandomStreams;
 import io.github.ecommercebench.llm.LlmClient;
-import io.github.ecommercebench.llm.model.ChatMessage;
-import io.github.ecommercebench.llm.model.ChatRole;
-import io.github.ecommercebench.llm.model.LlmRequest;
-import io.github.ecommercebench.llm.model.LlmResponse;
-import io.github.ecommercebench.llm.model.ToolCall;
+import io.github.ecommercebench.llm.model.*;
 import io.github.ecommercebench.simulation.SimulationEngine;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Agent 主循环契约测试：消息顺序、观察者事件、日期推进、轮数与各类终止原因、上下文裁剪。
@@ -54,7 +49,6 @@ class EcommerceBenchAgentTest {
                 Money.of("100000"),
                 Money.of("50"),
                 128_000,
-                null,
                 DATA,
                 null,
                 null,

@@ -14,7 +14,7 @@ class JobTest {
 
     private static JobRequest request() {
         return new JobRequest(
-                "gpt", 16384, 4000, 365, 100000.0, 50.0, 128000, 1, null, null, null, null, null);
+                "gpt", 16384, 4000, 365, 100000.0, 50.0, 128000, 1, null, null, null, null);
     }
 
     private static Job newJob() {

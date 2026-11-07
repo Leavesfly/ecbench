@@ -1,71 +1,20 @@
 package io.github.ecommercebench.simulation;
 
-import io.github.ecommercebench.domain.catalog.CatalogData;
-import io.github.ecommercebench.domain.catalog.Product;
-import io.github.ecommercebench.domain.catalog.PromotionConfig;
-import io.github.ecommercebench.domain.catalog.PromotionPeriod;
-import io.github.ecommercebench.domain.catalog.StoreTypeConfig;
+import io.github.ecommercebench.domain.catalog.*;
 import io.github.ecommercebench.domain.config.RunConfig;
 import io.github.ecommercebench.domain.money.Money;
 import io.github.ecommercebench.domain.random.RandomStreams;
-import io.github.ecommercebench.simulation.daily.BankruptcyProcessor;
-import io.github.ecommercebench.simulation.daily.DailyContext;
-import io.github.ecommercebench.simulation.daily.DailyProcessor;
-import io.github.ecommercebench.simulation.daily.DailyResult;
-import io.github.ecommercebench.simulation.daily.DeliveryProcessor;
-import io.github.ecommercebench.simulation.daily.OperationCostProcessor;
-import io.github.ecommercebench.simulation.daily.OverdueCancelProcessor;
-import io.github.ecommercebench.simulation.daily.ReputationProcessor;
-import io.github.ecommercebench.simulation.daily.ReturnProcessor;
-import io.github.ecommercebench.simulation.daily.SalesProcessor;
-import io.github.ecommercebench.simulation.daily.SettlementProcessor;
-import io.github.ecommercebench.simulation.daily.StorageFeeProcessor;
+import io.github.ecommercebench.simulation.daily.*;
 import io.github.ecommercebench.simulation.demand.DemandModel;
-import io.github.ecommercebench.simulation.dto.BalanceView;
-import io.github.ecommercebench.simulation.dto.CloseStoreResult;
-import io.github.ecommercebench.simulation.dto.ItemOperationResult;
-import io.github.ecommercebench.simulation.dto.LiquidatedItem;
-import io.github.ecommercebench.simulation.dto.OpenStoreResult;
-import io.github.ecommercebench.simulation.dto.PriceItem;
-import io.github.ecommercebench.simulation.dto.ProductView;
-import io.github.ecommercebench.simulation.dto.PromotionJoinResult;
-import io.github.ecommercebench.simulation.dto.PublishItem;
-import io.github.ecommercebench.simulation.dto.PublishResult;
-import io.github.ecommercebench.simulation.dto.QtyItem;
-import io.github.ecommercebench.simulation.dto.ReturnResult;
-import io.github.ecommercebench.simulation.dto.ReturnTrace;
-import io.github.ecommercebench.simulation.dto.ReturnTraceRow;
-import io.github.ecommercebench.simulation.dto.SetPricesResult;
-import io.github.ecommercebench.simulation.dto.ShipResult;
-import io.github.ecommercebench.simulation.dto.ShippedOrder;
-import io.github.ecommercebench.simulation.dto.StoreStatus;
-import io.github.ecommercebench.simulation.dto.StoreSummary;
-import io.github.ecommercebench.simulation.dto.SupplierSource;
-import io.github.ecommercebench.simulation.dto.SupplierView;
-import io.github.ecommercebench.simulation.dto.WarehouseRow;
-import io.github.ecommercebench.simulation.dto.WithdrawResult;
+import io.github.ecommercebench.simulation.dto.*;
 import io.github.ecommercebench.simulation.error.BusinessRuleException;
 import io.github.ecommercebench.simulation.event.EventScheduler;
-import io.github.ecommercebench.simulation.state.EscrowBatch;
-import io.github.ecommercebench.simulation.state.PendingDelivery;
-import io.github.ecommercebench.simulation.state.PendingReturn;
-import io.github.ecommercebench.simulation.state.PendingShipment;
-import io.github.ecommercebench.simulation.state.ShipSpeed;
-import io.github.ecommercebench.simulation.state.SimulationState;
-import io.github.ecommercebench.simulation.state.StoreState;
-import io.github.ecommercebench.simulation.state.WarehouseConsumption;
-import io.github.ecommercebench.simulation.state.WarehouseLot;
+import io.github.ecommercebench.simulation.state.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -76,18 +25,59 @@ import java.util.stream.Collectors;
  */
 public final class SimulationEngine {
 
+    /**
+     * 仿真固定起始日：所有 run 都从该日开始日切，checkBalance 的 day 序号也以它为原点。
+     */
     private static final LocalDate START_DATE = LocalDate.of(2026, 1, 1);
 
+    /**
+     * 本次 run 的静态目录（商品、店铺类型、供应商、促销、事件等），构造后不再变化。
+     */
     private final CatalogData catalog;
+
+    /**
+     * 运行配置（初始资金、最大天数等），构造后不再变化。
+     */
     private final RunConfig config;
+
+    /**
+     * 按流名隔离的确定性随机源，保证同一 seed 下需求、退货等环节可复现。
+     */
     private final RandomStreams randomStreams;
+
+    /**
+     * 全部可变业务状态的根对象。
+     */
     private final SimulationState state;
+
+    /**
+     * 商品索引（productId → Product），避免各方法重复线性查找目录。
+     */
     private final Map<String, Product> productsById;
+
+    /**
+     * 需求模型：价格弹性、促销增益、市场饱和等纯函数。
+     */
     private final DemandModel demandModel = new DemandModel();
+
+    /**
+     * 市场事件调度器：按日期把事件通知追加到当日摘要。
+     */
     private final EventScheduler eventScheduler = new EventScheduler();
+
+    /**
+     * 日切流水线，执行顺序在构造器中固定，运行期不可调整。
+     */
     private final List<DailyProcessor> dailyProcessors;
+
+    /**
+     * 最近一次日切摘要；尚未推进任何一天时为 null。
+     */
     private DailyResult lastDailyResult;
 
+    /**
+     * 装配一次 run：以初始资金建立状态根与商品索引，并固定日切流水线的执行顺序。
+     */
     public SimulationEngine(CatalogData catalog, RunConfig config, RandomStreams randomStreams) {
         this.catalog = Objects.requireNonNull(catalog, "catalog 不能为空");
         this.config = Objects.requireNonNull(config, "config 不能为空");
@@ -147,6 +137,8 @@ public final class SimulationEngine {
             store.markReopened();
         }
         state.addStore(store);
+        // 注意：每日实际扣费取自 EconomicRules.operationsCost(tier)（tier 1/2/3 = 130/100/60），而下面回填的
+        // dailyOpsCost 用的是 catalog 的 daily_rent（现数据 tier 3 为 45），故与 market_search 展示的口径不一致。
         return new OpenStoreResult(
                 true,
                 store.storeId(),
@@ -378,7 +370,7 @@ public final class SimulationEngine {
         Map<LocalDate, Money> upcoming = new LinkedHashMap<>();
         state.accounts().escrowBatches().stream()
                 .sorted(
-                        Comparator.comparing(io.github.ecommercebench.simulation.state.EscrowBatch::settleDate))
+                        Comparator.comparing(EscrowBatch::settleDate))
                 .forEach(batch -> upcoming.merge(batch.settleDate(), batch.amount(), Money::add));
         Money unshipped =
                 state.pendingShipments().stream()
@@ -431,6 +423,9 @@ public final class SimulationEngine {
         return state.stores().values().stream().map(this::summary).toList();
     }
 
+    /**
+     * 把店铺状态压缩成列表用的概要：含营业状态、声誉与店内件数，不含价格与库存明细。
+     */
     private StoreSummary summary(StoreState store) {
         int units = store.inventory().values().stream().mapToInt(Integer::intValue).sum();
         return new StoreSummary(
@@ -442,6 +437,9 @@ public final class SimulationEngine {
                 units);
     }
 
+    /**
+     * 取店铺并要求其处于营业状态，否则抛业务异常；供面向 Agent 的写入口复用。
+     */
     private StoreState requireOpenStore(String storeId) {
         StoreState store = state.store(storeId);
         if (store == null || !store.isOpen()) {
@@ -496,7 +494,7 @@ public final class SimulationEngine {
                                 product ->
                                         product
                                                 .title()
-                                                .toLowerCase(java.util.Locale.ROOT)
+                                                .toLowerCase(Locale.ROOT)
                                                 .contains(productName.toLowerCase(java.util.Locale.ROOT)))
                         .map(Product::category)
                         .collect(Collectors.toSet());
@@ -591,6 +589,9 @@ public final class SimulationEngine {
         return new ReturnTrace(rows, null);
     }
 
+    /**
+     * 判断促销在给定日期是否处于活动区间；周期 end 早于 start 视为跨年，把 end 推到下一年。
+     */
     private boolean isPromotionActive(PromotionConfig promotion, LocalDate date) {
         for (PromotionPeriod period : promotion.periods()) {
             LocalDate start = period.start().atYear(date.getYear());
@@ -605,6 +606,9 @@ public final class SimulationEngine {
         return false;
     }
 
+    /**
+     * 判断促销在未来 days 天内是否“即将开始”（只算严格晚于 date 的区间）；供参与促销时的 30 天校验。
+     */
     private boolean startsWithin(PromotionConfig promotion, LocalDate date, int days) {
         LocalDate limit = date.plusDays(days);
         for (PromotionPeriod period : promotion.periods()) {
@@ -618,10 +622,16 @@ public final class SimulationEngine {
         return false;
     }
 
+    /**
+     * 按 3 位小数四舍五入，用于退货率等展示值。
+     */
     private double round3(double value) {
         return BigDecimal.valueOf(value).setScale(3, java.math.RoundingMode.HALF_UP).doubleValue();
     }
 
+    /**
+     * 返回待发货订单快照（不可变副本），供 Agent 查询可发货清单。
+     */
     public List<PendingShipment> listPendingShipments() {
         return List.copyOf(state.pendingShipments());
     }
@@ -788,14 +798,23 @@ public final class SimulationEngine {
         return lastDailyResult;
     }
 
+    /**
+     * 仿真当前业务日期（起始日 + 已推进天数）。
+     */
     public LocalDate currentDate() {
         return state.currentDate();
     }
 
+    /**
+     * 返回可变状态根；供日志/统计与观测器读取，写操作仍应走本类方法。
+     */
     public SimulationState state() {
         return state;
     }
 
+    /**
+     * 静态商品目录（只读），含商品/店铺类型/供应商/促销/事件。
+     */
     public CatalogData catalog() {
         return catalog;
     }
@@ -807,10 +826,16 @@ public final class SimulationEngine {
         return productsById.get(productId);
     }
 
+    /**
+     * 运行配置（只读）。
+     */
     public RunConfig config() {
         return config;
     }
 
+    /**
+     * 确定性随机源；调用方按流名取流以隔离并保证可复现。
+     */
     public RandomStreams randomStreams() {
         return randomStreams;
     }

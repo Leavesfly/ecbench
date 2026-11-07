@@ -154,11 +154,6 @@ class ConfigurationMergerTest {
         }
 
         @Override
-        public String tokenizerPath() {
-            return null;
-        }
-
-        @Override
         public String logDir() {
             return null;
         }

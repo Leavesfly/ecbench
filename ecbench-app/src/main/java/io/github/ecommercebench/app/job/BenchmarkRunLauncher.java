@@ -15,8 +15,8 @@ import java.util.function.Consumer;
  * {@link RunLauncher} 的生产实现。
  *
  * <p><b>每次 launch 都新建一个 {@link RunComponentFactory}</b>。这不是浪费：该工厂把 catalog、models 注册表、
- * tokenizer、尤其是<b>会话目录</b>缓存成实例字段且「第一个 options 胜出」，复用一个实例跑第二个 job 会让产物写进第一个
- * job 的会话目录，并静默沿用第一个 job 的 data-dir / models_config / tokenizer 路径。
+ * token 估算器、尤其是<b>会话目录</b>缓存成实例字段且「第一个 options 胜出」，复用一个实例跑第二个 job 会让产物写进第一个
+ * job 的会话目录，并静默沿用第一个 job 的 data-dir / models_config 路径。
  *
  * <p>相较之下 {@link LlmClientProvider} 是无状态且线程安全的（既有 {@code RunCoordinator} 已并发调用同一实例的
  * {@code create}），因此跨 job 复用，不重建。

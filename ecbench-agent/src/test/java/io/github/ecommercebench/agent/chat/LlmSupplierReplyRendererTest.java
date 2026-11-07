@@ -1,7 +1,5 @@
 package io.github.ecommercebench.agent.chat;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import io.github.ecommercebench.domain.catalog.CatalogData;
 import io.github.ecommercebench.domain.catalog.CsvCatalogLoader;
 import io.github.ecommercebench.domain.catalog.Supplier;
@@ -10,12 +8,13 @@ import io.github.ecommercebench.llm.model.ChatRole;
 import io.github.ecommercebench.llm.model.LlmRequest;
 import io.github.ecommercebench.llm.model.LlmResponse;
 import io.github.ecommercebench.opponent.chat.ConversationStore;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * LlmSupplierReplyRenderer 测试：系统提示词构造、confirm_order 代码块剥离、空/异常回退。

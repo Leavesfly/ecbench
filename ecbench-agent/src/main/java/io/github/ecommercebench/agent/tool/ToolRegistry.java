@@ -2,11 +2,7 @@ package io.github.ecommercebench.agent.tool;
 
 import io.github.ecommercebench.llm.model.ToolDefinition;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * 按名称索引的工具注册表。
@@ -17,7 +13,9 @@ public final class ToolRegistry {
 
     private final Map<String, EcommerceTool> byName;
 
-    /** 按工具名建索引；名字重复立即抛错，映射不可变且保留插入顺序。 */
+    /**
+     * 按工具名建索引；名字重复立即抛错，映射不可变且保留插入顺序。
+     */
     public ToolRegistry(List<EcommerceTool> tools) {
         Map<String, EcommerceTool> map = new LinkedHashMap<>();
         for (EcommerceTool tool : tools) {
@@ -28,12 +26,16 @@ public final class ToolRegistry {
         this.byName = Collections.unmodifiableMap(map);
     }
 
-    /** 按名称查找工具，未注册时返回空。 */
+    /**
+     * 按名称查找工具，未注册时返回空。
+     */
     public Optional<EcommerceTool> find(String name) {
         return Optional.ofNullable(byName.get(name));
     }
 
-    /** 按注册顺序返回全部工具实例。 */
+    /**
+     * 按注册顺序返回全部工具实例。
+     */
     public List<EcommerceTool> all() {
         return List.copyOf(byName.values());
     }

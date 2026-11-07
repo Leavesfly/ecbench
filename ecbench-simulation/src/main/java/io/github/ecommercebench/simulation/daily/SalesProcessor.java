@@ -1,11 +1,6 @@
 package io.github.ecommercebench.simulation.daily;
 
-import io.github.ecommercebench.domain.catalog.CategoryParams;
-import io.github.ecommercebench.domain.catalog.MarketEvent;
-import io.github.ecommercebench.domain.catalog.Product;
-import io.github.ecommercebench.domain.catalog.PromotionConfig;
-import io.github.ecommercebench.domain.catalog.PromotionPeriod;
-import io.github.ecommercebench.domain.catalog.StoreTypeConfig;
+import io.github.ecommercebench.domain.catalog.*;
 import io.github.ecommercebench.domain.money.Money;
 import io.github.ecommercebench.domain.random.DeterministicRandom;
 import io.github.ecommercebench.simulation.EconomicRules;
@@ -173,7 +168,9 @@ public final class SalesProcessor implements DailyProcessor {
         return sold;
     }
 
-    /** 类目软封顶：单类目需求超过市场容量份额时按 demand·cap/(cap+total) 衰减，抑制同类目过度放大。 */
+    /**
+     * 类目软封顶：单类目需求超过市场容量份额时按 demand·cap/(cap+total) 衰减，抑制同类目过度放大。
+     */
     private void applyCategoryCap(Map<String, DemandLine> raw, StoreTypeConfig type) {
         double capacity = EconomicRules.marketCapacity(type.storeTypeId());
         double fraction =
@@ -201,7 +198,9 @@ public final class SalesProcessor implements DailyProcessor {
                 });
     }
 
-    /** 当前促销活跃时返回其需求倍率与弹性加成，否则返回中性 (1.0, 1.0)。 */
+    /**
+     * 当前促销活跃时返回其需求倍率与弹性加成，否则返回中性 (1.0, 1.0)。
+     */
     private DemandModel.PromotionBoost promotionBoost(
             DailyContext context, StoreState store, LocalDate saleDate) {
         if (store.promotionActive() == null) {
@@ -247,7 +246,9 @@ public final class SalesProcessor implements DailyProcessor {
         return false;
     }
 
-    /** 多个事件日区间命中时连乘其对本店铺类型的需求因子；end 早于 start 视为跨年。 */
+    /**
+     * 多个事件日区间命中时连乘其对本店铺类型的需求因子；end 早于 start 视为跨年。
+     */
     private double eventDemandFactor(DailyContext context, String storeType, LocalDate date) {
         double factor = 1.0;
         for (MarketEvent event : context.catalog().events()) {

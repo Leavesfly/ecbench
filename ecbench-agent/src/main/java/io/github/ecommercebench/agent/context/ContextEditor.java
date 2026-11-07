@@ -14,7 +14,9 @@ public final class ContextEditor {
 
     private final TokenCounter tokenCounter;
 
-    /** 以 token 计数器构建编辑器，用于估算各消息占用的上下文预算。 */
+    /**
+     * 以 token 计数器构建编辑器，用于估算各消息占用的上下文预算。
+     */
     public ContextEditor(TokenCounter tokenCounter) {
         this.tokenCounter = tokenCounter;
     }
@@ -56,7 +58,9 @@ public final class ContextEditor {
         return new ContextEditResult(edited, warning, freed, active);
     }
 
-    /** 将指定消息标记为已清除并返回其释放的 token 数；已清除则返回 0。 */
+    /**
+     * 将指定消息标记为已清除并返回其释放的 token 数；已清除则返回 0。
+     */
     private int clear(List<ChatMessage> messages, int index) {
         ChatMessage message = messages.get(index);
         if (message.cleared()) {
@@ -67,7 +71,9 @@ public final class ContextEditor {
         return tokens;
     }
 
-    /** 从下标 2（跳过 system 与首条 user）起，把“带工具调用的 assistant + 紧随的 tool 响应”识别为可清除组。 */
+    /**
+     * 从下标 2（跳过 system 与首条 user）起，把“带工具调用的 assistant + 紧随的 tool 响应”识别为可清除组。
+     */
     private List<Group> clearableGroups(List<ChatMessage> messages) {
         List<Group> groups = new ArrayList<>();
         int index = 2;
@@ -90,14 +96,18 @@ public final class ContextEditor {
         return groups;
     }
 
-    /** 判断 assistant 消息是否携带工具调用（结构化 toolCalls 或正文内嵌 <tool_call> 标记）。 */
+    /**
+     * 判断 assistant 消息是否携带工具调用（结构化 toolCalls 或正文内嵌 <tool_call> 标记）。
+     */
     private boolean hasToolCalls(ChatMessage message) {
         return message.role() == ChatRole.ASSISTANT
                 && (!message.toolCalls().isEmpty()
                 || (message.content() != null && message.content().contains("<tool_call>")));
     }
 
-    /** 判断消息是否为工具响应：role=tool，或包含 <tool_response>/带 toolCallId 的 user 消息。 */
+    /**
+     * 判断消息是否为工具响应：role=tool，或包含 <tool_response>/带 toolCallId 的 user 消息。
+     */
     private boolean isToolResponse(ChatMessage message) {
         return message.role() == ChatRole.TOOL
                 || (message.role() == ChatRole.USER
@@ -105,7 +115,9 @@ public final class ContextEditor {
                 || message.toolCallId() != null));
     }
 
-    /** 生成当前 token 用量水位告警串（含已用/容量/百分比/剩余额）。 */
+    /**
+     * 生成当前 token 用量水位告警串（含已用/容量/百分比/剩余额）。
+     */
     private String status(int usage, int maximumCapacity) {
         double percentage = maximumCapacity <= 0 ? 0.0 : (double) usage / maximumCapacity;
         return "<system_warning>Token 用量：%d/%d tokens（%.0f%%）；剩余 %d</system_warning>"

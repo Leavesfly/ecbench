@@ -1,7 +1,5 @@
 package io.github.ecommercebench.agent.tool;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -13,12 +11,13 @@ import io.github.ecommercebench.domain.random.RandomStreams;
 import io.github.ecommercebench.llm.model.ToolCall;
 import io.github.ecommercebench.llm.model.ToolDefinition;
 import io.github.ecommercebench.simulation.SimulationEngine;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 校验工具管理器的顺序执行、wait 去重与稳定错误契约。

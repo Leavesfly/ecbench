@@ -11,17 +11,41 @@ import java.util.List;
 
 /**
  * TERMS Bench 供应商策略的确定性 Java 端口。
+ *
+ * <p>每个实例服务一个 supplier/SKU 的一个采购周期：保留价、让步意愿 kappa、立场、开盘系数 d0、
+ * 回合上限等由 {@code KernelParameters} 注入，随机性全部来自外部传入的 {@code DeterministicRandom}，
+ * 因而同一随机流下行为可复现。内核自身只记忆双方历史报价，用于逐轮让步与接受/拒绝打分。
  */
 public final class CounterpartKernel {
 
+    /**
+     * 构造期注入的不可变谈判参数。
+     */
     private final KernelParameters parameters;
+    /**
+     * 注入的确定性随机流，同种子得到同一条轨迹。
+     */
     private final DeterministicRandom random;
+    /**
+     * 由供应商家族与立场共决的行为系数（rho/xi/lambda2）。
+     */
     private final Preset preset;
+    /**
+     * Agent 历史报价，供让步速度/幅度/僵硬特征计算。
+     */
     private final List<Double> agentHistory = new ArrayList<>();
+    /**
+     * 供应商历史报价；当前仅做记录与审计，判定主要以 lastSupplierPrice 为准。
+     */
     private final List<Double> supplierHistory = new ArrayList<>();
+    /**
+     * 上一轮供应商报价；null 表示尚未开盘。
+     */
     private Double lastSupplierPrice;
 
-    /** 以参数与随机流建立内核；Preset 由供应商家族(family)与立场(stance)共决。 */
+    /**
+     * 以参数与随机流建立内核；Preset 由供应商家族(family)与立场(stance)共决。
+     */
     public CounterpartKernel(KernelParameters parameters, DeterministicRandom random) {
         this.parameters = parameters;
         this.random = random;
@@ -31,7 +55,8 @@ public final class CounterpartKernel {
     /**
      * 供应该对手本回合的动作：若 Agent 已报价则先判定接受/拒绝，否则（或继续谈判时）给出一个新的还价。
      *
-     * <p>还价基于首轮开盘价或逐轮让步价，并保证不高于 Agent 报价（避免越还越高），最后限幅在保留价与上限之间。
+     * <p>还价基于首轮开盘价或逐轮让步价；若低于 Agent 本次报价，则抬到其上方 3% 的区间（且不超过
+     * 自己上一轮报价），最后统一限幅在保留价与上限之间。
      */
     public CounterpartAction getAction(int round, Money agentPrice) {
         Double offered = agentPrice == null ? null : agentPrice.amount().doubleValue();
@@ -47,6 +72,7 @@ public final class CounterpartKernel {
         }
 
         double price = lastSupplierPrice == null ? openingOffer() : concessionOffer(round);
+        // 还价不得低于对方报价：若偏低则抬至其上方 3% 区间，但仍不超过自己上一轮的价格
         if (offered != null && price < offered) {
             price = offered + 0.03 * range();
             if (lastSupplierPrice != null) {
@@ -83,6 +109,7 @@ public final class CounterpartKernel {
             }
         }
         int walkRound = (int) Math.ceil(parameters.maxRounds() / 2.0);
+        // 过半回合仍未达成有利条件时，按“越不利、越接近上限”打分抽拒绝（即谈判破裂）
         if (round >= walkRound && favourability < 0) {
             double progress =
                     parameters.maxRounds() > walkRound
@@ -96,7 +123,9 @@ public final class CounterpartKernel {
         return NegotiationDecision.OFFER;
     }
 
-    /** 首次报价：开盘越 harsh、越 aggressive 越高，叠加微小噪声后限幅到 [保留价, 上限]。 */
+    /**
+     * 首次报价：开盘越 harsh、越 aggressive 越高，叠加微小噪声后限幅到 [保留价, 上限]。
+     */
     private double openingOffer() {
         double phi =
                 clamp(
@@ -113,7 +142,9 @@ public final class CounterpartKernel {
         return clamp(opening, reservation(), maximum());
     }
 
-    /** 逐轮让步：让步幅度受 willingness 与历史 magnitude 影响，按家族施加不同高斯噪声，且不低于保留价、不高于上一轮。 */
+    /**
+     * 逐轮让步：让步幅度受 willingness 与历史 magnitude 影响，按家族施加不同高斯噪声，且不低于保留价、不高于上一轮。
+     */
     private double concessionOffer(int round) {
         double concession =
                 0.12
@@ -135,7 +166,9 @@ public final class CounterpartKernel {
         return Math.min(lastSupplierPrice, Math.max(reservation(), candidate));
     }
 
-    /** 基于最近至多 3 个报价增量特征：magnitude=平均正向让步，speed=平均让步，rigidity=最后一次几乎未动。 */
+    /**
+     * 基于最近至多 3 个报价增量特征：magnitude=平均正向让步，speed=平均让步，rigidity=最后一次几乎未动。
+     */
     private double historyFeature(String feature) {
         if (agentHistory.size() < 2) {
             return 0.0;
@@ -159,7 +192,9 @@ public final class CounterpartKernel {
         return 0.0;
     }
 
-    /** 选择策略提示词（Concede/Hold/Pressure）：寡言/策略型固定 Hold，对抗型固定 Pressure，其余按幅度/截止/立场做 softmax 抽样。 */
+    /**
+     * 选择策略提示词（Concede/Hold/Pressure）：寡言/策略型固定 Hold，对抗型固定 Pressure，其余按幅度/截止/立场做 softmax 抽样。
+     */
     private String strategicCue(int round, double price) {
         if (parameters.family() == SupplierFamily.TACITURN
                 || parameters.family() == SupplierFamily.STRATEGIC) {
@@ -197,7 +232,9 @@ public final class CounterpartKernel {
         return draw < weights[0] ? "Concede" : draw < weights[0] + weights[1] ? "Hold" : "Pressure";
     }
 
-    /** 抽取情绪提示（positive/neutral/negative）：寡言/策略型中性，对抗型负面，其余按立场均值与家族方差抽正态后分档。 */
+    /**
+     * 抽取情绪提示（positive/neutral/negative）：寡言/策略型中性，对抗型负面，其余按立场均值与家族方差抽正态后分档。
+     */
     private String sentimentCue() {
         if (parameters.family() == SupplierFamily.TACITURN
                 || parameters.family() == SupplierFamily.STRATEGIC) {
@@ -215,19 +252,30 @@ public final class CounterpartKernel {
         return sample > 0.5 ? "positive" : sample < -0.5 ? "negative" : "neutral";
     }
 
+    /**
+     * 保留价的 double 视图。
+     */
     private double reservation() {
         return parameters.reservationPrice().amount().doubleValue();
     }
 
+    /**
+     * 报价上限的 double 视图。
+     */
     private double maximum() {
         return parameters.maximumPrice().amount().doubleValue();
     }
 
+    /**
+     * 还价区间跨度；下限取 1.0 防止除零（保留价等于上限时仍可归一化）。
+     */
     private double range() {
         return Math.max(1.0, maximum() - parameters.minimumPrice().amount().doubleValue());
     }
 
-    /** 数值稳定的 sigmoid：正负分支分别计算，避免 exp 上溢。 */
+    /**
+     * 数值稳定的 sigmoid：正负分支分别计算，避免 exp 上溢。
+     */
     private static double sigmoid(double value) {
         return value >= 0 ? 1.0 / (1.0 + Math.exp(-value)) : Math.exp(value) / (1.0 + Math.exp(value));
     }
@@ -236,8 +284,17 @@ public final class CounterpartKernel {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
-    /** 家族×立场对应的行为系数：rho(历史让步影响接受)、xi(历史速度影响接受)、lambda2(历史幅度影响让步)，按 stance 取 conciliatory/中立/aggressive 三档。 */
+    /**
+     * 家族×立场对应的行为系数：rho 影响历史让步对接受的贡献，xi 影响历史速度，lambda2 抑制让步幅度。
+     *
+     * @param rho     历史让步速度特征 speed 的权重
+     * @param xi      历史僵硬度特征 rigidity 的权重
+     * @param lambda2 历史让步幅度 magnitude 对下一轮让步的抑制系数
+     */
     private record Preset(double rho, double xi, double lambda2) {
+        /**
+         * 先按立场选定列：conciliatory=0、中立=1、aggressive=2，再按家族取对应三档系数。
+         */
         static Preset forFamily(SupplierFamily family, String stance) {
             int index = "conciliatory".equals(stance) ? 0 : "aggressive".equals(stance) ? 2 : 1;
             return switch (family) {
@@ -264,6 +321,9 @@ public final class CounterpartKernel {
             };
         }
 
+        /**
+         * 从三档数组中按立场索引取出一组系数。
+         */
         private static Preset from(int index, double[] rho, double[] xi, double[] lambda2) {
             return new Preset(rho[index], xi[index], lambda2[index]);
         }

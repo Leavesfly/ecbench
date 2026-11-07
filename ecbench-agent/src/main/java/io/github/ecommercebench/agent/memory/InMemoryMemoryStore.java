@@ -1,10 +1,6 @@
 package io.github.ecommercebench.agent.memory;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * 当前 run 专用的有序内存实现。

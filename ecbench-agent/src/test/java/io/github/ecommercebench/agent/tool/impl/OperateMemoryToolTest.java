@@ -1,19 +1,18 @@
 package io.github.ecommercebench.agent.tool.impl;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.ecommercebench.agent.memory.InMemoryMemoryStore;
 import io.github.ecommercebench.agent.memory.MemoryStore;
 import io.github.ecommercebench.agent.tool.ToolExecutionContext;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * operate_memory 契约测试：五种 action 的输出逐键对齐 Python `tools/operate_memory.py`。

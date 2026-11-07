@@ -16,12 +16,13 @@ class ModelRegistryLoaderTest {
     ModelRegistry registry = new ModelRegistryLoader().load(config);
     ModelConfig model = registry.resolve("gpt-5.6-sol");
 
-    assertThat(registry.models()).hasSize(18);
+    assertThat(registry.models()).hasSize(19);
     assertThat(model.provider()).isEqualTo("openai");
     assertThat(model.modelName()).isEqualTo("gpt-5.6-sol");
     assertThat(model.apiStyle()).isEqualTo("responses");
     assertThat(model.effort()).isEqualTo("max");
-    assertThat(registry.npcModel().modelName()).isEqualTo("qwen3.6-plus");
+    assertThat(registry.npcModel().modelName()).isEqualTo("qwen3.8-flash");
+    assertThat(registry.npcModel().extraBody()).containsEntry("enable_thinking", false);
   }
 
   @Test

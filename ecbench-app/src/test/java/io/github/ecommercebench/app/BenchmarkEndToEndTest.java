@@ -28,7 +28,7 @@ import picocli.CommandLine;
 
 /**
  * 无真实 API 的三天端到端测试：用脚本化假 LLM 经完整 CLI 路径（BenchmarkCommand→RunCoordinator→RunComponentFactory→
- * 真实引擎/工具/tokenizer）驱动一次 episode，断言退出码 0、推进到第 3 天、开了店，并产出四类 Python 兼容文件（余额 CSV/消息 JSONL/两个 metrics
+ * 真实引擎/工具）驱动一次 episode，断言退出码 0、推进到第 3 天、开了店，并产出四类 Python 兼容文件（余额 CSV/消息 JSONL/两个 metrics
  * JSON）， 消息 JSONL 每行可解析，analysis 含 final_balance 与 negotiation_quality。全程离线。
  */
 @SpringBootTest(

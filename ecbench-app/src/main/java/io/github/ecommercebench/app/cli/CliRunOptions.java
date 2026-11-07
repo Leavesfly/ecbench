@@ -9,10 +9,11 @@ import picocli.CommandLine.Option;
  *
  * <p>参数名、默认值与类型逐一对齐 Python argparse：{@code --model}（必填）、{@code --max-tokens}、 {@code
  * --max-turns}、{@code --max-days}、{@code --initial-balance}、{@code --daily-fee}、{@code
- * --max-token-capacity}、 {@code --tokenizer-path}、{@code --log-dir}、{@code --job-file}、{@code
- * --runs}；另新增两个可选参数 {@code --seed}（确定性随机种子）与 {@code --data-dir}（数据目录覆盖）， 均不破坏原 CLI 兼容性。
+ * --max-token-capacity}、 {@code --log-dir}、{@code --job-file}、{@code --runs}；另新增两个可选参数 {@code
+ * --seed}（确定性随机种子）与 {@code --data-dir}（数据目录覆盖）， 均不破坏原 CLI 兼容性。Python 侧的 {@code
+ * --tokenizer-path} 已移除：token 计数改为本地启发式估算，不再需要分词器文件。
  *
- * <p>实现 {@link RunOptions}：13 个访问器的名称与签名与该契约逐一一致，因此本类无需新增或改名任何方法，
+ * <p>实现 {@link RunOptions}：12 个访问器的名称与签名与该契约逐一一致，因此本类无需新增或改名任何方法，
  * 即可与 Web 提交路径的 {@code JobRequest} 一同交给 {@code ConfigurationMerger}。
  */
 public final class CliRunOptions implements RunOptions {
@@ -37,11 +38,6 @@ public final class CliRunOptions implements RunOptions {
 
     @Option(names = "--max-token-capacity", defaultValue = "128000", description = "上下文窗口 token 容量")
     private int maxTokenCapacity;
-
-    @Option(
-            names = "--tokenizer-path",
-            description = "HuggingFace tokenizer 路径（默认：java-impl/tokenizer/tokenizer.json）")
-    private String tokenizerPath;
 
     @Option(names = "--log-dir", description = "日志输出目录")
     private String logDir;
@@ -84,10 +80,6 @@ public final class CliRunOptions implements RunOptions {
 
     public int maxTokenCapacity() {
         return maxTokenCapacity;
-    }
-
-    public String tokenizerPath() {
-        return tokenizerPath;
     }
 
     public String logDir() {
